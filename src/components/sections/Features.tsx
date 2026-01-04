@@ -33,8 +33,8 @@ export default function Features() {
       description:
         "Access thousands of SAT questions covering all topics in English and Math sections.",
       icon: BookOpen,
-      color: "text-blue-600",
-      bgColor: "bg-blue-50",
+      color: "text-orange-500",
+      bgColor: "bg-orange-50",
     },
     {
       title: "Detailed Explanations",
@@ -80,7 +80,7 @@ export default function Features() {
             return (
               <div
                 key={index}
-                className={`relative rounded-2xl bg-white p-8 border border-gray-200 hover:border-blue-300 hover:shadow-xl transition-all duration-500 group ${
+                className={`relative rounded-2xl bg-white p-8 border border-gray-200 hover:border-orange-300 hover:shadow-xl transition-all duration-500 group ${
                   isVisible
                     ? "opacity-100 translate-y-0"
                     : "opacity-0 translate-y-10"

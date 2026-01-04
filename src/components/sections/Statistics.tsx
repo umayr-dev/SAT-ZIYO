@@ -50,7 +50,7 @@ export default function Statistics() {
   ];
 
   return (
-    <section className="py-16 bg-gradient-to-br from-blue-600 to-indigo-700 text-white">
+    <section className="py-16 bg-gradient-to-br from-orange-500 to-orange-600 text-white">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
           {stats.map((stat, index) => (
@@ -67,7 +67,7 @@ export default function Statistics() {
                 {stat.number}
               </div>
               <div className="text-lg font-semibold mb-1">{stat.label}</div>
-              <div className="text-sm text-blue-100">{stat.description}</div>
+              <div className="text-sm text-orange-100">{stat.description}</div>
             </div>
           ))}
         </div>

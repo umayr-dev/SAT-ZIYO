@@ -96,7 +96,7 @@ export function AuthForm({
     if (passwordStrength === 0) return "bg-gray-200";
     if (passwordStrength <= 40) return "bg-red-500";
     if (passwordStrength <= 60) return "bg-yellow-500";
-    if (passwordStrength <= 80) return "bg-blue-500";
+    if (passwordStrength <= 80) return "bg-sky-500";
     return "bg-green-500";
   };
 
@@ -252,7 +252,7 @@ export function AuthForm({
                           : passwordStrength <= 60
                           ? "text-yellow-500"
                           : passwordStrength <= 80
-                          ? "text-blue-500"
+                          ? "text-sky-500"
                           : "text-green-500"
                       )}
                     >

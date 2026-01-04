@@ -35,8 +35,8 @@ export default function HowItWorks() {
       description:
         "Create your free account and get instant access to thousands of practice questions.",
       icon: Play,
-      color: "text-blue-600",
-      bgColor: "bg-blue-50",
+      color: "text-orange-500",
+      bgColor: "bg-orange-50",
     },
     {
       number: "02",

@@ -1,0 +1,577 @@
+"use client";
+
+import { useState } from "react";
+import Header from "@/src/components/sections/Header";
+import Footer from "@/src/components/sections/Footer";
+import {
+  Calculator,
+  Info,
+  BookOpen,
+  TrendingUp,
+  BarChart3,
+} from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/src/ui/card";
+import { Input } from "@/src/ui/input";
+import { Label } from "@/src/ui/label";
+
+// Digital SAT (Adaptive) Conversion Tables
+// Reading & Writing: max 54 raw (27+27) = 800 scaled
+// Math: max 44 raw (22+22) = 800 scaled
+const digitalSATReadingWritingTable: { [key: number]: number } = {
+  0: 200,
+  1: 200,
+  2: 200,
+  3: 210,
+  4: 220,
+  5: 230,
+  6: 240,
+  7: 250,
+  8: 260,
+  9: 270,
+  10: 280,
+  11: 290,
+  12: 300,
+  13: 310,
+  14: 320,
+  15: 330,
+  16: 340,
+  17: 350,
+  18: 360,
+  19: 370,
+  20: 380,
+  21: 390,
+  22: 400,
+  23: 410,
+  24: 420,
+  25: 430,
+  26: 440,
+  27: 450,
+  28: 460,
+  29: 470,
+  30: 480,
+  31: 490,
+  32: 500,
+  33: 510,
+  34: 520,
+  35: 530,
+  36: 540,
+  37: 550,
+  38: 560,
+  39: 570,
+  40: 580,
+  41: 590,
+  42: 600,
+  43: 610,
+  44: 620,
+  45: 630,
+  46: 640,
+  47: 650,
+  48: 660,
+  49: 670,
+  50: 680,
+  51: 690,
+  52: 700,
+  53: 710,
+  54: 800,
+};
+
+const digitalSATMathTable: { [key: number]: number } = {
+  0: 200,
+  1: 200,
+  2: 210,
+  3: 220,
+  4: 230,
+  5: 240,
+  6: 250,
+  7: 260,
+  8: 270,
+  9: 280,
+  10: 290,
+  11: 300,
+  12: 310,
+  13: 320,
+  14: 330,
+  15: 340,
+  16: 350,
+  17: 360,
+  18: 370,
+  19: 380,
+  20: 390,
+  21: 400,
+  22: 410,
+  23: 420,
+  24: 430,
+  25: 440,
+  26: 450,
+  27: 460,
+  28: 470,
+  29: 480,
+  30: 490,
+  31: 500,
+  32: 510,
+  33: 520,
+  34: 530,
+  35: 540,
+  36: 550,
+  37: 560,
+  38: 570,
+  39: 580,
+  40: 590,
+  41: 600,
+  42: 610,
+  43: 620,
+  44: 800,
+};
+
+// Helper function to lookup score from table with interpolation
+function getScoreFromTable(
+  table: { [key: number]: number },
+  rawScore: number
+): number {
+  const score = Math.round(rawScore);
+
+  // Direct lookup
+  if (table[score] !== undefined) {
+    return table[score];
+  }
+
+  // Handle values beyond max - return 800
+  const maxKey = Math.max(...Object.keys(table).map(Number));
+  if (score > maxKey) {
+    return 800;
+  }
+
+  // Handle values below min - return 200
+  const minKey = Math.min(...Object.keys(table).map(Number));
+  if (score < minKey) {
+    return 200;
+  }
+
+  // Interpolate between nearest values
+  let lower = Math.floor(score);
+  let upper = Math.ceil(score);
+
+  // Find nearest defined keys
+  while (lower >= 0 && table[lower] === undefined) lower--;
+  while (upper <= maxKey && table[upper] === undefined) upper++;
+
+  if (table[lower] !== undefined && table[upper] !== undefined) {
+    const ratio = (score - lower) / (upper - lower);
+    return Math.round(table[lower] + (table[upper] - table[lower]) * ratio);
+  }
+
+  // Fallback
+  return 200;
+}
+
+// Calculate percentile from total score
+function calculatePercentile(totalScore: number): number {
+  // Approximate percentile calculation
+  if (totalScore >= 1570) return 99;
+  if (totalScore >= 1500) return 98;
+  if (totalScore >= 1450) return 96;
+  if (totalScore >= 1400) return 94;
+  if (totalScore >= 1350) return 91;
+  if (totalScore >= 1300) return 87;
+  if (totalScore >= 1250) return 81;
+  if (totalScore >= 1200) return 74;
+  if (totalScore >= 1150) return 66;
+  if (totalScore >= 1100) return 57;
+  if (totalScore >= 1050) return 48;
+  if (totalScore >= 1000) return 38;
+  if (totalScore >= 950) return 29;
+  if (totalScore >= 900) return 21;
+  if (totalScore >= 850) return 14;
+  if (totalScore >= 800) return 9;
+  if (totalScore >= 750) return 5;
+  if (totalScore >= 700) return 3;
+  if (totalScore >= 650) return 2;
+  if (totalScore >= 600) return 1;
+  return 1;
+}
+
+export default function ScoreCalculatorPage() {
+  const [isAdaptive, setIsAdaptive] = useState(false);
+  const [rwModule1, setRwModule1] = useState(27);
+  const [rwModule2, setRwModule2] = useState(27);
+  const [mathModule1, setMathModule1] = useState(22);
+  const [mathModule2, setMathModule2] = useState(22);
+
+  // SAT Score Calculation Logic
+  const calculateScore = () => {
+    // Reading & Writing Section (combined Module 1 + Module 2)
+    const readingWritingRaw = rwModule1 + rwModule2;
+
+    // Math Section (combined Module 1 + Module 2)
+    const mathRaw = mathModule1 + mathModule2;
+
+    // Always use Digital SAT conversion table
+    const readingWritingScore = getScoreFromTable(
+      digitalSATReadingWritingTable,
+      readingWritingRaw
+    );
+    const mathScore = getScoreFromTable(digitalSATMathTable, mathRaw);
+    const totalScore = readingWritingScore + mathScore;
+    const percentile = calculatePercentile(totalScore);
+
+    return {
+      readingWriting: readingWritingScore,
+      math: mathScore,
+      total: totalScore,
+      percentile: percentile,
+    };
+  };
+
+  const scores = calculateScore();
+  const maxRWValue = 27; // Reading and Writing modules have 27 questions
+  const maxMathValue = 22; // Math modules have 22 questions
+
+  return (
+    <main className="min-h-screen bg-white">
+      <Header />
+      <section className="py-12 sm:py-16">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
+          {/* Header Section */}
+          <div className="text-center mb-12">
+            <div className="flex items-center justify-center gap-4 mb-6">
+              <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center">
+                <Calculator className="h-8 w-8 text-gray-700" />
+              </div>
+              <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-gray-900">
+                SAT Score Calculator
+              </h1>
+            </div>
+            <p className="text-lg sm:text-xl text-gray-600 max-w-3xl mx-auto">
+              Calculate your Digital SAT score instantly. Enter your correct
+              answers for each module and get your estimated score range.
+            </p>
+          </div>
+
+          {/* Two Column Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left Column - Instructions and Inputs */}
+            <div className="space-y-6">
+              {/* Instructions Card */}
+              <Card className="bg-white shadow-md border-gray-200">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 bg-gray-600 rounded-full flex items-center justify-center">
+                      <Info className="h-4 w-4 text-white" />
+                    </div>
+                    <CardTitle className="text-lg font-semibold text-gray-900">
+                      Instructions
+                    </CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="text-base text-gray-700 leading-relaxed mb-4">
+                    Enter the number of correctly answered questions for each
+                    module using the sliders below to calculate your final
+                    score. For <strong>adaptive test scores</strong>, check the
+                    &apos;Adaptive&apos; box.
+                  </CardDescription>
+                  <div className="mt-4">
+                    <div className="font-semibold text-gray-900 mb-2">
+                      Adaptive Scoring Rules:
+                    </div>
+                    <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                      <li>
+                        If you answer 12-15 questions correctly in Module 1,
+                        Module 2 will be easier (capped at ~630).
+                      </li>
+                      <li>
+                        If you answer 16+ questions correctly in Module 1,
+                        Module 2 will be harder (possible scores up to 800).
+                      </li>
+                    </ul>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Adaptive Toggle */}
+              <div className="flex items-center gap-3 p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
+                <input
+                  type="checkbox"
+                  id="adaptive"
+                  checked={isAdaptive}
+                  onChange={(e) => setIsAdaptive(e.target.checked)}
+                  className="w-5 h-5 text-blue-700 border-gray-300 rounded focus:ring-blue-700 focus:ring-2 cursor-pointer"
+                  style={{ accentColor: "#1e40af" }}
+                />
+                <Label
+                  htmlFor="adaptive"
+                  className="text-base font-medium text-gray-900 cursor-pointer"
+                >
+                  Adaptive Scoring
+                </Label>
+              </div>
+
+              {/* Module Inputs */}
+              <Card className="bg-white shadow-lg border-gray-200">
+                <CardContent className="p-6 space-y-6">
+                  {/* Reading and Writing Module 1 */}
+                  <div className="space-y-3">
+                    <Label
+                      htmlFor="rw-module-1"
+                      className="text-base font-semibold text-gray-900"
+                    >
+                      Reading and Writing Module 1
+                    </Label>
+                    <div className="flex items-center gap-4">
+                      <Input
+                        id="rw-module-1"
+                        type="number"
+                        min={0}
+                        max={maxRWValue}
+                        value={rwModule1}
+                        onChange={(e) =>
+                          setRwModule1(
+                            Math.max(
+                              0,
+                              Math.min(
+                                maxRWValue,
+                                parseInt(e.target.value) || 0
+                              )
+                            )
+                          )
+                        }
+                        className="w-20 text-lg font-semibold text-center"
+                      />
+                      <div className="flex-1">
+                        <input
+                          type="range"
+                          min={0}
+                          max={maxRWValue}
+                          value={rwModule1}
+                          onChange={(e) =>
+                            setRwModule1(parseInt(e.target.value))
+                          }
+                          className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer"
+                          style={{ accentColor: "#374151" }}
+                        />
+                      </div>
+                      <span className="text-sm text-gray-600 min-w-[4rem] text-right font-medium">
+                        {rwModule1} /{maxRWValue}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Reading and Writing Module 2 */}
+                  <div className="space-y-3">
+                    <Label
+                      htmlFor="rw-module-2"
+                      className="text-base font-semibold text-gray-900"
+                    >
+                      Reading and Writing Module 2
+                    </Label>
+                    <div className="flex items-center gap-4">
+                      <Input
+                        id="rw-module-2"
+                        type="number"
+                        min={0}
+                        max={maxRWValue}
+                        value={rwModule2}
+                        onChange={(e) =>
+                          setRwModule2(
+                            Math.max(
+                              0,
+                              Math.min(
+                                maxRWValue,
+                                parseInt(e.target.value) || 0
+                              )
+                            )
+                          )
+                        }
+                        className="w-20 text-lg font-semibold text-center"
+                      />
+                      <div className="flex-1">
+                        <input
+                          type="range"
+                          min={0}
+                          max={maxRWValue}
+                          value={rwModule2}
+                          onChange={(e) =>
+                            setRwModule2(parseInt(e.target.value))
+                          }
+                          className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer"
+                          style={{ accentColor: "#374151" }}
+                        />
+                      </div>
+                      <span className="text-sm text-gray-600 min-w-[4rem] text-right font-medium">
+                        {rwModule2} /{maxRWValue}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Math Module 1 */}
+                  <div className="space-y-3">
+                    <Label
+                      htmlFor="math-module-1"
+                      className="text-base font-semibold text-gray-900"
+                    >
+                      Math Module 1
+                    </Label>
+                    <div className="flex items-center gap-4">
+                      <Input
+                        id="math-module-1"
+                        type="number"
+                        min={0}
+                        max={maxMathValue}
+                        value={mathModule1}
+                        onChange={(e) =>
+                          setMathModule1(
+                            Math.max(
+                              0,
+                              Math.min(
+                                maxMathValue,
+                                parseInt(e.target.value) || 0
+                              )
+                            )
+                          )
+                        }
+                        className="w-20 text-lg font-semibold text-center"
+                      />
+                      <div className="flex-1">
+                        <input
+                          type="range"
+                          min={0}
+                          max={maxMathValue}
+                          value={mathModule1}
+                          onChange={(e) =>
+                            setMathModule1(parseInt(e.target.value))
+                          }
+                          className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer"
+                          style={{ accentColor: "#374151" }}
+                        />
+                      </div>
+                      <span className="text-sm text-gray-600 min-w-[4rem] text-right font-medium">
+                        {mathModule1} /{maxMathValue}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Math Module 2 */}
+                  <div className="space-y-3">
+                    <Label
+                      htmlFor="math-module-2"
+                      className="text-base font-semibold text-gray-900"
+                    >
+                      Math Module 2
+                    </Label>
+                    <div className="flex items-center gap-4">
+                      <Input
+                        id="math-module-2"
+                        type="number"
+                        min={0}
+                        max={maxMathValue}
+                        value={mathModule2}
+                        onChange={(e) =>
+                          setMathModule2(
+                            Math.max(
+                              0,
+                              Math.min(
+                                maxMathValue,
+                                parseInt(e.target.value) || 0
+                              )
+                            )
+                          )
+                        }
+                        className="w-20 text-lg font-semibold text-center"
+                      />
+                      <div className="flex-1">
+                        <input
+                          type="range"
+                          min={0}
+                          max={maxMathValue}
+                          value={mathModule2}
+                          onChange={(e) =>
+                            setMathModule2(parseInt(e.target.value))
+                          }
+                          className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer"
+                          style={{ accentColor: "#374151" }}
+                        />
+                      </div>
+                      <span className="text-sm text-gray-600 min-w-[4rem] text-right font-medium">
+                        {mathModule2} /{maxMathValue}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Right Column - Scores */}
+            <div className="space-y-6">
+              {/* Total Score Card */}
+              <Card className="bg-gradient-to-br from-blue-700 to-blue-900 shadow-lg border-0">
+                <CardContent className="p-8 text-center">
+                  <div className="text-white text-sm font-semibold uppercase tracking-wide mb-4">
+                    TOTAL SCORE
+                  </div>
+                  <div className="text-6xl sm:text-7xl font-bold text-white mb-2">
+                    {scores.total}
+                  </div>
+                  <div className="text-blue-100 text-sm mb-4">400 - 1600</div>
+                  <div className="pt-4 border-t border-blue-600">
+                    <div className="text-white text-sm">
+                      Percentile: ~{scores.percentile}%
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Section Scores Card */}
+              <Card className="bg-white shadow-md border-gray-200">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5 text-gray-700" />
+                    <CardTitle className="text-lg font-semibold text-gray-900">
+                      SECTION SCORES
+                    </CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Reading and Writing Score */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <BookOpen className="h-5 w-5 text-gray-700" />
+                      <span className="text-base font-medium text-gray-900">
+                        Reading and Writing
+                      </span>
+                    </div>
+                    <div className="text-4xl font-bold text-gray-900 mb-1">
+                      {scores.readingWriting}
+                    </div>
+                    <div className="text-sm text-gray-600 mb-3">200 - 800</div>
+                    <div className="border-t border-gray-200"></div>
+                  </div>
+
+                  {/* Math Score */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingUp className="h-5 w-5 text-gray-700" />
+                      <span className="text-base font-medium text-gray-900">
+                        Math
+                      </span>
+                    </div>
+                    <div className="text-4xl font-bold text-gray-900 mb-1">
+                      {scores.math}
+                    </div>
+                    <div className="text-sm text-gray-600">200 - 800</div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </section>
+      <Footer />
+    </main>
+  );
+}

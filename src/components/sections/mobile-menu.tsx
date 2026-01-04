@@ -48,31 +48,38 @@ export default function MobileMenu() {
             <a
               href={isHomePage ? "#features" : "/#features"}
               onClick={() => handleScrollTo("features")}
-              className="block text-gray-700 hover:text-blue-600 transition-colors font-medium py-2 cursor-pointer"
+              className="block text-gray-700 hover:text-orange-500 transition-colors font-medium py-2 cursor-pointer"
             >
               Features
             </a>
             <a
               href={isHomePage ? "#how-it-works" : "/#how-it-works"}
               onClick={() => handleScrollTo("how-it-works")}
-              className="block text-gray-700 hover:text-blue-600 transition-colors font-medium py-2 cursor-pointer"
+              className="block text-gray-700 hover:text-orange-500 transition-colors font-medium py-2 cursor-pointer"
             >
               How It Works
             </a>
             <a
               href={isHomePage ? "#pricing" : "/#pricing"}
               onClick={() => handleScrollTo("pricing")}
-              className="block text-gray-700 hover:text-blue-600 transition-colors font-medium py-2 cursor-pointer"
+              className="block text-gray-700 hover:text-orange-500 transition-colors font-medium py-2 cursor-pointer"
             >
               Pricing
             </a>
             <a
               href={isHomePage ? "#testimonials" : "/#testimonials"}
               onClick={() => handleScrollTo("testimonials")}
-              className="block text-gray-700 hover:text-blue-600 transition-colors font-medium py-2 cursor-pointer"
+              className="block text-gray-700 hover:text-orange-500 transition-colors font-medium py-2 cursor-pointer"
             >
               Testimonials
             </a>
+            <Link
+              href="/score-calculator"
+              className="block text-gray-700 hover:text-orange-500 transition-colors font-medium py-2"
+              onClick={() => setIsOpen(false)}
+            >
+              Score Calculator
+            </Link>
             <div className="pt-4 border-t space-y-2">
               <Link
                 href="/auth/login"
@@ -83,7 +90,7 @@ export default function MobileMenu() {
               </Link>
               <Link
                 href="/auth/register"
-                className="block w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-center"
+                className="block w-full px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium text-center"
                 onClick={() => setIsOpen(false)}
               >
                 Get Started

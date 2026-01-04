@@ -32,12 +32,12 @@ export default function Hero() {
   };
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-20 sm:py-32 min-h-screen flex items-center">
+    <section className="relative overflow-hidden bg-gradient-to-br from-sky-50 via-white to-orange-50 py-20 sm:py-32 min-h-screen flex items-center">
       {/* Background decoration */}
       <div className="absolute inset-0 -z-10">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-indigo-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
-        <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
+        <div className="absolute top-0 right-0 w-96 h-96 bg-orange-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-sky-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
+        <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
       </div>
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -62,7 +62,7 @@ export default function Hero() {
                   SAT Ziyo
                 </span>
                 <span
-                  className={`block text-blue-600 transition-all duration-1000 delay-200 ${
+                  className={`block text-orange-500 transition-all duration-1000 delay-200 ${
                     isVisible
                       ? "opacity-100 translate-x-0"
                       : "opacity-0 translate-x-10"
@@ -108,14 +108,14 @@ export default function Hero() {
               <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                 <Link
                   href="/auth/register"
-                  className="group w-full sm:w-auto px-8 py-4 bg-blue-600 text-white font-semibold rounded-xl shadow-lg hover:bg-blue-700 hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5 text-center flex items-center justify-center gap-2"
+                  className="group w-full sm:w-auto px-8 py-4 bg-orange-500 text-white font-semibold rounded-xl shadow-lg hover:bg-orange-600 hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5 text-center flex items-center justify-center gap-2"
                 >
                   Get Started Free
                   <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </Link>
                 <Link
                   href="/auth/login"
-                  className="w-full sm:w-auto px-8 py-4 bg-white text-blue-600 font-semibold rounded-xl border-2 border-blue-600 hover:bg-blue-50 hover:border-blue-700 transition-all duration-200 text-center"
+                  className="w-full sm:w-auto px-8 py-4 bg-white text-orange-500 font-semibold rounded-xl border-2 border-orange-500 hover:bg-orange-50 hover:border-orange-600 transition-all duration-200 text-center"
                 >
                   Sign In
                 </Link>
@@ -132,7 +132,7 @@ export default function Hero() {
             >
               <div className="relative bg-white rounded-2xl shadow-2xl p-8 border border-gray-200 animate-float">
                 <div className="space-y-4">
-                  <div className="h-4 bg-blue-600 rounded w-3/4 animate-pulse"></div>
+                  <div className="h-4 bg-orange-500 rounded w-3/4 animate-pulse"></div>
                   <div className="h-4 bg-gray-200 rounded w-full"></div>
                   <div className="h-4 bg-gray-200 rounded w-5/6"></div>
                   <div className="mt-6 space-y-3">
@@ -141,7 +141,7 @@ export default function Hero() {
                     <div className="h-3 bg-gray-100 rounded w-full"></div>
                   </div>
                 </div>
-                <div className="absolute -bottom-4 -right-4 bg-blue-600 text-white rounded-lg p-4 shadow-lg animate-bounce-slow">
+                <div className="absolute -bottom-4 -right-4 bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-lg p-4 shadow-lg animate-bounce-slow">
                   <div className="text-2xl font-bold">95%</div>
                   <div className="text-sm">Success Rate</div>
                 </div>

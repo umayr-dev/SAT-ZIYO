@@ -9,7 +9,7 @@ export default function Footer() {
           <div className="col-span-1 md:col-span-2">
             <div className="flex items-center space-x-2 mb-4">
               <span className="text-2xl font-bold text-white">SAT</span>
-              <span className="text-2xl font-bold text-blue-400">Ziyo</span>
+              <span className="text-2xl font-bold text-orange-400">Ziyo</span>
             </div>
             <p className="text-gray-400 max-w-md">
               Your comprehensive SAT preparation platform. Master English and
@@ -24,7 +24,7 @@ export default function Footer() {
               <li>
                 <Link
                   href="/practice"
-                  className="hover:text-blue-400 transition-colors"
+                  className="hover:text-orange-400 transition-colors"
                 >
                   Practice Tests
                 </Link>
@@ -32,7 +32,7 @@ export default function Footer() {
               <li>
                 <Link
                   href="/tests"
-                  className="hover:text-blue-400 transition-colors"
+                  className="hover:text-orange-400 transition-colors"
                 >
                   Full Tests
                 </Link>
@@ -40,7 +40,7 @@ export default function Footer() {
               <li>
                 <Link
                   href="/results"
-                  className="hover:text-blue-400 transition-colors"
+                  className="hover:text-orange-400 transition-colors"
                 >
                   Results
                 </Link>
@@ -55,7 +55,7 @@ export default function Footer() {
               <li>
                 <Link
                   href="/about"
-                  className="hover:text-blue-400 transition-colors"
+                  className="hover:text-orange-400 transition-colors"
                 >
                   About Us
                 </Link>
@@ -63,7 +63,7 @@ export default function Footer() {
               <li>
                 <Link
                   href="/contact"
-                  className="hover:text-blue-400 transition-colors"
+                  className="hover:text-orange-400 transition-colors"
                 >
                   Contact
                 </Link>
@@ -71,7 +71,7 @@ export default function Footer() {
               <li>
                 <Link
                   href="/help"
-                  className="hover:text-blue-400 transition-colors"
+                  className="hover:text-orange-400 transition-colors"
                 >
                   Help Center
                 </Link>

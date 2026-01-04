@@ -111,13 +111,15 @@ export default function Pricing() {
               style={{ transitionDelay: `${index * 150}ms` }}
             >
               {plan.popular && (
-                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-4 py-1 rounded-full text-sm font-semibold">
+                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-orange-500 text-white px-4 py-1 rounded-full text-sm font-semibold">
                   Most Popular
                 </div>
               )}
               <div
                 className={`bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all h-full border-2 ${
-                  plan.popular ? "border-blue-600 scale-105" : "border-gray-200"
+                  plan.popular
+                    ? "border-orange-500 scale-105"
+                    : "border-gray-200"
                 }`}
               >
                 <div className="text-center mb-8">
@@ -144,7 +146,7 @@ export default function Pricing() {
                   <Button
                     className={`w-full ${
                       plan.popular
-                        ? "bg-blue-600 hover:bg-blue-700"
+                        ? "bg-orange-500 hover:bg-orange-600"
                         : "bg-gray-900 hover:bg-gray-800"
                     }`}
                     size="lg"
