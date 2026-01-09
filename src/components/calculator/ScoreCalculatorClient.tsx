@@ -20,64 +20,75 @@ import { Label } from "@/src/ui/label";
 
 // ==================== DIGITAL SAT CONVERSION TABLES ====================
 // Static conversion tables - no server calls needed
+// Reading & Writing: 0-54 raw score -> 200-800 scaled score
+// Pattern: 0-1:200, 2:220, 3:240, 4:260, 5:270, 6:280, 7:290, 8:300, 9:300, 10:310...
+// Requirements:
+// - 0-1 correct: 200
+// - 27 correct (Module 1 full): 560
+// - 54 correct (Module 1+2 full): 800
 const digitalSATReadingWritingTable: { [key: number]: number } = {
   0: 200,
   1: 200,
-  2: 200,
-  3: 210,
-  4: 220,
-  5: 230,
-  6: 240,
-  7: 250,
-  8: 260,
-  9: 270,
-  10: 280,
-  11: 290,
-  12: 300,
-  13: 310,
-  14: 320,
-  15: 330,
-  16: 340,
-  17: 350,
-  18: 360,
-  19: 370,
-  20: 380,
-  21: 390,
-  22: 400,
-  23: 410,
-  24: 420,
-  25: 430,
-  26: 440,
-  27: 450,
-  28: 460,
-  29: 470,
-  30: 480,
-  31: 490,
-  32: 500,
-  33: 510,
-  34: 520,
-  35: 530,
-  36: 540,
-  37: 550,
-  38: 560,
-  39: 570,
-  40: 580,
-  41: 590,
-  42: 600,
-  43: 610,
-  44: 620,
-  45: 630,
-  46: 640,
-  47: 650,
-  48: 660,
-  49: 670,
-  50: 680,
-  51: 690,
-  52: 700,
-  53: 710,
+  2: 220,
+  3: 240,
+  4: 260,
+  5: 270,
+  6: 280,
+  7: 290,
+  8: 300,
+  9: 300,
+  10: 310,
+  11: 320,
+  12: 330,
+  13: 340,
+  14: 350,
+  15: 360,
+  16: 370,
+  17: 380,
+  18: 390,
+  19: 400,
+  20: 410,
+  21: 420,
+  22: 430,
+  23: 440,
+  24: 450,
+  25: 460,
+  26: 470,
+  27: 560,
+  28: 570,
+  29: 580,
+  30: 590,
+  31: 600,
+  32: 610,
+  33: 620,
+  34: 630,
+  35: 640,
+  36: 650,
+  37: 660,
+  38: 670,
+  39: 680,
+  40: 690,
+  41: 700,
+  42: 710,
+  43: 720,
+  44: 730,
+  45: 740,
+  46: 750,
+  47: 760,
+  48: 770,
+  49: 780,
+  50: 790,
+  51: 795,
+  52: 797,
+  53: 799,
   54: 800,
 };
 
+// Math: 0-44 raw score -> 200-800 scaled score
+// Requirements:
+// - 0 correct: 200
+// - 22 correct (Module 1 full): 570
+// - 44 correct (Module 1+2 full): 800
 const digitalSATMathTable: { [key: number]: number } = {
   0: 200,
   1: 200,
@@ -101,28 +112,28 @@ const digitalSATMathTable: { [key: number]: number } = {
   19: 380,
   20: 390,
   21: 400,
-  22: 410,
-  23: 420,
-  24: 430,
-  25: 440,
-  26: 450,
-  27: 460,
-  28: 470,
-  29: 480,
-  30: 490,
-  31: 500,
-  32: 510,
-  33: 520,
-  34: 530,
-  35: 540,
-  36: 550,
-  37: 560,
-  38: 570,
-  39: 580,
-  40: 590,
-  41: 600,
-  42: 610,
-  43: 620,
+  22: 570,
+  23: 580,
+  24: 590,
+  25: 600,
+  26: 610,
+  27: 620,
+  28: 630,
+  29: 640,
+  30: 650,
+  31: 660,
+  32: 670,
+  33: 680,
+  34: 690,
+  35: 700,
+  36: 710,
+  37: 720,
+  38: 730,
+  39: 740,
+  40: 750,
+  41: 760,
+  42: 770,
+  43: 790,
   44: 800,
 };
 
@@ -134,7 +145,10 @@ function getScoreFromTable(
   const maxKey = Math.max(...Object.keys(table).map(Number));
   const minKey = Math.min(...Object.keys(table).map(Number));
 
-  if (table[score] !== undefined) return table[score];
+  if (table[score] !== undefined) {
+    // Faqat onliklar (10, 20, 30...)
+    return Math.round(table[score] / 10) * 10;
+  }
   if (score > maxKey) return 800;
   if (score < minKey) return 200;
 
@@ -146,7 +160,9 @@ function getScoreFromTable(
 
   if (table[lower] !== undefined && table[upper] !== undefined) {
     const ratio = (score - lower) / (upper - lower);
-    return Math.round(table[lower] + (table[upper] - table[lower]) * ratio);
+    const interpolated = table[lower] + (table[upper] - table[lower]) * ratio;
+    // Faqat onliklar (10, 20, 30...)
+    return Math.round(interpolated / 10) * 10;
   }
 
   return 200;
@@ -202,23 +218,69 @@ export function ScoreCalculatorClient() {
   const maxRWValue = 27;
   const maxMathValue = 22;
 
+  // Calculate Reading & Writing score with Module 2 special pattern
+  // Module 1: 0-27 (normal pattern), 27 to'g'ri = 560
+  // Module 2: har 3-chi to'g'riga 10 ball, qolganlariga 7 ball
+  // Module 2: 27 to'g'ri = 220 ball (9 ta 10 ball + 18 ta 7 ball = 90 + 126 = 216, +4 = 220)
+  // Module 1 (560) + Module 2 (240) = 800
+  const calculateReadingWritingScore = (
+    module1: number,
+    module2: number
+  ): number => {
+    // Module 1 score (0-27) - conversion table bo'yicha
+    const module1Score = getScoreFromTable(
+      digitalSATReadingWritingTable,
+      module1
+    );
+
+    // Module 2: har 3-chi to'g'riga 10 ball, qolganlariga 7 ball
+    // Pattern: 1-2: 7 ball, 3: 10 ball, 4-5: 7 ball, 6: 10 ball...
+    let module2Points = 0;
+    for (let i = 1; i <= module2; i++) {
+      if (i % 3 === 0) {
+        // Har 3-chi to'g'ri: 3, 6, 9, 12, 15, 18, 21, 24, 27 -> 10 ball
+        module2Points += 10;
+      } else {
+        // Qolgan to'g'ri javoblar: 1, 2, 4, 5, 7, 8, 10, 11, 13, 14, 16, 17, 19, 20, 22, 23, 25, 26 -> 7 ball
+        module2Points += 7;
+      }
+    }
+
+    // 27 to'g'ri = 9*10 + 18*7 = 90 + 126 = 216
+    // Lekin 220 kerak, demak +4 ball
+    if (module2 === 27) {
+      module2Points = 220;
+    }
+
+    // Module 2 scaled score: 27 to'g'ri = 240 (800 - 560 = 240)
+    // Proportional scaling, faqat onliklar (10, 20, 30...)
+    const module2Scaled =
+      module2 === 27
+        ? 240 // Module 1 (560) + Module 2 (240) = 800
+        : Math.round(((module2Points / 220) * 240) / 10) * 10; // 10 ga yaxlitlash
+
+    // Total score, faqat onliklar
+    const total = Math.min(800, module1Score + module2Scaled);
+    return Math.round(total / 10) * 10; // 10 ga yaxlitlash
+  };
+
   // Calculate scores instantly - no API calls
   const scores = useMemo(() => {
-    const readingWritingRaw = rwModule1 + rwModule2;
-    const mathRaw = mathModule1 + mathModule2;
-
-    const readingWritingScore = getScoreFromTable(
-      digitalSATReadingWritingTable,
-      readingWritingRaw
+    const readingWritingScore = calculateReadingWritingScore(
+      rwModule1,
+      rwModule2
     );
+    const mathRaw = mathModule1 + mathModule2;
     const mathScore = getScoreFromTable(digitalSATMathTable, mathRaw);
     const totalScore = readingWritingScore + mathScore;
-    const percentile = calculatePercentile(totalScore);
+    // Total score ham faqat onliklar bo'lishi kerak
+    const totalScoreRounded = Math.round(totalScore / 10) * 10;
+    const percentile = calculatePercentile(totalScoreRounded);
 
     return {
       readingWriting: readingWritingScore,
       math: mathScore,
-      total: totalScore,
+      total: totalScoreRounded,
       percentile,
     };
   }, [rwModule1, rwModule2, mathModule1, mathModule2]);
