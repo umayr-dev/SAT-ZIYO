@@ -1,12 +1,14 @@
 "use client";
 
 import { Bell } from "lucide-react";
-import { useAuthStore } from "@/src/stores/auth.store";
 import { Button } from "@/src/ui/button";
+import type { User } from "@/src/types";
 
-export function DashboardHeader() {
-  const { user } = useAuthStore();
+interface DashboardHeaderProps {
+  user: User;
+}
 
+export function DashboardHeader({ user }: DashboardHeaderProps) {
   return (
     <div className="flex items-center justify-between mb-8">
       <div>
@@ -22,4 +24,3 @@ export function DashboardHeader() {
     </div>
   );
 }
-

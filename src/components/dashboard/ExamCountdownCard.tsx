@@ -12,7 +12,9 @@ export function ExamCountdownCard() {
           <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
             <Calendar className="h-5 w-5 text-blue-600" />
           </div>
-          <CardTitle className="text-xl text-gray-900">Exam Countdown</CardTitle>
+          <CardTitle className="text-xl text-gray-900">
+            Exam Countdown
+          </CardTitle>
         </div>
       </CardHeader>
       <CardContent>
@@ -33,4 +35,3 @@ export function ExamCountdownCard() {
     </Card>
   );
 }
-
