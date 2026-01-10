@@ -20,67 +20,65 @@ import { Label } from "@/src/ui/label";
 
 // ==================== DIGITAL SAT CONVERSION TABLES ====================
 // Static conversion tables - no server calls needed
-// Reading & Writing: 0-54 raw score -> 200-800 scaled score
-// Pattern: 0-1:200, 2:220, 3:240, 4:260, 5:270, 6:280, 7:290, 8:300, 9:300, 10:310...
-// Requirements:
-// - 0-1 correct: 200
-// - 27 correct (Module 1 full): 560
-// - 54 correct (Module 1+2 full): 800
+// Reading & Writing: 0-54 raw score (total) -> 200-800 scaled score
+// Based on Albert.io Digital SAT calculator logic
+// Standard approach: Total raw scores qo'shiladi va conversion table'dan scaled score olinadi
+// Adaptive adjustment keyin Module 1 performance'ga qarab qo'shiladi
 const digitalSATReadingWritingTable: { [key: number]: number } = {
   0: 200,
   1: 200,
-  2: 220,
-  3: 240,
-  4: 260,
-  5: 270,
-  6: 280,
-  7: 290,
-  8: 300,
-  9: 300,
-  10: 310,
-  11: 320,
-  12: 330,
-  13: 340,
-  14: 350,
-  15: 360,
-  16: 370,
-  17: 380,
-  18: 390,
-  19: 400,
-  20: 410,
-  21: 420,
-  22: 430,
-  23: 440,
-  24: 450,
-  25: 460,
-  26: 470,
-  27: 560,
-  28: 570,
-  29: 580,
-  30: 590,
-  31: 600,
-  32: 610,
-  33: 620,
-  34: 630,
-  35: 640,
-  36: 650,
-  37: 660,
-  38: 670,
-  39: 680,
-  40: 690,
-  41: 700,
-  42: 710,
-  43: 720,
-  44: 730,
-  45: 740,
-  46: 750,
-  47: 760,
-  48: 770,
-  49: 780,
-  50: 790,
-  51: 795,
-  52: 797,
-  53: 799,
+  2: 210,
+  3: 220,
+  4: 230,
+  5: 240,
+  6: 250,
+  7: 260,
+  8: 270,
+  9: 280,
+  10: 290,
+  11: 300,
+  12: 310,
+  13: 320,
+  14: 330,
+  15: 340,
+  16: 350,
+  17: 360,
+  18: 370,
+  19: 380,
+  20: 390,
+  21: 400,
+  22: 410,
+  23: 420,
+  24: 430,
+  25: 440,
+  26: 450,
+  27: 460,
+  28: 470,
+  29: 480,
+  30: 490,
+  31: 500,
+  32: 510,
+  33: 520,
+  34: 530,
+  35: 540,
+  36: 550,
+  37: 560,
+  38: 570,
+  39: 580,
+  40: 590,
+  41: 600,
+  42: 610,
+  43: 620,
+  44: 630,
+  45: 640,
+  46: 650,
+  47: 660,
+  48: 670,
+  49: 680,
+  50: 690,
+  51: 700,
+  52: 710,
+  53: 720,
   54: 800,
 };
 
@@ -218,50 +216,52 @@ export function ScoreCalculatorClient() {
   const maxRWValue = 27;
   const maxMathValue = 22;
 
-  // Calculate Reading & Writing score with Module 2 special pattern
-  // Module 1: 0-27 (normal pattern), 27 to'g'ri = 560
-  // Module 2: har 3-chi to'g'riga 10 ball, qolganlariga 7 ball
-  // Module 2: 27 to'g'ri = 220 ball (9 ta 10 ball + 18 ta 7 ball = 90 + 126 = 216, +4 = 220)
-  // Module 1 (560) + Module 2 (240) = 800
+  /**
+   * Calculate Reading & Writing score using adaptive Digital SAT logic
+   *
+   * Adaptive Scoring Rules (Albert.io style):
+   * - Module 1 performance determines Module 2 difficulty
+   * - Module 1 da ko'proq to'g'ri (16+) → Module 2 qiyin → ko'proq ball/har to'g'ri
+   * - Module 1 da kam to'g'ri (12-15) → Module 2 oson → kamroq ball/har to'g'ri
+   *
+   * Standard approach: Raw scores qo'shiladi, keyin conversion table'dan scaled score olinadi
+   * Adaptive nuance: Module 1 va Module 2 o'rtasida weight distribution bo'ladi
+   */
   const calculateReadingWritingScore = (
     module1: number,
     module2: number
   ): number => {
-    // Module 1 score (0-27) - conversion table bo'yicha
-    const module1Score = getScoreFromTable(
-      digitalSATReadingWritingTable,
-      module1
-    );
+    // Step 1: Get base score from standard conversion table (Albert.io style)
+    // Total raw score (0-54) qo'shiladi va conversion table'dan scaled score (200-800) olinadi
+    const totalRaw = module1 + module2;
+    // Albert.io style: Raw scores qo'shiladi, keyin conversion table'dan scaled score olinadi
+    let baseScore = getScoreFromTable(digitalSATReadingWritingTable, totalRaw);
 
-    // Module 2: har 3-chi to'g'riga 10 ball, qolganlariga 7 ball
-    // Pattern: 1-2: 7 ball, 3: 10 ball, 4-5: 7 ball, 6: 10 ball...
-    let module2Points = 0;
-    for (let i = 1; i <= module2; i++) {
-      if (i % 3 === 0) {
-        // Har 3-chi to'g'ri: 3, 6, 9, 12, 15, 18, 21, 24, 27 -> 10 ball
-        module2Points += 10;
-      } else {
-        // Qolgan to'g'ri javoblar: 1, 2, 4, 5, 7, 8, 10, 11, 13, 14, 16, 17, 19, 20, 22, 23, 25, 26 -> 7 ball
-        module2Points += 7;
-      }
+    // Step 2: Apply adaptive adjustment based on Module 1 performance
+    // Module 1 performance Module 2'ning qiyinligini belgilaydi va ball distribution'ni o'zgartiradi
+    // Foydalanuvchi talabi: "Module 1 da ko'proq yechsa unga ko'proq ball, Module 2'da kamroq ball"
+
+    if (module1 >= 16) {
+      // Module 1 yaxshi (16+) → Module 2 qiyin bo'ladi
+      // Module 1'ga ko'proq ball beriladi (chunki u qiyin Module 2'ni keltirib chiqardi)
+      // Module 2'ga kamroq ball (lekin qiyin bo'lgani uchun har to'g'ri yaxshi ball)
+      const module1Bonus = Math.floor((module1 - 15) / 2) * 10; // 16+: +10, 18+: +20, 20+: +30...
+      const module2Reduction = Math.floor(module2 / 5) * 10; // Har 5 to'g'riga -10 (qiyin bo'lsa ham Module 2'ga kamroq weight)
+      baseScore = Math.min(800, baseScore + module1Bonus - module2Reduction);
+    } else if (module1 >= 12 && module1 < 16) {
+      // Module 1 o'rtacha (12-15) → Module 2 o'rtacha
+      // Standard scoring - hech qanday adjustment yo'q
+    } else {
+      // Module 1 yomon (<12) → Module 2 oson bo'ladi
+      // Module 1'ga kamroq ball (chunki u oson Module 2'ni keltirib chiqardi)
+      // Module 2'ga juda kamroq ball (chunki oson bo'lgan)
+      const module1Penalty = Math.floor((12 - module1) / 2) * 10; // <12: -10, <10: -20, <8: -30
+      const module2Penalty = Math.floor(module2 / 3) * 15; // Har 3 to'g'riga -15 (oson bo'lgani uchun)
+      baseScore = Math.max(200, baseScore - module1Penalty - module2Penalty);
     }
 
-    // 27 to'g'ri = 9*10 + 18*7 = 90 + 126 = 216
-    // Lekin 220 kerak, demak +4 ball
-    if (module2 === 27) {
-      module2Points = 220;
-    }
-
-    // Module 2 scaled score: 27 to'g'ri = 240 (800 - 560 = 240)
-    // Proportional scaling, faqat onliklar (10, 20, 30...)
-    const module2Scaled =
-      module2 === 27
-        ? 240 // Module 1 (560) + Module 2 (240) = 800
-        : Math.round(((module2Points / 220) * 240) / 10) * 10; // 10 ga yaxlitlash
-
-    // Total score, faqat onliklar
-    const total = Math.min(800, module1Score + module2Scaled);
-    return Math.round(total / 10) * 10; // 10 ga yaxlitlash
+    // Faqat onliklar bo'lishi kerak (10, 20, 30...)
+    return Math.round(baseScore / 10) * 10;
   };
 
   // Calculate scores instantly - no API calls
