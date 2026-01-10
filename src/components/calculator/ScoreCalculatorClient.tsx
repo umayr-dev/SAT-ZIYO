@@ -19,12 +19,72 @@ import { Input } from "@/src/ui/input";
 import { Label } from "@/src/ui/label";
 
 // ==================== DIGITAL SAT CONVERSION TABLES ====================
-// Static conversion tables - no server calls needed
+// Based on Albert.io Digital SAT calculator: https://www.albert.io/blog/sat-score-calculator/
+// Standard approach: Total raw scores (Module 1 + Module 2) qo'shiladi va conversion table'dan scaled score olinadi
 // Reading & Writing: 0-54 raw score (total) -> 200-800 scaled score
-// Based on Albert.io Digital SAT calculator logic
-// Standard approach: Total raw scores qo'shiladi va conversion table'dan scaled score olinadi
-// Adaptive adjustment keyin Module 1 performance'ga qarab qo'shiladi
+// Math: 0-44 raw score (total) -> 200-800 scaled score
+// Albert.io kabi oddiy conversion, lekin adaptive adjustment bilan (ozgina tuzatish)
 const digitalSATReadingWritingTable: { [key: number]: number } = {
+  0: 200,
+  1: 200,
+  2: 200,
+  3: 210,
+  4: 220,
+  5: 230,
+  6: 240,
+  7: 250,
+  8: 260,
+  9: 270,
+  10: 280,
+  11: 290,
+  12: 300,
+  13: 310,
+  14: 320,
+  15: 330,
+  16: 340,
+  17: 350,
+  18: 360,
+  19: 370,
+  20: 380,
+  21: 390,
+  22: 400,
+  23: 410,
+  24: 420,
+  25: 430,
+  26: 440,
+  27: 450,
+  28: 460,
+  29: 470,
+  30: 480,
+  31: 490,
+  32: 500,
+  33: 510,
+  34: 520,
+  35: 530,
+  36: 540,
+  37: 550,
+  38: 560,
+  39: 570,
+  40: 580,
+  41: 590,
+  42: 600,
+  43: 610,
+  44: 620,
+  45: 630,
+  46: 640,
+  47: 650,
+  48: 660,
+  49: 670,
+  50: 680,
+  51: 690,
+  52: 700,
+  53: 710,
+  54: 800,
+};
+
+// Math: 0-44 raw score (total) -> 200-800 scaled score
+// Albert.io kabi oddiy conversion table
+const digitalSATMathTable: { [key: number]: number } = {
   0: 200,
   1: 200,
   2: 210,
@@ -69,69 +129,6 @@ const digitalSATReadingWritingTable: { [key: number]: number } = {
   41: 600,
   42: 610,
   43: 620,
-  44: 630,
-  45: 640,
-  46: 650,
-  47: 660,
-  48: 670,
-  49: 680,
-  50: 690,
-  51: 700,
-  52: 710,
-  53: 720,
-  54: 800,
-};
-
-// Math: 0-44 raw score -> 200-800 scaled score
-// Requirements:
-// - 0 correct: 200
-// - 22 correct (Module 1 full): 570
-// - 44 correct (Module 1+2 full): 800
-const digitalSATMathTable: { [key: number]: number } = {
-  0: 200,
-  1: 200,
-  2: 210,
-  3: 220,
-  4: 230,
-  5: 240,
-  6: 250,
-  7: 260,
-  8: 270,
-  9: 280,
-  10: 290,
-  11: 300,
-  12: 310,
-  13: 320,
-  14: 330,
-  15: 340,
-  16: 350,
-  17: 360,
-  18: 370,
-  19: 380,
-  20: 390,
-  21: 400,
-  22: 570,
-  23: 580,
-  24: 590,
-  25: 600,
-  26: 610,
-  27: 620,
-  28: 630,
-  29: 640,
-  30: 650,
-  31: 660,
-  32: 670,
-  33: 680,
-  34: 690,
-  35: 700,
-  36: 710,
-  37: 720,
-  38: 730,
-  39: 740,
-  40: 750,
-  41: 760,
-  42: 770,
-  43: 790,
   44: 800,
 };
 
@@ -217,51 +214,40 @@ export function ScoreCalculatorClient() {
   const maxMathValue = 22;
 
   /**
-   * Calculate Reading & Writing score using adaptive Digital SAT logic
+   * Calculate Reading & Writing score - Albert.io style with ozgina adaptive adjustment
    *
-   * Adaptive Scoring Rules (Albert.io style):
-   * - Module 1 performance determines Module 2 difficulty
-   * - Module 1 da ko'proq to'g'ri (16+) → Module 2 qiyin → ko'proq ball/har to'g'ri
-   * - Module 1 da kam to'g'ri (12-15) → Module 2 oson → kamroq ball/har to'g'ri
-   *
-   * Standard approach: Raw scores qo'shiladi, keyin conversion table'dan scaled score olinadi
-   * Adaptive nuance: Module 1 va Module 2 o'rtasida weight distribution bo'ladi
+   * Base logic (Albert.io): Total raw score qo'shiladi va conversion table'dan scaled score olinadi
+   * Adaptive adjustment (ozgina tuzatish): Module 1 performance'ga qarab ozgina bonus/penalty
+   * - Module 1 yaxshi (16+) → ozgina bonus (Module 1'ga ko'proq ball)
+   * - Module 1 yomon (<12) → ozgina penalty (Module 2'ga kamroq ball)
    */
   const calculateReadingWritingScore = (
     module1: number,
     module2: number
   ): number => {
-    // Step 1: Get base score from standard conversion table (Albert.io style)
-    // Total raw score (0-54) qo'shiladi va conversion table'dan scaled score (200-800) olinadi
+    // Step 1: Albert.io kabi - total raw score'ni qo'shamiz va conversion table'dan scaled score olamiz
     const totalRaw = module1 + module2;
-    // Albert.io style: Raw scores qo'shiladi, keyin conversion table'dan scaled score olinadi
-    let baseScore = getScoreFromTable(digitalSATReadingWritingTable, totalRaw);
+    let score = getScoreFromTable(digitalSATReadingWritingTable, totalRaw);
 
-    // Step 2: Apply adaptive adjustment based on Module 1 performance
-    // Module 1 performance Module 2'ning qiyinligini belgilaydi va ball distribution'ni o'zgartiradi
-    // Foydalanuvchi talabi: "Module 1 da ko'proq yechsa unga ko'proq ball, Module 2'da kamroq ball"
+    // Step 2: Ozgina adaptive adjustment (Albert.io'ga qaraganda kamroq)
+    // Module 1 performance Module 2'ning qiyinligini belgilaydi
+    // "Module 1 da ko'proq yechsa unga ko'proq ball, Module 2'da kamroq ball"
 
-    if (module1 >= 16) {
-      // Module 1 yaxshi (16+) → Module 2 qiyin bo'ladi
-      // Module 1'ga ko'proq ball beriladi (chunki u qiyin Module 2'ni keltirib chiqardi)
-      // Module 2'ga kamroq ball (lekin qiyin bo'lgani uchun har to'g'ri yaxshi ball)
-      const module1Bonus = Math.floor((module1 - 15) / 2) * 10; // 16+: +10, 18+: +20, 20+: +30...
-      const module2Reduction = Math.floor(module2 / 5) * 10; // Har 5 to'g'riga -10 (qiyin bo'lsa ham Module 2'ga kamroq weight)
-      baseScore = Math.min(800, baseScore + module1Bonus - module2Reduction);
-    } else if (module1 >= 12 && module1 < 16) {
-      // Module 1 o'rtacha (12-15) → Module 2 o'rtacha
-      // Standard scoring - hech qanday adjustment yo'q
-    } else {
-      // Module 1 yomon (<12) → Module 2 oson bo'ladi
-      // Module 1'ga kamroq ball (chunki u oson Module 2'ni keltirib chiqardi)
-      // Module 2'ga juda kamroq ball (chunki oson bo'lgan)
-      const module1Penalty = Math.floor((12 - module1) / 2) * 10; // <12: -10, <10: -20, <8: -30
-      const module2Penalty = Math.floor(module2 / 3) * 15; // Har 3 to'g'riga -15 (oson bo'lgani uchun)
-      baseScore = Math.max(200, baseScore - module1Penalty - module2Penalty);
+    if (module1 >= 16 && module2 > 0) {
+      // Module 1 yaxshi (16+) → Module 2 qiyin → Module 1'ga ozgina bonus
+      // Albert.io'ga qaraganda kamroq adjustment
+      const bonus = Math.floor((module1 - 15) / 4) * 10; // 16+: +10, 20+: +20, 24+: +30
+      score = Math.min(800, score + bonus);
+    } else if (module1 < 12 && module2 > module1) {
+      // Module 1 yomon (<12) → Module 2 oson → Module 2'ga ozgina penalty
+      // Albert.io'ga qaraganda kamroq adjustment
+      const penalty = Math.floor((12 - module1) / 4) * 10; // <12: -10, <8: -20, <4: -30
+      score = Math.max(200, score - penalty);
     }
+    // Module 1 o'rtacha (12-15) → hech qanday adjustment yo'q (Albert.io kabi)
 
     // Faqat onliklar bo'lishi kerak (10, 20, 30...)
-    return Math.round(baseScore / 10) * 10;
+    return Math.round(score / 10) * 10;
   };
 
   // Calculate scores instantly - no API calls
