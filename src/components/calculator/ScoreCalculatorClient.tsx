@@ -27,66 +27,6 @@ import { Label } from "@/src/ui/label";
 const digitalSATReadingWritingTable: { [key: number]: number } = {
   0: 200,
   1: 200,
-  2: 200,
-  3: 210,
-  4: 220,
-  5: 230,
-  6: 240,
-  7: 250,
-  8: 260,
-  9: 270,
-  10: 280,
-  11: 290,
-  12: 300,
-  13: 310,
-  14: 320,
-  15: 330,
-  16: 340,
-  17: 350,
-  18: 360,
-  19: 370,
-  20: 380,
-  21: 390,
-  22: 400,
-  23: 410,
-  24: 420,
-  25: 430,
-  26: 440,
-  27: 450,
-  28: 460,
-  29: 470,
-  30: 480,
-  31: 490,
-  32: 500,
-  33: 510,
-  34: 520,
-  35: 530,
-  36: 540,
-  37: 550,
-  38: 560,
-  39: 570,
-  40: 580,
-  41: 590,
-  42: 600,
-  43: 610,
-  44: 620,
-  45: 630,
-  46: 640,
-  47: 650,
-  48: 660,
-  49: 670,
-  50: 680,
-  51: 690,
-  52: 700,
-  53: 710,
-  54: 800,
-};
-
-// Math: 0-44 raw score (total) -> 200-800 scaled score
-// Albert.io kabi oddiy conversion table
-const digitalSATMathTable: { [key: number]: number } = {
-  0: 200,
-  1: 200,
   2: 210,
   3: 220,
   4: 230,
@@ -129,6 +69,66 @@ const digitalSATMathTable: { [key: number]: number } = {
   41: 600,
   42: 610,
   43: 620,
+  44: 630,
+  45: 640,
+  46: 650,
+  47: 660,
+  48: 670,
+  49: 680,
+  50: 690,
+  51: 700,
+  52: 710,
+  53: 730,
+  54: 800,
+};
+
+// Math: 0-44 raw score (total) -> 200-800 scaled score
+// Albert.io kabi oddiy conversion table
+const digitalSATMathTable: { [key: number]: number } = {
+  0: 200,
+  1: 210,
+  2: 220,
+  3: 230,
+  4: 240,
+  5: 250,
+  6: 260,
+  7: 270,
+  8: 280,
+  9: 290,
+  10: 300,
+  11: 310,
+  12: 320,
+  13: 330,
+  14: 340,
+  15: 350,
+  16: 360,
+  17: 370,
+  18: 380,
+  19: 390,
+  20: 400,
+  21: 410,
+  22: 420,
+  23: 430,
+  24: 440,
+  25: 450,
+  26: 460,
+  27: 470,
+  28: 480,
+  29: 490,
+  30: 500,
+  31: 510,
+  32: 520,
+  33: 530,
+  34: 540,
+  35: 550,
+  36: 560,
+  37: 570,
+  38: 580,
+  39: 590,
+  40: 600,
+  41: 610,
+  42: 620,
+  43: 630,
   44: 800,
 };
 
@@ -235,13 +235,13 @@ export function ScoreCalculatorClient() {
 
     if (module1 >= 16 && module2 > 0) {
       // Module 1 yaxshi (16+) → Module 2 qiyin → Module 1'ga ozgina bonus
-      // Albert.io'ga qaraganda kamroq adjustment
-      const bonus = Math.floor((module1 - 15) / 4) * 10; // 16+: +10, 20+: +20, 24+: +30
+      // Slightly increased bonus for better scores
+      const bonus = Math.floor((module1 - 14) / 3) * 10; // 16+: +20, 19+: +30, 22+: +40
       score = Math.min(800, score + bonus);
     } else if (module1 < 12 && module2 > module1) {
       // Module 1 yomon (<12) → Module 2 oson → Module 2'ga ozgina penalty
-      // Albert.io'ga qaraganda kamroq adjustment
-      const penalty = Math.floor((12 - module1) / 4) * 10; // <12: -10, <8: -20, <4: -30
+      // Reduced penalty to give slightly higher scores
+      const penalty = Math.floor((12 - module1) / 5) * 10; // <12: -10, <7: -20
       score = Math.max(200, score - penalty);
     }
     // Module 1 o'rtacha (12-15) → hech qanday adjustment yo'q (Albert.io kabi)
