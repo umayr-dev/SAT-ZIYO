@@ -1,0 +1,21 @@
+{
+  "name": "SAT Ziyo - Digital SAT Prep Platform",
+  "short_name": "SAT Ziyo",
+  "description": "Comprehensive Digital SAT English & Math practice platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#f97316",
+  "icons": [
+    {
+      "src": "/alogo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "/alogo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}

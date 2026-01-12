@@ -1,140 +1,132 @@
-import { createClient } from "@/src/lib/supabase/client";
-import { apiService } from "./api";
-import { API_ENDPOINTS } from "@/src/config/api";
+/**
+ * Authentication Service
+ * Password-based registration/login with OTP verification
+ * Cookie-based authentication using HttpOnly cookies
+ */
+
+import { apiPost, apiGet, apiPatch } from "@/src/lib/api-client";
+import { API_ENDPOINTS, API_CONFIG } from "@/src/config/api";
+import { tokenStorage } from "@/src/lib/token-storage";
 import type {
-  LoginCredentials,
-  RegisterCredentials,
   AuthResponse,
-  User,
+  UserProfile,
+  RegisterCredentials,
+  LoginCredentials,
 } from "@/src/types";
 
 export const authService = {
-  login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
-    const supabase = createClient();
-    const { data, error } = await supabase.auth.signInWithPassword({
+  /**
+   * Register user with name, email and password
+   * Sends OTP to email after successful registration
+   */
+  async register(credentials: RegisterCredentials): Promise<AuthResponse> {
+    return apiPost<AuthResponse>(API_ENDPOINTS.auth.register, {
+      name: credentials.name,
       email: credentials.email,
       password: credentials.password,
     });
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    if (!data.user || !data.session) {
-      throw new Error("Login failed");
-    }
-
-    const user: User = {
-      id: data.user.id,
-      email: data.user.email!,
-      name: data.user.user_metadata?.name || data.user.email?.split("@")[0],
-      createdAt: data.user.created_at,
-    };
-
-    return {
-      user,
-      token: data.session.access_token,
-    };
   },
 
-  register: async (credentials: RegisterCredentials): Promise<AuthResponse> => {
-    const supabase = createClient();
-    const { confirmPassword, ...registerData } = credentials;
+  /**
+   * Login user with email and password
+   * Sends OTP to email after successful login
+   */
+  async login(credentials: LoginCredentials): Promise<AuthResponse> {
+    return apiPost<AuthResponse>(API_ENDPOINTS.auth.login, {
+      email: credentials.email,
+      password: credentials.password,
+    });
+  },
 
-    const { data, error } = await supabase.auth.signUp({
-      email: registerData.email,
-      password: registerData.password,
-      options: {
-        emailRedirectTo: `${
-          typeof window !== "undefined" ? window.location.origin : ""
-        }/auth/callback`,
-      },
+  /**
+   * Verify OTP and get JWT access token
+   * Verifies OTP code and returns JWT access token
+   */
+  async verifyOtp(email: string, code: string): Promise<AuthResponse> {
+    const response = await apiPost<AuthResponse>(API_ENDPOINTS.auth.verifyOtp, {
+      email,
+      otp: code, // API expects 'otp' field, not 'code'
     });
 
-    if (error) {
-      throw new Error(error.message);
+    // Store JWT token from response
+    // API spec: /auth/verify-otp returns JWT access token in response body
+    // Try multiple common field names
+    const token =
+      (response as any).accessToken ||
+      (response as any).token ||
+      (response as any).access_token ||
+      (response as any).jwt;
+
+    if (token && typeof window !== "undefined") {
+      // Ensure token is a string
+      const tokenString = String(token);
+      tokenStorage.setToken(tokenString);
+      const storedToken = tokenStorage.getToken();
+      if (!storedToken) {
+        console.error("Failed to store token in localStorage");
+      }
+    } else if (typeof window !== "undefined") {
+      // Debug: Log response if token is missing
+      console.error("Token not found in OTP response:", response);
     }
 
-    if (!data.user) {
-      throw new Error("Registration failed");
-    }
-
-    const user: User = {
-      id: data.user.id,
-      email: data.user.email!,
-      name: data.user.user_metadata?.name || data.user.email?.split("@")[0],
-      createdAt: data.user.created_at,
-    };
-
-    const token = data.session?.access_token || "";
-
-    return {
-      user,
-      token,
-    };
+    return response as AuthResponse;
   },
 
-  signInWithGoogle: async (): Promise<void> => {
-    const supabase = createClient();
-
-    if (typeof window === "undefined") {
-      throw new Error("Google sign in can only be called from the client side");
+  /**
+   * Google OAuth login
+   * Redirects to Google OAuth, then sends OTP to email
+   */
+  async loginWithGoogle(): Promise<void> {
+    // Redirect to API's Google OAuth endpoint
+    // API URL is configured in API_CONFIG from environment variable
+    if (typeof window !== "undefined") {
+      const redirectUrl = `${window.location.origin}/auth/callback`;
+      window.location.href = `${API_CONFIG.baseURL}${
+        API_ENDPOINTS.auth.google
+      }?redirect=${encodeURIComponent(redirectUrl)}`;
     }
+  },
 
-    const redirectTo = `${window.location.origin}/auth/callback`;
-
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo,
-        queryParams: {
-          access_type: "offline",
-          prompt: "consent",
-        },
-      },
+  /**
+   * Get current user profile
+   * Returns authenticated user profile using JWT Bearer token
+   */
+  async getCurrentUser(): Promise<UserProfile> {
+    return apiGet<UserProfile>(API_ENDPOINTS.auth.profile, {
+      requireAuth: true,
     });
-
-    if (error) {
-      console.error("Google OAuth error:", error);
-      throw new Error(
-        error.message ||
-          "Failed to initiate Google sign in. Please check your Supabase Google provider settings."
-      );
-    }
-
-    // If data.url exists, the redirect will happen automatically
-    // Otherwise, there might be a configuration issue
-    if (!data?.url) {
-      throw new Error(
-        "Google OAuth configuration error. Please ensure Google provider is enabled in Supabase and credentials are correct."
-      );
-    }
   },
 
-  logout: async (): Promise<void> => {
-    const supabase = createClient();
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      throw new Error(error.message);
-    }
+  /**
+   * Update user profile
+   * Updates user profile information
+   */
+  async updateProfile(data: {
+    email?: string;
+    name?: string;
+  }): Promise<UserProfile> {
+    return apiPatch<UserProfile>(API_ENDPOINTS.auth.profile, data, {
+      requireAuth: true,
+    });
   },
 
-  getCurrentUser: async (): Promise<User> => {
-    const supabase = createClient();
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
-
-    if (error || !user) {
-      throw new Error(error?.message || "User not found");
+  /**
+   * Logout user
+   * Clears JWT token and logs out the user
+   */
+  async logout(): Promise<AuthResponse> {
+    try {
+      await apiPost<AuthResponse>(API_ENDPOINTS.auth.logout, undefined, {
+        requireAuth: true,
+      });
+    } finally {
+      // Always remove token from storage
+      if (typeof window !== "undefined") {
+        const { tokenStorage } = await import("@/src/lib/token-storage");
+        tokenStorage.removeToken();
+      }
     }
-
-    return {
-      id: user.id,
-      email: user.email!,
-      name: user.user_metadata?.name || user.email?.split("@")[0],
-      createdAt: user.created_at,
-    };
+    return { success: true };
   },
 };

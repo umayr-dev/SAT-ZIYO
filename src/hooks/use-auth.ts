@@ -2,38 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { authService } from "@/src/services/auth.service";
 import { useAuthStore } from "@/src/stores/auth.store";
-import type { LoginCredentials, RegisterCredentials } from "@/src/types";
-import { createClient } from "@/src/lib/supabase/client";
-
-// Login mutation
-export const useLogin = () => {
-  const queryClient = useQueryClient();
-  const { setUser } = useAuthStore();
-
-  return useMutation({
-    mutationFn: (credentials: LoginCredentials) =>
-      authService.login(credentials),
-    onSuccess: (data) => {
-      setUser(data.user);
-      queryClient.setQueryData(["auth", "user"], data.user);
-    },
-  });
-};
-
-// Register mutation
-export const useRegister = () => {
-  const queryClient = useQueryClient();
-  const { setUser } = useAuthStore();
-
-  return useMutation({
-    mutationFn: (credentials: RegisterCredentials) =>
-      authService.register(credentials),
-    onSuccess: (data) => {
-      setUser(data.user);
-      queryClient.setQueryData(["auth", "user"], data.user);
-    },
-  });
-};
+import type { User } from "@/src/types";
 
 // Logout mutation
 export const useLogout = () => {
@@ -55,7 +24,15 @@ export const useCurrentUser = () => {
 
   const query = useQuery({
     queryKey: ["auth", "user"],
-    queryFn: () => authService.getCurrentUser(),
+    queryFn: async () => {
+      const userProfile = await authService.getCurrentUser();
+      return {
+        id: userProfile.id,
+        email: userProfile.email,
+        role: userProfile.role,
+        name: userProfile.name,
+      } as User;
+    },
     enabled: true, // Always enabled to check session
     retry: false,
     staleTime: 5 * 60 * 1000, // 5 minutes

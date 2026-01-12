@@ -60,8 +60,8 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: "Baskervville", "Baskerville", "Goudy Old Style", "Palatino",
-      "Book Antiqua", serif;
+    font-family: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont,
+      "Segoe UI", Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -128,4 +128,14 @@ section[id] {
 
 .animate-bounce-slow {
   animation: bounce-slow 3s ease-in-out infinite;
+}
+
+/* Hide scrollbar but keep scroll functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }

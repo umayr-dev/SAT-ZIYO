@@ -3,13 +3,7 @@
 import { AuthGuard } from "@/src/components/auth/auth-guard";
 import { SidebarProvider } from "@/src/components/dashboard/SidebarContext";
 
-/**
- * Dashboard Layout
- * Client-side auth guard (JWT token is in localStorage)
- * Server-side can't access localStorage, so we use client-side guard
- * SidebarProvider wraps all dashboard pages for sidebar state management
- */
-export default function DashboardLayout({
+export default function SettingsLayout({
   children,
 }: {
   children: React.ReactNode;

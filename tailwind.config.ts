@@ -8,6 +8,47 @@ const config: Config = {
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/**/*.{js,ts,jsx,tsx,mdx}",
   ],
+  // Safelist - CSS uzilishini oldini olish uchun
+  safelist: [
+    // Common utility classes
+    "bg-white",
+    "bg-gray-50",
+    "bg-gray-100",
+    "bg-gray-200",
+    "bg-gray-900",
+    "text-white",
+    "text-gray-700",
+    "text-gray-900",
+    "border-gray-200",
+    "border-gray-300",
+    // Orange theme colors
+    "bg-orange-500",
+    "bg-orange-600",
+    "text-orange-500",
+    "text-orange-600",
+    "hover:bg-orange-50",
+    "hover:bg-orange-600",
+    "from-orange-500",
+    "to-orange-600",
+    // Blue theme colors
+    "bg-blue-600",
+    "bg-blue-700",
+    "hover:bg-blue-700",
+    // Spacing
+    "px-4",
+    "px-5",
+    "px-6",
+    "py-2",
+    "py-4",
+    // Responsive
+    "hidden",
+    "sm:block",
+    "lg:hidden",
+    "lg:flex",
+    // Animations
+    "animate-in",
+    "slide-in-from-top-2",
+  ],
   theme: {
     extend: {
       colors: {
@@ -53,7 +94,7 @@ const config: Config = {
         },
       },
       fontFamily: {
-        sans: ['"Baskervville"', '"Baskerville"', "serif"],
+        sans: ["var(--font-inter)", "system-ui", "sans-serif"],
       },
       borderRadius: {
         lg: "var(--radius)",

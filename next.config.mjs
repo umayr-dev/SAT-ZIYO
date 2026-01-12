@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // CSS optimization - prevent CSS from being lost
+  compiler: {
+    removeConsole: process.env.NODE_ENV === "production",
+  },
   // Suppress punycode deprecation warning
   webpack: (config, { isServer, dev }) => {
     // Fix webpack runtime errors
@@ -21,8 +25,15 @@ const nextConfig = {
         },
       };
 
-      // Optimize chunk loading
-      if (!dev) {
+      // CSS hot reload fix
+      if (dev) {
+        config.optimization = {
+          ...config.optimization,
+          moduleIds: "named",
+          chunkIds: "named",
+        };
+      } else {
+        // Optimize chunk loading for production
         config.optimization = {
           ...config.optimization,
           moduleIds: "deterministic",
@@ -37,6 +48,14 @@ const nextConfig = {
                 chunks: "all",
                 test: /[\\/]node_modules[\\/]/,
                 priority: 20,
+              },
+              // CSS chunk - prevent CSS from being lost
+              styles: {
+                name: "styles",
+                test: /\.(css|scss|sass)$/,
+                chunks: "all",
+                enforce: true,
+                priority: 30,
               },
             },
           },
@@ -56,6 +75,13 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react", "@tanstack/react-query"],
   },
+
+  // CSS reload fix - prevent CSS from being lost during hot reload
+  reactStrictMode: true,
+  swcMinify: true,
+
+  // Ensure CSS is properly loaded
+  poweredByHeader: false,
 };
 
 export default nextConfig;

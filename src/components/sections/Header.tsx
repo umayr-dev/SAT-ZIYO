@@ -1,12 +1,24 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
-import MobileMenu from "./mobile-menu";
+import { useState, useEffect } from "react";
+import { Menu, X } from "lucide-react";
 
 export default function Header() {
   const pathname = usePathname();
   const isHomePage = pathname === "/";
+  const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const handleScrollTo = (
     e: React.MouseEvent<HTMLAnchorElement>,
@@ -27,92 +39,178 @@ export default function Header() {
         });
       }
     }
+    setMobileMenuOpen(false);
   };
 
   return (
     <>
-      <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 shadow-sm">
-        <nav className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
-            {/* Logo - Inspired by unlockadmissions.uz with orange accent */}
+      <header
+        className={`sticky top-0 z-50 w-full transition-all duration-300 ${
+          scrolled ? "bg-white shadow-md" : "bg-transparent"
+        }`}
+      >
+        {/* Nav with container inside - full width header, container in nav */}
+        <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex h-20 items-center justify-between">
+            {/* Logo with image */}
             <Link
               href="/"
               onClick={(e) => isHomePage && handleScrollTo(e, "home")}
               className="flex items-center space-x-3 group"
             >
-              <div className="bg-orange-500 w-10 h-10 rounded flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
-                <span className="text-white font-bold text-lg">S</span>
+              <div className="relative w-12 h-12">
+                <Image
+                  src="/alogo.jpg"
+                  alt="SAT Ziyo Logo"
+                  width={48}
+                  height={48}
+                  className="object-contain rounded-xl group-hover:scale-105 transition-transform"
+                  priority
+                />
               </div>
               <div className="flex flex-col">
-                <span className="text-xl font-bold text-gray-900 leading-none">
-                  SAT
+                <span className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent leading-none">
+                  SAT Ziyo
                 </span>
-                <span className="text-sm font-medium text-gray-700 leading-none">
-                  Ziyo
+                <span className="text-xs font-medium text-gray-500 leading-none mt-0.5">
+                  Digital SAT Prep
                 </span>
               </div>
             </Link>
 
-            {/* Navigation Links */}
-            <div className="hidden md:flex items-center space-x-8">
+            {/* Navigation Links - Modern design */}
+            <div className="hidden lg:flex items-center space-x-1">
+              <a
+                href={isHomePage ? "#home" : "/#home"}
+                onClick={(e) => handleScrollTo(e, "home")}
+                className="px-4 py-2 text-gray-700 hover:text-orange-600 transition-colors font-medium rounded-lg hover:bg-orange-50 relative group cursor-pointer"
+              >
+                Home
+              </a>
               <a
                 href={isHomePage ? "#features" : "/#features"}
                 onClick={(e) => handleScrollTo(e, "features")}
-                className="text-gray-700 hover:text-orange-500 transition-colors font-medium relative group cursor-pointer"
+                className="px-4 py-2 text-gray-700 hover:text-orange-600 transition-colors font-medium rounded-lg hover:bg-orange-50 relative group cursor-pointer"
               >
                 Features
-                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-orange-500 transition-all group-hover:w-full"></span>
               </a>
               <a
                 href={isHomePage ? "#how-it-works" : "/#how-it-works"}
                 onClick={(e) => handleScrollTo(e, "how-it-works")}
-                className="text-gray-700 hover:text-orange-500 transition-colors font-medium relative group cursor-pointer"
+                className="px-4 py-2 text-gray-700 hover:text-orange-600 transition-colors font-medium rounded-lg hover:bg-orange-50 relative group cursor-pointer"
               >
                 How It Works
-                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-orange-500 transition-all group-hover:w-full"></span>
               </a>
               <a
                 href={isHomePage ? "#pricing" : "/#pricing"}
                 onClick={(e) => handleScrollTo(e, "pricing")}
-                className="text-gray-700 hover:text-orange-500 transition-colors font-medium relative group cursor-pointer"
+                className="px-4 py-2 text-gray-700 hover:text-orange-600 transition-colors font-medium rounded-lg hover:bg-orange-50 relative group cursor-pointer"
               >
                 Pricing
-                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-orange-500 transition-all group-hover:w-full"></span>
               </a>
               <a
                 href={isHomePage ? "#testimonials" : "/#testimonials"}
                 onClick={(e) => handleScrollTo(e, "testimonials")}
-                className="text-gray-700 hover:text-orange-500 transition-colors font-medium relative group cursor-pointer"
+                className="px-4 py-2 text-gray-700 hover:text-orange-600 transition-colors font-medium rounded-lg hover:bg-orange-50 relative group cursor-pointer"
               >
                 Testimonials
-                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-orange-500 transition-all group-hover:w-full"></span>
               </a>
               <Link
                 href="/score-calculator"
-                className="text-gray-700 hover:text-orange-500 transition-colors font-medium relative group cursor-pointer"
+                className="px-4 py-2 text-gray-700 hover:text-orange-600 transition-colors font-medium rounded-lg hover:bg-orange-50 relative group cursor-pointer"
               >
                 Score Calculator
-                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-orange-500 transition-all group-hover:w-full"></span>
               </Link>
             </div>
 
-            {/* CTA Buttons */}
-            <div className="flex items-center space-x-4">
+            {/* CTA Buttons - Modern design */}
+            <div className="flex items-center space-x-3">
               <Link
                 href="/auth/login"
-                className="text-gray-700 hover:text-orange-500 transition-colors font-medium hidden sm:block"
+                className="hidden sm:block px-4 py-2 text-gray-700 hover:text-orange-600 transition-colors font-medium rounded-lg hover:bg-gray-50"
               >
                 Sign In
               </Link>
               <Link
                 href="/auth/register"
-                className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium text-sm shadow-md hover:shadow-lg"
+                className="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all font-semibold text-sm shadow-lg hover:shadow-xl hover:scale-105 transform"
               >
                 Get Started
               </Link>
-              <MobileMenu />
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="lg:hidden p-2 text-gray-700 hover:text-orange-600 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Toggle menu"
+              >
+                {mobileMenuOpen ? (
+                  <X className="h-6 w-6" />
+                ) : (
+                  <Menu className="h-6 w-6" />
+                )}
+              </button>
             </div>
           </div>
+
+          {/* Mobile Menu */}
+          {mobileMenuOpen && (
+            <div
+              className={`lg:hidden py-4 border-t border-gray-200 animate-in slide-in-from-top-2`}
+            >
+              <div className="flex flex-col space-y-2">
+                <a
+                  href={isHomePage ? "#home" : "/#home"}
+                  onClick={(e) => handleScrollTo(e, "home")}
+                  className="px-4 py-2 text-gray-700 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors font-medium"
+                >
+                  Home
+                </a>
+                <a
+                  href={isHomePage ? "#features" : "/#features"}
+                  onClick={(e) => handleScrollTo(e, "features")}
+                  className="px-4 py-2 text-gray-700 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors font-medium"
+                >
+                  Features
+                </a>
+                <a
+                  href={isHomePage ? "#how-it-works" : "/#how-it-works"}
+                  onClick={(e) => handleScrollTo(e, "how-it-works")}
+                  className="px-4 py-2 text-gray-700 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors font-medium"
+                >
+                  How It Works
+                </a>
+                <a
+                  href={isHomePage ? "#pricing" : "/#pricing"}
+                  onClick={(e) => handleScrollTo(e, "pricing")}
+                  className="px-4 py-2 text-gray-700 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors font-medium"
+                >
+                  Pricing
+                </a>
+                <a
+                  href={isHomePage ? "#testimonials" : "/#testimonials"}
+                  onClick={(e) => handleScrollTo(e, "testimonials")}
+                  className="px-4 py-2 text-gray-700 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors font-medium"
+                >
+                  Testimonials
+                </a>
+                <Link
+                  href="/score-calculator"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="px-4 py-2 text-gray-700 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors font-medium"
+                >
+                  Score Calculator
+                </Link>
+                <div className="pt-2 border-t border-gray-200 mt-2">
+                  <Link
+                    href="/auth/login"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block px-4 py-2 text-gray-700 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors font-medium"
+                  >
+                    Sign In
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
         </nav>
       </header>
     </>

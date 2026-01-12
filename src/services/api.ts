@@ -1,3 +1,12 @@
+/**
+ * Legacy API Service - Cookie-based Authentication
+ *
+ * ⚠️ DEPRECATED: Use api-client.ts instead for new code
+ * This service is kept for backward compatibility but uses secure cookie-based auth
+ *
+ * SECURITY: No localStorage usage - all tokens stored in HttpOnly cookies
+ */
+
 import { API_CONFIG } from "@/src/config/api";
 import type { ApiResponse, ApiError } from "@/src/types";
 
@@ -19,15 +28,13 @@ class ApiService {
       ...(options.headers as Record<string, string>),
     };
 
-    // Add auth token if available
-    const token = this.getToken();
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-
+    // SECURITY: Use cookie-based auth instead of localStorage token
+    // Cookies are automatically sent with credentials: 'include'
     const config: RequestInit = {
       ...options,
       headers: headers as HeadersInit,
+      credentials: "include", // Critical for HttpOnly cookie authentication
+      mode: "cors",
     };
 
     try {
@@ -54,23 +61,35 @@ class ApiService {
     }
   }
 
+  /**
+   * @deprecated Token-based auth is deprecated. Use cookie-based auth instead.
+   * This method is kept for backward compatibility but does nothing.
+   */
   private getToken(): string | null {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("auth_token");
-    }
+    // SECURITY: No localStorage usage - tokens are in HttpOnly cookies
     return null;
   }
 
+  /**
+   * @deprecated Token-based auth is deprecated. Use cookie-based auth instead.
+   * This method is kept for backward compatibility but does nothing.
+   */
   setToken(token: string): void {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("auth_token", token);
-    }
+    // SECURITY: No localStorage usage - tokens are set by API server in HttpOnly cookies
+    console.warn(
+      "setToken() is deprecated. Tokens are now stored in HttpOnly cookies by the API server."
+    );
   }
 
+  /**
+   * @deprecated Token-based auth is deprecated. Use cookie-based auth instead.
+   * This method is kept for backward compatibility but does nothing.
+   */
   removeToken(): void {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("auth_token");
-    }
+    // SECURITY: No localStorage usage - cookies are cleared by API server on logout
+    console.warn(
+      "removeToken() is deprecated. Cookies are cleared by the API server on logout."
+    );
   }
 
   async get<T>(endpoint: string): Promise<ApiResponse<T>> {

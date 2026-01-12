@@ -1,6 +1,6 @@
 // API Configuration
 export const API_CONFIG = {
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api",
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "https://api.satziyo.uz",
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",
@@ -12,8 +12,10 @@ export const API_ENDPOINTS = {
   auth: {
     login: "/auth/login",
     register: "/auth/register",
+    verifyOtp: "/auth/verify-otp",
     logout: "/auth/logout",
-    me: "/auth/me",
+    profile: "/auth/profile", // Changed from /auth/me to /auth/profile
+    google: "/auth/google",
   },
   users: {
     list: "/users",
