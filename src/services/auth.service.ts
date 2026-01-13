@@ -90,25 +90,50 @@ export const authService = {
 
   /**
    * Get current user profile
-   * Returns authenticated user profile using JWT Bearer token
+   * Returns authenticated user profile using cookie-based authentication
    */
   async getCurrentUser(): Promise<UserProfile> {
-    return apiGet<UserProfile>(API_ENDPOINTS.auth.profile, {
-      requireAuth: true,
+    // Use our Next.js API route which handles cookie-based auth
+    const response = await fetch("/api/auth/me", {
+      method: "GET",
+      credentials: "include", // Important: include cookies
     });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error("Not authenticated");
+      }
+      const error = await response.json();
+      throw new Error(error.message || "Failed to get user");
+    }
+
+    return response.json();
   },
 
   /**
    * Update user profile
-   * Updates user profile information
+   * Updates user profile information using cookie-based authentication
    */
   async updateProfile(data: {
     email?: string;
     name?: string;
   }): Promise<UserProfile> {
-    return apiPatch<UserProfile>(API_ENDPOINTS.auth.profile, data, {
-      requireAuth: true,
+    // Use our Next.js API route which handles cookie-based auth
+    const response = await fetch("/api/auth/profile", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include", // Important: include cookies
+      body: JSON.stringify(data),
     });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to update profile");
+    }
+
+    return response.json();
   },
 
   /**

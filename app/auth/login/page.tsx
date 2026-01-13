@@ -4,7 +4,12 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LoginForm } from "@/src/components/auth/login-form";
 import { OtpForm } from "@/src/components/auth/otp-form";
-import { authService } from "@/src/services/auth.service";
+import {
+  sendOTP,
+  verifyOTP,
+  checkAuth,
+} from "@/src/services/otp-auth-client.service";
+import { API_CONFIG, API_ENDPOINTS } from "@/src/config/api";
 
 type AuthStep = "login" | "otp";
 
@@ -15,7 +20,27 @@ function LoginPageContent() {
   const [email, setEmail] = useState("");
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Check if user is already authenticated on mount
+  useEffect(() => {
+    const checkExistingAuth = async () => {
+      try {
+        const isAuthenticated = await checkAuth();
+        if (isAuthenticated) {
+          const redirect = searchParams.get("redirect") || "/dashboard";
+          router.push(redirect);
+          return;
+        }
+      } catch {
+        // Not authenticated, continue with login flow
+      } finally {
+        setIsCheckingAuth(false);
+      }
+    };
+    checkExistingAuth();
+  }, [router, searchParams]);
 
   // Initialize redirect URL from search params on mount
   useEffect(() => {
@@ -30,16 +55,26 @@ function LoginPageContent() {
     setError(null);
 
     try {
-      // Login with email and password
-      await authService.login({
-        email: emailValue,
-        password,
-      });
+      // First check if user already has a valid session cookie
+      // This allows users to login automatically if they have a valid session
+      const isAuthenticated = await checkAuth();
+      if (isAuthenticated) {
+        // User already authenticated, redirect immediately without OTP
+        const finalRedirectUrl = redirectUrl || "/dashboard";
+        router.push(finalRedirectUrl);
+        return;
+      }
+
+      // No valid session - send OTP to user's email
+      // Password is not used in OTP flow, kept for UI consistency
+      await sendOTP(emailValue);
       setEmail(emailValue);
       setStep("otp");
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Login failed. Please try again."
+        err instanceof Error
+          ? err.message
+          : "Failed to send OTP. Please try again."
       );
     } finally {
       setIsLoading(false);
@@ -51,13 +86,12 @@ function LoginPageContent() {
     setError(null);
 
     try {
-      // Verify OTP and get JWT token (token is stored in localStorage)
-      await authService.verifyOtp(email, code);
+      // Verify OTP - this creates the session cookie with user data
+      await verifyOTP(email, code);
 
-      // Use window.location.href for hard redirect to ensure token is available
-      // This prevents AuthGuard from redirecting back to login
+      // Redirect to dashboard (session cookie is now set)
       const finalRedirectUrl = redirectUrl || "/dashboard";
-      window.location.href = finalRedirectUrl;
+      router.push(finalRedirectUrl);
     } catch (err) {
       setError(
         err instanceof Error
@@ -70,33 +104,46 @@ function LoginPageContent() {
 
   const handleResendOtp = async () => {
     setError(null);
+    setIsLoading(true);
     try {
-      // Re-login to resend OTP (password not needed for resend)
-      await authService.login({
-        email,
-        password: "",
-      });
+      await sendOTP(email);
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
           : "Failed to resend OTP. Please try again."
       );
-      throw err;
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    try {
-      await authService.loginWithGoogle();
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to sign in with Google. Please try again."
-      );
-    }
+  const handleGoogleSignIn = () => {
+    // Build redirect URL to preserve redirect parameter
+    const redirectParam = redirectUrl || "/dashboard";
+    const googleAuthUrl = `${API_CONFIG.baseURL}${
+      API_ENDPOINTS.auth.google
+    }?redirect=${encodeURIComponent(
+      `/auth/callback?redirect=${encodeURIComponent(redirectParam)}`
+    )}`;
+
+    // Redirect to backend Google OAuth endpoint
+    window.location.href = googleAuthUrl;
   };
+
+  // Show loading while checking authentication
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-sky-50 via-white to-orange-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-sm text-muted-foreground">
+            Checking authentication...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (step === "otp") {
     // Build go back URL with redirect parameter if exists

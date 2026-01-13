@@ -14,7 +14,7 @@ export const API_ENDPOINTS = {
     register: "/auth/register",
     verifyOtp: "/auth/verify-otp",
     logout: "/auth/logout",
-    profile: "/auth/profile", // Changed from /auth/me to /auth/profile
+    profile: "/auth/me", // Backend endpoint is /auth/me
     google: "/auth/google",
   },
   users: {
