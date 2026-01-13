@@ -56,7 +56,6 @@ function LoginPageContent() {
 
     try {
       // First check if user already has a valid session cookie
-      // This allows users to login automatically if they have a valid session
       const isAuthenticated = await checkAuth();
       if (isAuthenticated) {
         // User already authenticated, redirect immediately without OTP
@@ -64,9 +63,12 @@ function LoginPageContent() {
         router.push(finalRedirectUrl);
         return;
       }
+    } catch {
+      // Not authenticated - this is normal, continue with OTP flow
+    }
 
-      // No valid session - send OTP to user's email
-      // Password is not used in OTP flow, kept for UI consistency
+    // No valid session - send OTP to user's email
+    try {
       await sendOTP(emailValue);
       setEmail(emailValue);
       setStep("otp");

@@ -36,7 +36,10 @@ export interface LogoutResponse {
  * @param email - User's email address
  * @param isRegister - Whether this is for registration (default: false)
  */
-export async function sendOTP(email: string, isRegister: boolean = false): Promise<SendOTPResponse> {
+export async function sendOTP(
+  email: string,
+  isRegister: boolean = false
+): Promise<SendOTPResponse> {
   const response = await fetch("/api/auth/otp/send", {
     method: "POST",
     headers: {
@@ -98,8 +101,8 @@ export async function getCurrentUser(): Promise<UserResponse> {
     if (response.status === 401) {
       throw new Error("Not authenticated");
     }
-    const error = await response.json();
-    throw new Error(error.error || "Failed to get user");
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || error.error || "Failed to get user");
   }
 
   return response.json();
@@ -134,4 +137,3 @@ export async function logout(): Promise<LogoutResponse> {
 
   return response.json();
 }
-

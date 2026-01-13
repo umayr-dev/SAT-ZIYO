@@ -57,9 +57,12 @@ export default function RegisterPage() {
         router.push("/dashboard");
         return;
       }
+    } catch {
+      // Not authenticated - this is normal, continue with OTP flow
+    }
 
-      // No valid session - send OTP for registration
-      // Password is not used in OTP flow, kept for UI consistency
+    // No valid session - send OTP for registration
+    try {
       await sendOTP(emailValue, true); // isRegister = true
       setEmail(emailValue);
       setName(nameValue);

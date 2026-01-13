@@ -11,7 +11,13 @@ import { API_CONFIG } from "@/src/config/api";
 const JWT_COOKIE_NAME = "token";
 
 // Routes that require authentication
-const protectedRoutes = ["/dashboard", "/admin", "/settings", "/profile"];
+const protectedRoutes = [
+  "/dashboard",
+  "/admin",
+  "/settings",
+  "/profile",
+  "/support",
+];
 
 // Routes that should redirect to dashboard if already authenticated
 const authRoutes = ["/auth/login", "/auth/register"];
@@ -28,26 +34,44 @@ export async function middleware(request: NextRequest) {
   const token = request.cookies.get(JWT_COOKIE_NAME)?.value;
   let isAuthenticated = false;
 
+  // For protected routes, check if token exists
+  // Full validation happens in AuthGuard (client-side) and API routes
+  // This prevents unnecessary redirects for users with valid tokens
   if (token) {
+    // Token exists - assume authenticated for now
+    // Full validation will happen in AuthGuard component
+    isAuthenticated = true;
+
+    // Optional: Quick validation for production (can be disabled if causing issues)
+    // Uncomment below if you want server-side validation in middleware
+    /*
     try {
-      // Verify token with external API
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+
       const response = await fetch(`${API_CONFIG.baseURL}/auth/me`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        // Don't follow redirects
         redirect: "manual",
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (response.ok || response.status === 200) {
         isAuthenticated = true;
+      } else {
+        isAuthenticated = false;
       }
     } catch (error) {
-      // Network error or invalid token - treat as not authenticated
-      console.error("Middleware auth check error:", error);
+      // Network error or timeout - let AuthGuard handle validation
+      // Token exists, so allow through and let client-side validate
+      isAuthenticated = true;
     }
+    */
   }
 
   // Check if route is protected
