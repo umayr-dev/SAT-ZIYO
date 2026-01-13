@@ -2324,7 +2324,7 @@ function getScoreFrom2DTable(
 ): number {
   // Clamp values to valid ranges
   const clampedM1 = Math.max(0, Math.min(27, Math.round(m1)));
-  const clampedM2 = Math.max(2, Math.min(27, Math.round(m2)));
+  const clampedM2 = Math.max(0, Math.min(27, Math.round(m2)));
 
   // Direct lookup
   if (table[clampedM1] && table[clampedM1][clampedM2] !== undefined) {
@@ -2343,8 +2343,8 @@ function getScoreFrom2DTable(
 
   // Find valid M2
   if (table[validM1]) {
-    while (validM2 >= 2 && table[validM1][validM2] === undefined) validM2--;
-    if (validM2 < 2) {
+    while (validM2 >= 0 && table[validM1][validM2] === undefined) validM2--;
+    if (validM2 < 0) {
       while (validM2 <= 27 && table[validM1][validM2] === undefined) validM2++;
     }
   }
