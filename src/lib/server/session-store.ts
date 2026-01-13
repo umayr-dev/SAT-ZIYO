@@ -41,11 +41,12 @@ function generateSessionId(): string {
 export async function getUserByEmail(email: string): Promise<User> {
   // Check if user exists
   let foundUser: User | null = null;
-  userStore.forEach((user) => {
+  for (const user of Array.from(userStore.values())) {
     if (user.email === email) {
       foundUser = user;
+      break;
     }
-  });
+  }
 
   if (foundUser) {
     return foundUser;
@@ -70,11 +71,12 @@ export async function getUserByEmail(email: string): Promise<User> {
 export async function createUser(email: string, name: string): Promise<User> {
   // Check if user already exists
   let existingUser: User | null = null;
-  userStore.forEach((user) => {
+  for (const user of Array.from(userStore.values())) {
     if (user.email === email) {
       existingUser = user;
+      break;
     }
-  });
+  }
 
   if (existingUser) {
     // Update name if provided
