@@ -2354,7 +2354,6 @@ const digitalSATMath2DTable: { [m1: number]: { [m2: number]: number } } = {
   },
 };
 
-
 /**
  * Get score from 2D lookup table (for Reading & Writing - max 27)
  * @param table - 2D lookup table
@@ -2638,20 +2637,47 @@ export function ScoreCalculatorClient() {
                   <div className="flex items-center gap-4">
                     <Input
                       id="rw-module-1"
-                      type="number"
-                      min={0}
-                      max={maxRWValue}
+                      type="text"
+                      inputMode="numeric"
                       value={rwModule1}
-                      onChange={(e) =>
-                        handleInputChange(
-                          setRwModule1,
-                          Math.max(
-                            0,
-                            Math.min(maxRWValue, parseInt(e.target.value) || 0)
-                          )
-                        )
-                      }
-                      className="w-20 text-lg font-semibold text-center"
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9]/g, "");
+                        if (value === "" || value === "0") {
+                          handleInputChange(setRwModule1, 0);
+                        } else {
+                          const numValue = parseInt(value);
+                          if (!isNaN(numValue)) {
+                            handleInputChange(
+                              setRwModule1,
+                              Math.max(0, Math.min(maxRWValue, numValue))
+                            );
+                          }
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        // Allow: backspace, delete, tab, escape, enter, decimal point
+                        if (
+                          [46, 8, 9, 27, 13, 110, 190].indexOf(e.keyCode) !==
+                            -1 ||
+                          // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+                          (e.keyCode === 65 && e.ctrlKey === true) ||
+                          (e.keyCode === 67 && e.ctrlKey === true) ||
+                          (e.keyCode === 86 && e.ctrlKey === true) ||
+                          (e.keyCode === 88 && e.ctrlKey === true) ||
+                          // Allow: home, end, left, right
+                          (e.keyCode >= 35 && e.keyCode <= 39)
+                        ) {
+                          return;
+                        }
+                        // Ensure that it is a number and stop the keypress
+                        if (
+                          (e.shiftKey || e.keyCode < 48 || e.keyCode > 57) &&
+                          (e.keyCode < 96 || e.keyCode > 105)
+                        ) {
+                          e.preventDefault();
+                        }
+                      }}
+                      className="w-20 text-lg font-semibold text-center [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     />
                     <div className="flex-1">
                       <input
@@ -2686,20 +2712,47 @@ export function ScoreCalculatorClient() {
                   <div className="flex items-center gap-4">
                     <Input
                       id="rw-module-2"
-                      type="number"
-                      min={0}
-                      max={maxRWValue}
+                      type="text"
+                      inputMode="numeric"
                       value={rwModule2}
-                      onChange={(e) =>
-                        handleInputChange(
-                          setRwModule2,
-                          Math.max(
-                            0,
-                            Math.min(maxRWValue, parseInt(e.target.value) || 0)
-                          )
-                        )
-                      }
-                      className="w-20 text-lg font-semibold text-center"
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9]/g, "");
+                        if (value === "" || value === "0") {
+                          handleInputChange(setRwModule2, 0);
+                        } else {
+                          const numValue = parseInt(value);
+                          if (!isNaN(numValue)) {
+                            handleInputChange(
+                              setRwModule2,
+                              Math.max(0, Math.min(maxRWValue, numValue))
+                            );
+                          }
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        // Allow: backspace, delete, tab, escape, enter, decimal point
+                        if (
+                          [46, 8, 9, 27, 13, 110, 190].indexOf(e.keyCode) !==
+                            -1 ||
+                          // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+                          (e.keyCode === 65 && e.ctrlKey === true) ||
+                          (e.keyCode === 67 && e.ctrlKey === true) ||
+                          (e.keyCode === 86 && e.ctrlKey === true) ||
+                          (e.keyCode === 88 && e.ctrlKey === true) ||
+                          // Allow: home, end, left, right
+                          (e.keyCode >= 35 && e.keyCode <= 39)
+                        ) {
+                          return;
+                        }
+                        // Ensure that it is a number and stop the keypress
+                        if (
+                          (e.shiftKey || e.keyCode < 48 || e.keyCode > 57) &&
+                          (e.keyCode < 96 || e.keyCode > 105)
+                        ) {
+                          e.preventDefault();
+                        }
+                      }}
+                      className="w-20 text-lg font-semibold text-center [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     />
                     <div className="flex-1">
                       <input
@@ -2734,23 +2787,47 @@ export function ScoreCalculatorClient() {
                   <div className="flex items-center gap-4">
                     <Input
                       id="math-module-1"
-                      type="number"
-                      min={0}
-                      max={maxMathValue}
+                      type="text"
+                      inputMode="numeric"
                       value={mathModule1}
-                      onChange={(e) =>
-                        handleInputChange(
-                          setMathModule1,
-                          Math.max(
-                            0,
-                            Math.min(
-                              maxMathValue,
-                              parseInt(e.target.value) || 0
-                            )
-                          )
-                        )
-                      }
-                      className="w-20 text-lg font-semibold text-center"
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9]/g, "");
+                        if (value === "" || value === "0") {
+                          handleInputChange(setMathModule1, 0);
+                        } else {
+                          const numValue = parseInt(value);
+                          if (!isNaN(numValue)) {
+                            handleInputChange(
+                              setMathModule1,
+                              Math.max(0, Math.min(maxMathValue, numValue))
+                            );
+                          }
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        // Allow: backspace, delete, tab, escape, enter, decimal point
+                        if (
+                          [46, 8, 9, 27, 13, 110, 190].indexOf(e.keyCode) !==
+                            -1 ||
+                          // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+                          (e.keyCode === 65 && e.ctrlKey === true) ||
+                          (e.keyCode === 67 && e.ctrlKey === true) ||
+                          (e.keyCode === 86 && e.ctrlKey === true) ||
+                          (e.keyCode === 88 && e.ctrlKey === true) ||
+                          // Allow: home, end, left, right
+                          (e.keyCode >= 35 && e.keyCode <= 39)
+                        ) {
+                          return;
+                        }
+                        // Ensure that it is a number and stop the keypress
+                        if (
+                          (e.shiftKey || e.keyCode < 48 || e.keyCode > 57) &&
+                          (e.keyCode < 96 || e.keyCode > 105)
+                        ) {
+                          e.preventDefault();
+                        }
+                      }}
+                      className="w-20 text-lg font-semibold text-center [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     />
                     <div className="flex-1">
                       <input
@@ -2785,23 +2862,47 @@ export function ScoreCalculatorClient() {
                   <div className="flex items-center gap-4">
                     <Input
                       id="math-module-2"
-                      type="number"
-                      min={0}
-                      max={maxMathValue}
+                      type="text"
+                      inputMode="numeric"
                       value={mathModule2}
-                      onChange={(e) =>
-                        handleInputChange(
-                          setMathModule2,
-                          Math.max(
-                            0,
-                            Math.min(
-                              maxMathValue,
-                              parseInt(e.target.value) || 0
-                            )
-                          )
-                        )
-                      }
-                      className="w-20 text-lg font-semibold text-center"
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9]/g, "");
+                        if (value === "" || value === "0") {
+                          handleInputChange(setMathModule2, 0);
+                        } else {
+                          const numValue = parseInt(value);
+                          if (!isNaN(numValue)) {
+                            handleInputChange(
+                              setMathModule2,
+                              Math.max(0, Math.min(maxMathValue, numValue))
+                            );
+                          }
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        // Allow: backspace, delete, tab, escape, enter, decimal point
+                        if (
+                          [46, 8, 9, 27, 13, 110, 190].indexOf(e.keyCode) !==
+                            -1 ||
+                          // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+                          (e.keyCode === 65 && e.ctrlKey === true) ||
+                          (e.keyCode === 67 && e.ctrlKey === true) ||
+                          (e.keyCode === 86 && e.ctrlKey === true) ||
+                          (e.keyCode === 88 && e.ctrlKey === true) ||
+                          // Allow: home, end, left, right
+                          (e.keyCode >= 35 && e.keyCode <= 39)
+                        ) {
+                          return;
+                        }
+                        // Ensure that it is a number and stop the keypress
+                        if (
+                          (e.shiftKey || e.keyCode < 48 || e.keyCode > 57) &&
+                          (e.keyCode < 96 || e.keyCode > 105)
+                        ) {
+                          e.preventDefault();
+                        }
+                      }}
+                      className="w-20 text-lg font-semibold text-center [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     />
                     <div className="flex-1">
                       <input
