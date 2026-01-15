@@ -21,7 +21,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   const handleLogout = () => {
     logout();
-    router.push("/admin/login");
+    // Immediate redirect to admin login
+    window.location.href = "/admin/login";
   };
 
   // Prevent hydration mismatch

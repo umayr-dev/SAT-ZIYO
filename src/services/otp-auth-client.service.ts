@@ -35,10 +35,14 @@ export interface LogoutResponse {
  * Send OTP to email
  * @param email - User's email address
  * @param isRegister - Whether this is for registration (default: false)
+ * @param password - User's password (required for backend API)
+ * @param name - User's name (required for registration)
  */
 export async function sendOTP(
   email: string,
-  isRegister: boolean = false
+  isRegister: boolean = false,
+  password?: string,
+  name?: string
 ): Promise<SendOTPResponse> {
   const response = await fetch("/api/auth/otp/send", {
     method: "POST",
@@ -46,7 +50,7 @@ export async function sendOTP(
       "Content-Type": "application/json",
     },
     credentials: "include", // Important: include cookies
-    body: JSON.stringify({ email, isRegister }),
+    body: JSON.stringify({ email, isRegister, password, name }),
   });
 
   if (!response.ok) {

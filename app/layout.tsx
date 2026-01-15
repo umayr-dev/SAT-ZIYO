@@ -78,7 +78,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: process.env.NEXT_PUBLIC_SITE_URL || "https://sat-ziyo.com",
+    url: process.env.NEXT_PUBLIC_SITE_URL || "https://satziyo.uz",
     siteName: "SAT Ziyo",
     title: "SAT Ziyo - Digital SAT Prep Platform",
     description:

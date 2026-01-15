@@ -14,7 +14,7 @@ import {
   Headphones,
   Settings,
   LogOut,
-  X,
+  PanelLeftClose,
   ChevronLeft,
   ChevronRight,
   Zap,
@@ -93,13 +93,16 @@ export function DashboardSidebar() {
 
   const handleLogout = async () => {
     try {
-      await logoutMutation.mutateAsync();
-      // Use hard redirect to ensure token is cleared and page reloads
-      window.location.href = "/auth/login";
+      // Start logout process but don't wait - redirect immediately
+      logoutMutation.mutateAsync().catch(() => {
+        // Silently handle errors
+      });
+      // Immediate redirect to home page
+      window.location.href = "/";
     } catch (error) {
       console.error("Logout failed:", error);
-      // Even if API call fails, redirect to login
-      window.location.href = "/auth/login";
+      // Even if API call fails, redirect to home page
+      window.location.href = "/";
     }
   };
 
@@ -116,45 +119,74 @@ export function DashboardSidebar() {
         )}
       >
         {/* Logo */}
-        <div className="p-4 border-b border-gray-200 flex-shrink-0 relative pr-14">
+        <div
+          className={cn(
+            "border-b border-gray-200 flex-shrink-0 relative",
+            isCollapsed ? "p-4 pb-3" : "p-4 pr-14"
+          )}
+        >
           {!isCollapsed && (
-            <Link href="/dashboard" className="flex items-center">
-              <Image
-                src="/alogo.jpg"
-                alt="SAT Ziyo Logo"
-                width={120}
-                height={40}
-                className="h-10 w-auto object-contain"
-                priority
-              />
-            </Link>
+            <div className="flex items-center gap-3">
+              <Link
+                href="/dashboard"
+                className="flex items-center flex-shrink-0"
+              >
+                <Image
+                  src="/alogo.jpg"
+                  alt="SAT Ziyo Logo"
+                  width={120}
+                  height={40}
+                  className="h-10 w-auto object-contain"
+                  priority
+                />
+              </Link>
+              <div className="flex flex-col">
+                <span className="text-sm font-bold text-gray-900 leading-tight">
+                  SAT Ziyo
+                </span>
+                <span className="text-xs text-gray-600 leading-tight">
+                  Digital SAT Prep
+                </span>
+              </div>
+            </div>
           )}
           {isCollapsed && (
-            <Link
-              href="/dashboard"
-              className="flex items-center justify-center"
-            >
-              <div className="w-8 h-8 bg-blue-900 rounded flex items-center justify-center">
-                <span className="text-white font-bold text-xs">SZ</span>
-              </div>
-            </Link>
+            <div className="flex flex-col items-center gap-3">
+              <Link
+                href="/dashboard"
+                className="flex items-center justify-center"
+              >
+                <Image
+                  src="/alogo.jpg"
+                  alt="SAT Ziyo Logo"
+                  width={40}
+                  height={40}
+                  className="h-10 w-auto object-contain"
+                  priority
+                />
+              </Link>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-8 h-8 rounded-full bg-white border-2 border-gray-300 shadow-lg hover:bg-blue-50 hover:border-blue-900 hover:shadow-xl transition-all duration-200 flex items-center justify-center group"
+                onClick={toggleSidebar}
+                aria-label="Expand sidebar"
+              >
+                <ChevronRight className="h-4 w-4 text-gray-700 group-hover:text-blue-900 transition-colors" />
+              </Button>
+            </div>
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn(
-              "absolute top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white border-2 border-gray-300 shadow-lg hover:bg-blue-50 hover:border-blue-900 hover:shadow-xl z-50 transition-all duration-200 flex items-center justify-center group",
-              isCollapsed ? "right-2" : "right-2"
-            )}
-            onClick={toggleSidebar}
-            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {isCollapsed ? (
-              <ChevronRight className="h-5 w-5 text-gray-700 group-hover:text-blue-900 transition-colors" />
-            ) : (
-              <X className="h-5 w-5 text-gray-700 group-hover:text-blue-900 transition-colors" />
-            )}
-          </Button>
+          {!isCollapsed && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-1/2 -translate-y-1/2 right-2 w-10 h-10 rounded-full bg-white border-2 border-gray-300 shadow-lg hover:bg-blue-50 hover:border-blue-900 hover:shadow-xl z-50 transition-all duration-200 flex items-center justify-center group"
+              onClick={toggleSidebar}
+              aria-label="Collapse sidebar"
+            >
+              <PanelLeftClose className="h-5 w-5 text-gray-700 group-hover:text-blue-900 transition-colors" />
+            </Button>
+          )}
         </div>
 
         {/* Scrollable Content Area */}

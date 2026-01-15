@@ -18,6 +18,7 @@ export default function RegisterPage() {
   const [step, setStep] = useState<AuthStep>("register");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,9 +64,10 @@ export default function RegisterPage() {
 
     // No valid session - send OTP for registration
     try {
-      await sendOTP(emailValue, true); // isRegister = true
+      await sendOTP(emailValue, true, password, nameValue); // isRegister = true, password, name
       setEmail(emailValue);
       setName(nameValue);
+      setPassword(password); // Store password for resend
       setStep("otp");
     } catch (err) {
       setError(
@@ -102,7 +104,7 @@ export default function RegisterPage() {
     setError(null);
     setIsLoading(true);
     try {
-      await sendOTP(email, true); // isRegister = true
+      await sendOTP(email, true, password, name); // isRegister = true, password, name
     } catch (err) {
       setError(
         err instanceof Error
@@ -115,12 +117,19 @@ export default function RegisterPage() {
   };
 
   const handleGoogleSignIn = () => {
-    // Build redirect URL for callback
+    // Build absolute redirect URL using current origin (works for both local and prod)
+    const appOrigin =
+      typeof window !== "undefined" ? window.location.origin : "";
+
+    // Build full callback URL with redirect parameter
+    const callbackUrl = `${appOrigin}/auth/callback?redirect=${encodeURIComponent(
+      "/dashboard"
+    )}`;
+
+    // Backend expects the full callback URL as redirect parameter
     const googleAuthUrl = `${API_CONFIG.baseURL}${
       API_ENDPOINTS.auth.google
-    }?redirect=${encodeURIComponent(
-      `/auth/callback?redirect=${encodeURIComponent("/dashboard")}`
-    )}`;
+    }?redirect=${encodeURIComponent(callbackUrl)}`;
 
     // Redirect to backend Google OAuth endpoint
     window.location.href = googleAuthUrl;

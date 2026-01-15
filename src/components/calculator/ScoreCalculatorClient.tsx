@@ -2311,7 +2311,7 @@ const digitalSATMath2DTable: { [m1: number]: { [m2: number]: number } } = {
 };
 
 /**
- * Get score from 2D lookup table
+ * Get score from 2D lookup table (for Reading & Writing - max 27)
  * @param table - 2D lookup table
  * @param m1 - Module 1 score (row index)
  * @param m2 - Module 2 score (column index)
@@ -2322,7 +2322,7 @@ function getScoreFrom2DTable(
   m1: number,
   m2: number
 ): number {
-  // Clamp values to valid ranges
+  // Clamp values to valid ranges (Reading & Writing: 0-27)
   const clampedM1 = Math.max(0, Math.min(27, Math.round(m1)));
   const clampedM2 = Math.max(0, Math.min(27, Math.round(m2)));
 
@@ -2356,6 +2356,55 @@ function getScoreFrom2DTable(
   // Ultimate fallback
   if (clampedM1 >= 20 && clampedM2 >= 20) return 800;
   if (clampedM1 <= 5 && clampedM2 <= 5) return 200;
+  return 400;
+}
+
+/**
+ * Get score from 2D lookup table (for Math - max 22)
+ * @param table - 2D lookup table
+ * @param m1 - Module 1 score (row index)
+ * @param m2 - Module 2 score (column index)
+ * @returns Scaled score
+ */
+function getScoreFrom2DTableForMath(
+  table: { [m1: number]: { [m2: number]: number } },
+  m1: number,
+  m2: number
+): number {
+  // Clamp values to valid ranges (Math: 0-22)
+  const clampedM1 = Math.max(0, Math.min(22, Math.round(m1)));
+  const clampedM2 = Math.max(0, Math.min(22, Math.round(m2)));
+
+  // Direct lookup
+  if (table[clampedM1] && table[clampedM1][clampedM2] !== undefined) {
+    return table[clampedM1][clampedM2];
+  }
+
+  // Fallback: find nearest valid values
+  let validM1 = clampedM1;
+  let validM2 = clampedM2;
+
+  // Find valid M1
+  while (validM1 >= 0 && !table[validM1]) validM1--;
+  if (validM1 < 0) {
+    while (validM1 <= 22 && !table[validM1]) validM1++;
+  }
+
+  // Find valid M2
+  if (table[validM1]) {
+    while (validM2 >= 0 && table[validM1][validM2] === undefined) validM2--;
+    if (validM2 < 0) {
+      while (validM2 <= 22 && table[validM1][validM2] === undefined) validM2++;
+    }
+  }
+
+  if (table[validM1] && table[validM1][validM2] !== undefined) {
+    return table[validM1][validM2];
+  }
+
+  // Ultimate fallback
+  if (clampedM1 >= 18 && clampedM2 >= 18) return 800;
+  if (clampedM1 <= 3 && clampedM2 <= 3) return 200;
   return 400;
 }
 
@@ -2428,15 +2477,33 @@ export function ScoreCalculatorClient() {
     return score;
   };
 
+  /**
+   * Calculate Math score - 2D Lookup Table (from Excel file)
+   * M1 va M2 alohida indekslar sifatida 2D jadvaldan to'g'ridan-to'g'ri score olinadi
+   * Math uchun range: M1 va M2 0-22
+   */
+  const calculateMathScore = (
+    module1: number,
+    module2: number
+  ): number => {
+    // 2D lookup table'dan to'g'ridan-to'g'ri score olish
+    // Math uchun max 22 (Reading & Writing uchun 27)
+    const score = getScoreFrom2DTableForMath(
+      digitalSATMath2DTable,
+      module1,
+      module2
+    );
+    return score;
+  };
+
   // Calculate scores instantly - no API calls
   const scores = useMemo(() => {
     const readingWritingScore = calculateReadingWritingScore(
       rwModule1,
       rwModule2
     );
-    // Math uchun ham Albert.io style: M1 + M2 qo'shiladi, keyin conversion table'dan score olinadi
-    const mathRaw = mathModule1 + mathModule2;
-    const mathScore = getScoreFromTable(digitalSATMathTable, mathRaw);
+    // Math uchun 2D lookup table ishlatamiz (M1 va M2 alohida)
+    const mathScore = calculateMathScore(mathModule1, mathModule2);
     const totalScore = readingWritingScore + mathScore;
     const percentile = calculatePercentile(totalScore);
 

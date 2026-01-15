@@ -12,8 +12,16 @@ const JWT_COOKIE_NAME = "token";
 
 export async function GET(request: NextRequest) {
   try {
-    // Get JWT token from cookie
-    const token = request.cookies.get(JWT_COOKIE_NAME)?.value;
+    // Get JWT token from cookie (preferred) or Authorization header
+    let token = request.cookies.get(JWT_COOKIE_NAME)?.value;
+    
+    // If no token in cookie, check Authorization header
+    if (!token) {
+      const authHeader = request.headers.get("Authorization");
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        token = authHeader.substring(7);
+      }
+    }
 
     if (!token) {
       return NextResponse.json(
@@ -22,7 +30,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Call external API to get current user
+    // Call backend API with token to get current user
+    // Backend validates token and returns user data
     const response = await fetch(`${API_CONFIG.baseURL}/auth/me`, {
       method: "GET",
       headers: {

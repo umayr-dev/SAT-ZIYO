@@ -13,22 +13,7 @@ export async function POST(request: NextRequest) {
   try {
     const token = request.cookies.get(JWT_COOKIE_NAME)?.value;
 
-    // Call external API logout if token exists
-    if (token) {
-      try {
-        await fetch(`${API_CONFIG.baseURL}${API_ENDPOINTS.auth.logout}`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
-      } catch (error) {
-        // Continue with cookie deletion even if API call fails
-        console.error("External logout API error:", error);
-      }
-    }
-
+    // Clear cookie immediately for fast logout
     const response = NextResponse.json(
       {
         success: true,
@@ -37,12 +22,33 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
 
-    // Clear JWT token cookie
+    // Clear JWT token cookie immediately
     response.cookies.delete(JWT_COOKIE_NAME);
+
+    // Call external API logout in background (don't wait for it)
+    if (token) {
+      // Fire and forget - don't wait for backend response
+      fetch(`${API_CONFIG.baseURL}${API_ENDPOINTS.auth.logout}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }).catch((error) => {
+        // Silently handle errors - logout should succeed even if backend fails
+        console.error("External logout API error:", error);
+      });
+    }
 
     return response;
   } catch (error) {
     console.error("Logout error:", error);
-    return NextResponse.json({ error: "Failed to logout" }, { status: 500 });
+    // Even on error, clear the cookie
+    const errorResponse = NextResponse.json(
+      { success: true, message: "Logged out successfully" },
+      { status: 200 }
+    );
+    errorResponse.cookies.delete(JWT_COOKIE_NAME);
+    return errorResponse;
   }
 }

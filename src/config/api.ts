@@ -21,4 +21,8 @@ export const API_ENDPOINTS = {
     list: "/users",
     detail: (id: string) => `/users/${id}`,
   },
+  exams: {
+    dates: "/exams/dates",
+    select: "/exams/select",
+  },
 } as const;

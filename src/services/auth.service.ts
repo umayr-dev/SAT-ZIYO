@@ -117,6 +117,7 @@ export const authService = {
   async updateProfile(data: {
     email?: string;
     name?: string;
+    targetScore?: number;
   }): Promise<UserProfile> {
     // Use our Next.js API route which handles cookie-based auth
     const response = await fetch("/api/auth/profile", {
@@ -139,19 +140,28 @@ export const authService = {
   /**
    * Logout user
    * Clears JWT token and logs out the user
+   * Optimized for fast logout - doesn't wait for backend response
    */
   async logout(): Promise<AuthResponse> {
-    try {
-      await apiPost<AuthResponse>(API_ENDPOINTS.auth.logout, undefined, {
-        requireAuth: true,
-      });
-    } finally {
-      // Always remove token from storage
-      if (typeof window !== "undefined") {
-        const { tokenStorage } = await import("@/src/lib/token-storage");
-        tokenStorage.removeToken();
-      }
+    // Remove token from storage immediately
+    if (typeof window !== "undefined") {
+      const { tokenStorage } = await import("@/src/lib/token-storage");
+      tokenStorage.removeToken();
     }
+
+    // Call logout API but don't wait for it (fire and forget)
+    try {
+      // Use fetch directly to avoid waiting
+      fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      }).catch(() => {
+        // Silently handle errors - logout should succeed even if API fails
+      });
+    } catch (error) {
+      // Silently handle errors
+    }
+
     return { success: true };
   },
 };

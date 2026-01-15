@@ -1,7 +1,7 @@
 "use client";
 
 import { TopToScrollButton } from "./TopToScrollButton";
-import { SupportChatButton } from "./SupportChatButton";
+// SupportChatButton removed - support is available in dashboard sidebar
 
 /**
  * Floating Buttons Wrapper
@@ -12,7 +12,7 @@ export function FloatingButtons() {
   return (
     <>
       <TopToScrollButton />
-      <SupportChatButton />
+      {/* SupportChatButton removed - support is available in dashboard sidebar */}
     </>
   );
 }

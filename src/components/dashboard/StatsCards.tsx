@@ -1,7 +1,9 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { BookOpen, Target, TrendingUp, Clock, Award, Zap } from "lucide-react";
 import { Card, CardContent } from "@/src/ui/card";
+import { authService } from "@/src/services/auth.service";
 
 interface StatCardProps {
   icon: React.ReactNode;
@@ -64,6 +66,23 @@ function StatCard({
 }
 
 export function StatsCards() {
+  const [targetScore, setTargetScore] = useState<string>("1,500");
+
+  useEffect(() => {
+    async function loadTargetScore() {
+      try {
+        const user = await authService.getCurrentUser();
+        if (user.targetScore) {
+          setTargetScore(user.targetScore.toLocaleString());
+        }
+      } catch (err) {
+        console.error("Failed to load target score:", err);
+      }
+    }
+
+    loadTargetScore();
+  }, []);
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
       <StatCard
@@ -77,7 +96,7 @@ export function StatsCards() {
       <StatCard
         icon={<Target className="h-6 w-6 text-blue-800" />}
         label="Target Score"
-        value="1,500"
+        value={targetScore}
         change="150 points to go"
         trend="neutral"
         gradient="bg-blue-50"

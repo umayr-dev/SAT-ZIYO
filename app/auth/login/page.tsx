@@ -18,6 +18,7 @@ function LoginPageContent() {
   const searchParams = useSearchParams();
   const [step, setStep] = useState<AuthStep>("login");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
@@ -69,8 +70,9 @@ function LoginPageContent() {
 
     // No valid session - send OTP to user's email
     try {
-      await sendOTP(emailValue);
+      await sendOTP(emailValue, false, password);
       setEmail(emailValue);
+      setPassword(password); // Store password for resend
       setStep("otp");
     } catch (err) {
       setError(
@@ -108,7 +110,7 @@ function LoginPageContent() {
     setError(null);
     setIsLoading(true);
     try {
-      await sendOTP(email);
+      await sendOTP(email, false, password); // Use stored password
     } catch (err) {
       setError(
         err instanceof Error
@@ -121,13 +123,20 @@ function LoginPageContent() {
   };
 
   const handleGoogleSignIn = () => {
-    // Build redirect URL to preserve redirect parameter
+    // Build absolute redirect URL using current origin (works for both local and prod)
+    const appOrigin =
+      typeof window !== "undefined" ? window.location.origin : "";
     const redirectParam = redirectUrl || "/dashboard";
+
+    // Build full callback URL with redirect parameter
+    const callbackUrl = `${appOrigin}/auth/callback?redirect=${encodeURIComponent(
+      redirectParam
+    )}`;
+
+    // Backend expects the full callback URL as redirect parameter
     const googleAuthUrl = `${API_CONFIG.baseURL}${
       API_ENDPOINTS.auth.google
-    }?redirect=${encodeURIComponent(
-      `/auth/callback?redirect=${encodeURIComponent(redirectParam)}`
-    )}`;
+    }?redirect=${encodeURIComponent(callbackUrl)}`;
 
     // Redirect to backend Google OAuth endpoint
     window.location.href = googleAuthUrl;

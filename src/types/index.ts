@@ -40,6 +40,7 @@ export interface UserProfile {
   email: string;
   role: string;
   name?: string;
+  targetScore?: number;
 }
 
 // API Response types

@@ -70,11 +70,16 @@ export function SettingsPageClient() {
 
   const handleLogout = async () => {
     try {
-      await logoutMutation.mutateAsync();
-      window.location.href = "/auth/login";
+      // Start logout process but don't wait - redirect immediately
+      logoutMutation.mutateAsync().catch(() => {
+        // Silently handle errors
+      });
+      // Immediate redirect to home page
+      window.location.href = "/";
     } catch (error) {
       console.error("Logout failed:", error);
-      window.location.href = "/auth/login";
+      // Even if API call fails, redirect to home page
+      window.location.href = "/";
     }
   };
 

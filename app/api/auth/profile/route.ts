@@ -23,7 +23,11 @@ export async function PATCH(request: NextRequest) {
 
     const body = await request.json();
 
-    // Call external API to update profile
+    // According to OpenAPI spec, backend API does not have a PATCH endpoint for /auth/me
+    // Backend needs to add PATCH method to /auth/me or create /auth/profile endpoint
+    // For now, we'll try /auth/me with PATCH (in case it's added in the future)
+    // and return a clear error message if it doesn't exist
+
     const response = await fetch(`${API_CONFIG.baseURL}/auth/me`, {
       method: "PATCH",
       headers: {
@@ -36,10 +40,30 @@ export async function PATCH(request: NextRequest) {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({
         statusCode: response.status,
-        message: "Failed to update profile",
+        message:
+          response.status === 404
+            ? "Profile update endpoint not found. Backend API needs to add PATCH method to /auth/me endpoint."
+            : "Failed to update profile",
       }));
 
-      return NextResponse.json(errorData, { status: response.status });
+      console.error("Profile update failed:", {
+        status: response.status,
+        error: errorData,
+        attemptedEndpoint: "/auth/me",
+        note: "Backend API does not have PATCH endpoint for profile updates. Need to add PATCH to /auth/me or create /auth/profile endpoint.",
+      });
+
+      return NextResponse.json(
+        {
+          statusCode: response.status,
+          message: errorData.message || "Failed to update profile",
+          error:
+            response.status === 404
+              ? "Backend API does not support PATCH method for /auth/me. Please add PATCH endpoint to backend API for profile updates."
+              : errorData.error || "Unknown error",
+        },
+        { status: response.status }
+      );
     }
 
     const userData = await response.json();

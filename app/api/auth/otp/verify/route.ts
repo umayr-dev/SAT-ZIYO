@@ -6,7 +6,6 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { verifyOTP, clearOTP } from "@/src/lib/server/otp-store";
 import { API_CONFIG, API_ENDPOINTS } from "@/src/config/api";
 
 const JWT_COOKIE_NAME = "token";
@@ -32,20 +31,8 @@ export async function POST(request: NextRequest) {
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    // First, verify OTP locally
-    const isValid = await verifyOTP(normalizedEmail, otp);
-    
-    if (!isValid) {
-      return NextResponse.json(
-        { error: "Invalid or expired OTP" },
-        { status: 401 }
-      );
-    }
-
-    // Clear used OTP
-    await clearOTP(normalizedEmail);
-
-    // Now call external API to get JWT token
+    // Call backend API to verify OTP and get JWT token
+    // Backend will verify OTP and return token if valid
     // For register, we might need to send name as well
     const requestBody: { email: string; otp: string; name?: string } = {
       email: normalizedEmail,
@@ -56,18 +43,32 @@ export async function POST(request: NextRequest) {
       requestBody.name = name;
     }
 
-    const response = await fetch(`${API_CONFIG.baseURL}${API_ENDPOINTS.auth.verifyOtp}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestBody),
-    });
+    const response = await fetch(
+      `${API_CONFIG.baseURL}${API_ENDPOINTS.auth.verifyOtp}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      }
+    );
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      console.error("Backend OTP verification failed:", {
+        status: response.status,
+        error: errorData,
+        email: normalizedEmail,
+      });
+
       return NextResponse.json(
-        { error: errorData.message || "Authentication failed" },
+        {
+          error:
+            errorData.message ||
+            errorData.error ||
+            "Invalid or expired OTP. Please check the code from your email.",
+        },
         { status: response.status }
       );
     }
@@ -77,10 +78,7 @@ export async function POST(request: NextRequest) {
     // Extract JWT token from response
     // API may return token in different fields: accessToken, token, access_token, jwt
     const token =
-      data.accessToken ||
-      data.token ||
-      data.access_token ||
-      data.jwt;
+      data.accessToken || data.token || data.access_token || data.jwt;
 
     if (!token) {
       console.error("Token not found in OTP verification response:", data);
@@ -122,4 +120,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
