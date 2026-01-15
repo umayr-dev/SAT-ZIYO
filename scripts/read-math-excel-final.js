@@ -78,22 +78,7 @@ console.log("16-16 (M1=16, M2=16):", table[16] && table[16][16]);
 console.log("17-16 (M1=17, M2=16):", table[17] && table[17][16]);
 console.log("0-0 (M1=0, M2=0):", table[0] && table[0][0]);
 
-// Rasmdan ko'rinib turgan qiymatlar:
-// 16-16 = 510 (Excel faylda 610)
-// 17-16 = 530 (Excel faylda 630)
-// 0-0 = 200 (Excel faylda 200 - to'g'ri)
-
-// Excel fayldan o'qib olgan ma'lumotlar noto'g'ri bo'lishi mumkin
-// Rasmdan ko'rinib turgan qiymatlarni to'g'rilaymiz
-if (table[16] && table[16][16] === 610) {
-  table[16][16] = 510;
-  console.log("16-16 ni 510 ga o'zgartirildi");
-}
-
-if (table[17] && table[17][16] === 630) {
-  table[17][16] = 530;
-  console.log("17-16 ni 530 ga o'zgartirildi");
-}
+// Excel fayldan o'qib olgan ma'lumotlar to'g'ri
 
 // Print as JavaScript object (M1 as outer key, M2 as inner key)
 console.log("\n// Math 2D Table from Excel (M1 -> M2):");
