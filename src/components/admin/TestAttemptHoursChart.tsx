@@ -90,7 +90,7 @@ export default function TestAttemptHoursChart() {
           />
           <YAxis tick={{ fontSize: 12 }} />
           <Tooltip
-            formatter={(value: number) => [`${value} attempts`, "Count"]}
+            formatter={(value: number | undefined) => [`${value ?? 0} attempts`, "Count"]}
             labelFormatter={(label) => `Hour: ${label}`}
           />
           <Legend />
