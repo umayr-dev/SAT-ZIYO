@@ -68,11 +68,11 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/alogo.jpg", sizes: "any" },
-      { url: "/alogo.jpg", type: "image/jpeg" },
+      { url: "/logo.png", sizes: "any" },
+      { url: "/logo.png", type: "image/png" },
     ],
-    apple: [{ url: "/alogo.jpg", sizes: "180x180", type: "image/jpeg" }],
-    shortcut: "/alogo.jpg",
+    apple: [{ url: "/logo.png", sizes: "180x180", type: "image/png" }],
+    shortcut: "/logo.png",
   },
   manifest: "/manifest.json",
   openGraph: {
@@ -85,7 +85,7 @@ export const metadata: Metadata = {
       "Comprehensive Digital SAT English & Math practice platform. Boost your SAT prep with daily targeted questions, track progress, and get instant feedback.",
     images: [
       {
-        url: "/alogo.jpg",
+        url: "/logo.png",
         width: 1200,
         height: 630,
         alt: "SAT Ziyo - Digital SAT Prep Platform",
@@ -97,7 +97,7 @@ export const metadata: Metadata = {
     title: "SAT Ziyo - Digital SAT Prep Platform",
     description:
       "Comprehensive Digital SAT English & Math practice platform. Boost your SAT prep with daily targeted questions.",
-    images: ["/alogo.jpg"],
+    images: ["/logo.png"],
     creator: "@satziyo",
   },
   alternates: {

@@ -58,6 +58,21 @@ export async function GET(request: NextRequest) {
 
     const userData = await response.json();
 
+    // If token came from Authorization header (not cookie), save it to cookie for future requests
+    const tokenFromHeader = request.headers.get("Authorization")?.startsWith("Bearer ");
+    if (tokenFromHeader && token) {
+      const apiResponse = NextResponse.json(userData, { status: 200 });
+      // Store token in cookie for future requests
+      apiResponse.cookies.set(JWT_COOKIE_NAME, token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 30 * 24 * 60 * 60, // 30 days
+        path: "/",
+      });
+      return apiResponse;
+    }
+
     // Return user data
     return NextResponse.json(userData, { status: 200 });
   } catch (error) {

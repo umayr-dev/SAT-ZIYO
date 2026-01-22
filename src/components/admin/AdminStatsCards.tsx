@@ -1,6 +1,14 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Card } from "@/src/ui/card";
+import { Loading } from "@/src/ui/loading";
+
+interface AdminStats {
+  usersCount: number;
+  testsCount: number;
+  hourDistribution: { hour: number; count: number }[];
+}
 
 /**
  * Admin Stats Cards - Client Component
@@ -8,13 +16,50 @@ import { Card } from "@/src/ui/card";
  * Performance: Dynamically imported to reduce initial bundle
  */
 export default function AdminStatsCards() {
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const response = await fetch("/api/admin/stats");
+        if (response.ok) {
+          const data = await response.json();
+          setStats(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch admin stats:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchStats();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {[1, 2, 3].map((i) => (
+          <Card key={i} className="p-6">
+            <div className="flex items-center justify-center h-32">
+              <Loading size="sm" />
+            </div>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       <Card className="p-6">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-gray-600">Total Users</p>
-            <p className="text-3xl font-bold text-gray-900 mt-2">0</p>
+            <p className="text-3xl font-bold text-gray-900 mt-2">
+              {stats?.usersCount ?? 0}
+            </p>
           </div>
           <div className="bg-blue-100 p-3 rounded-lg">
             <svg
@@ -37,36 +82,14 @@ export default function AdminStatsCards() {
       <Card className="p-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-600">Active Sessions</p>
-            <p className="text-3xl font-bold text-gray-900 mt-2">0</p>
+            <p className="text-sm font-medium text-gray-600">Total Tests</p>
+            <p className="text-3xl font-bold text-gray-900 mt-2">
+              {stats?.testsCount ?? 0}
+            </p>
           </div>
           <div className="bg-green-100 p-3 rounded-lg">
             <svg
               className="w-6 h-6 text-green-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-          </div>
-        </div>
-      </Card>
-
-      <Card className="p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-gray-600">Total Questions</p>
-            <p className="text-3xl font-bold text-gray-900 mt-2">0</p>
-          </div>
-          <div className="bg-orange-100 p-3 rounded-lg">
-            <svg
-              className="w-6 h-6 text-orange-600"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -81,6 +104,35 @@ export default function AdminStatsCards() {
           </div>
         </div>
       </Card>
+
+      <Card className="p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-600">Active Sessions</p>
+            <p className="text-3xl font-bold text-gray-900 mt-2">
+              {stats?.hourDistribution.reduce((sum, h) => sum + h.count, 0) ??
+                0}
+            </p>
+          </div>
+          <div className="bg-orange-100 p-3 rounded-lg">
+            <svg
+              className="w-6 h-6 text-orange-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </div>
+        </div>
+      </Card>
     </div>
   );
 }
+
+

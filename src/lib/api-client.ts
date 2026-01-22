@@ -28,7 +28,12 @@ export async function apiClient<T>(
 ): Promise<T> {
   const { requireAuth = false, ...fetchOptions } = options;
 
+  // If endpoint starts with /api/, it's a Next.js API route - use it as-is (relative URL)
+  // If endpoint starts with http, use it as-is (absolute URL)
+  // Otherwise, prepend API_CONFIG.baseURL (external backend API)
   const url = endpoint.startsWith("http")
+    ? endpoint
+    : endpoint.startsWith("/api/")
     ? endpoint
     : `${API_CONFIG.baseURL}${endpoint}`;
 
@@ -44,17 +49,41 @@ export async function apiClient<T>(
     const token = tokenStorage.getToken();
     if (token) {
       headers.set("Authorization", `Bearer ${token}`);
+    } else {
+      // If no token in localStorage, that's OK - we use cookie-based auth
+      // Only log in development mode and only once per session to avoid spam
+      if (process.env.NODE_ENV === "development") {
+        const warningKey = "apiClient_no_token_warning_shown";
+        if (!sessionStorage.getItem(warningKey)) {
+          console.warn(`[apiClient] No token in localStorage. Using cookie-based authentication. This warning will not appear again.`);
+          sessionStorage.setItem(warningKey, "true");
+        }
+      }
+      // Request will be sent with credentials: "include" which sends cookies
+      // Backend should check cookie for authentication
     }
   }
 
+  // Always include credentials for cookie-based auth
   const requestOptions: RequestInit = {
     ...fetchOptions,
     headers,
     mode: "cors", // Allow CORS if needed
+    credentials: fetchOptions.credentials || "include", // Always include credentials for cookie-based auth
   };
 
   try {
     const response = await fetch(url, requestOptions);
+
+    // Log 401 errors for debugging
+    if (response.status === 401 && requireAuth) {
+      const token = tokenStorage.getToken();
+      console.error(`[apiClient] 401 Unauthorized for ${endpoint}`, {
+        hasToken: !!token,
+        hasCredentials: requestOptions.credentials === "include",
+        url,
+      });
+    }
 
     // Handle non-JSON responses
     const contentType = response.headers.get("content-type");

@@ -94,22 +94,61 @@ export async function verifyOTP(
 /**
  * Get current authenticated user
  * Returns user if authenticated, throws if not
+ * Uses caching to prevent rate limiting
  */
 export async function getCurrentUser(): Promise<UserResponse> {
-  const response = await fetch("/api/auth/me", {
-    method: "GET",
-    credentials: "include", // Important: include cookies
-  });
-
-  if (!response.ok) {
-    if (response.status === 401) {
-      throw new Error("Not authenticated");
-    }
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || error.error || "Failed to get user");
+  // Import cache manager dynamically to avoid circular dependencies
+  const { userCacheManager } = await import("@/src/lib/user-cache");
+  
+  // Check cache first
+  const cached = userCacheManager.get();
+  if (cached) {
+    return cached;
   }
 
-  return response.json();
+  // Use cache manager to prevent multiple simultaneous requests
+  return userCacheManager.getOrCreatePromise(async () => {
+    // Try to get token from localStorage as fallback
+    let token: string | null = null;
+    if (typeof window !== "undefined") {
+      token = localStorage.getItem("auth_token");
+    }
+
+    const headers: HeadersInit = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const response = await fetch("/api/auth/me", {
+      method: "GET",
+      credentials: "include", // Important: include cookies
+      headers,
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        // Clear invalid token and cache
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("auth_token");
+        }
+        userCacheManager.clear();
+        throw new Error("Not authenticated");
+      }
+      if (response.status === 429) {
+        // Rate limited - wait a bit and return cached if available
+        const cached = userCacheManager.get();
+        if (cached) {
+          return cached;
+        }
+        throw new Error("Too many requests. Please wait a moment.");
+      }
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || error.error || "Failed to get user");
+    }
+
+    const userData = await response.json();
+    return userData;
+  });
 }
 
 /**

@@ -28,10 +28,28 @@ function LoginPageContent() {
   useEffect(() => {
     const checkExistingAuth = async () => {
       try {
-        const isAuthenticated = await checkAuth();
-        if (isAuthenticated) {
-          const redirect = searchParams.get("redirect") || "/dashboard";
-          router.push(redirect);
+        // Use getCurrentUser directly to get user data and check auth in one call
+        const { getCurrentUser } = await import("@/src/services/otp-auth-client.service");
+        const user = await getCurrentUser();
+        
+        if (user) {
+          const redirect = searchParams.get("redirect");
+          
+          // If redirect is /admin, check role
+          if (redirect === "/admin") {
+            // Only ADMIN and OWNER can access admin panel
+            if (user.role === "ADMIN" || user.role === "OWNER") {
+              router.push("/admin");
+              return;
+            } else {
+              // Not admin/owner, redirect to dashboard
+              router.push("/dashboard");
+              return;
+            }
+          }
+          
+          // Default redirect
+          router.push(redirect || "/dashboard");
           return;
         }
       } catch {
@@ -57,10 +75,22 @@ function LoginPageContent() {
 
     try {
       // First check if user already has a valid session cookie
-      const isAuthenticated = await checkAuth();
-      if (isAuthenticated) {
-        // User already authenticated, redirect immediately without OTP
-        const finalRedirectUrl = redirectUrl || "/dashboard";
+      // Use getCurrentUser directly to get user data and check auth in one call
+      const { getCurrentUser } = await import("@/src/services/otp-auth-client.service");
+      const user = await getCurrentUser();
+      
+      if (user) {
+        // User already authenticated, check role if redirecting to admin
+        let finalRedirectUrl = redirectUrl || "/dashboard";
+        if (finalRedirectUrl === "/admin") {
+          // Only ADMIN and OWNER can access admin panel
+          if (user.role === "ADMIN" || user.role === "OWNER") {
+            finalRedirectUrl = "/admin";
+          } else {
+            // Not admin/owner, redirect to dashboard
+            finalRedirectUrl = "/dashboard";
+          }
+        }
         router.push(finalRedirectUrl);
         return;
       }
@@ -93,8 +123,26 @@ function LoginPageContent() {
       // Verify OTP - this creates the session cookie with user data
       await verifyOTP(email, code);
 
-      // Redirect to dashboard (session cookie is now set)
-      const finalRedirectUrl = redirectUrl || "/dashboard";
+      // Get user data to check role (uses cache, so no extra request)
+      const { getCurrentUser } = await import("@/src/services/otp-auth-client.service");
+      let finalRedirectUrl = redirectUrl || "/dashboard";
+      
+      if (finalRedirectUrl === "/admin") {
+        try {
+          const user = await getCurrentUser();
+          // Only ADMIN and OWNER can access admin panel
+          if (user.role === "ADMIN" || user.role === "OWNER") {
+            finalRedirectUrl = "/admin";
+          } else {
+            // Not admin/owner, redirect to dashboard
+            finalRedirectUrl = "/dashboard";
+          }
+        } catch {
+          // Failed to check role, redirect to dashboard
+          finalRedirectUrl = "/dashboard";
+        }
+      }
+
       router.push(finalRedirectUrl);
     } catch (err) {
       setError(

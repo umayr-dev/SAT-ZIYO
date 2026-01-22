@@ -60,7 +60,7 @@ export default function Header() {
             >
               <div className="relative w-12 h-12">
                 <Image
-                  src="/alogo.jpg"
+                  src="/logo.png"
                   alt="SAT Ziyo Logo"
                   width={48}
                   height={48}

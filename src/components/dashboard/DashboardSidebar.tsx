@@ -9,29 +9,25 @@ import {
   BookText,
   Users,
   BarChart3,
-  Brain,
   TrendingUp,
   Headphones,
-  Settings,
-  LogOut,
-  PanelLeftClose,
-  ChevronLeft,
-  ChevronRight,
+  Menu,
+  X,
   Zap,
-  ArrowRight,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/src/ui/card";
 import { Button } from "@/src/ui/button";
-import { useLogout } from "@/src/hooks/use-auth";
 import { useSidebar } from "./SidebarContext";
+import { useState } from "react";
 
 interface MenuItem {
   label: string;
   icon: React.ReactNode;
   href: string;
   badge?: string;
-  badgeColor?: "green" | "blue";
+  badgeColor?: "emerald" | "blue" | "amber";
 }
 
 const menuItems: MenuItem[] = [
@@ -46,7 +42,7 @@ const menuItems: MenuItem[] = [
     icon: <BookText className="h-5 w-5" />,
     href: "/dashboard/question-bank",
     badge: "Free",
-    badgeColor: "green",
+    badgeColor: "emerald",
   },
   {
     label: "Classes",
@@ -57,13 +53,6 @@ const menuItems: MenuItem[] = [
     label: "Vocabulary",
     icon: <BarChart3 className="h-5 w-5" />,
     href: "/dashboard/vocabulary",
-  },
-  {
-    label: "Study Plan",
-    icon: <Brain className="h-5 w-5" />,
-    href: "/dashboard/study-plan",
-    badge: "AI",
-    badgeColor: "green",
   },
 ];
 
@@ -78,33 +67,13 @@ const bottomMenuItems: MenuItem[] = [
     icon: <Headphones className="h-5 w-5" />,
     href: "/support",
   },
-  {
-    label: "Settings",
-    icon: <Settings className="h-5 w-5" />,
-    href: "/settings",
-  },
 ];
 
 export function DashboardSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const logoutMutation = useLogout();
   const { isCollapsed, setIsCollapsed } = useSidebar();
-
-  const handleLogout = async () => {
-    try {
-      // Start logout process but don't wait - redirect immediately
-      logoutMutation.mutateAsync().catch(() => {
-        // Silently handle errors
-      });
-      // Immediate redirect to home page
-      window.location.href = "/";
-    } catch (error) {
-      console.error("Logout failed:", error);
-      // Even if API call fails, redirect to home page
-      window.location.href = "/";
-    }
-  };
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
@@ -112,17 +81,33 @@ export function DashboardSidebar() {
 
   return (
     <>
+      {/* Mobile Menu Button */}
+      <button
+        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        className="lg:hidden fixed top-4 left-4 z-50 p-2.5 rounded-xl bg-white text-gray-700 shadow-lg hover:shadow-xl border border-gray-200 transition-all duration-200"
+        aria-label="Toggle menu"
+      >
+        {isMobileMenuOpen ? (
+          <X className="h-6 w-6" />
+        ) : (
+          <Menu className="h-6 w-6" />
+        )}
+      </button>
+
+      {/* Sidebar */}
       <div
         className={cn(
-          "bg-white border-r border-gray-200 h-screen fixed left-0 top-0 flex flex-col overflow-hidden transition-all duration-300 z-40",
-          isCollapsed ? "w-20" : "w-64"
+          "bg-white border-r border-gray-200 h-screen fixed left-0 top-0 flex flex-col overflow-hidden transition-all duration-300 z-40 shadow-sm",
+          isCollapsed ? "w-20" : "w-72",
+          "lg:translate-x-0",
+          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
-        {/* Logo */}
+        {/* Logo Section */}
         <div
           className={cn(
-            "border-b border-gray-200 flex-shrink-0 relative",
-            isCollapsed ? "p-4 pb-3" : "p-4 pr-14"
+            "border-b border-gray-100 flex-shrink-0 relative bg-white",
+            isCollapsed ? "p-4 pb-3" : "p-6 pr-16"
           )}
         >
           {!isCollapsed && (
@@ -131,20 +116,22 @@ export function DashboardSidebar() {
                 href="/dashboard"
                 className="flex items-center flex-shrink-0"
               >
-                <Image
-                  src="/alogo.jpg"
-                  alt="SAT Ziyo Logo"
-                  width={120}
-                  height={40}
-                  className="h-10 w-auto object-contain"
-                  priority
-                />
+                <div className="relative bg-white p-2 rounded-xl border border-gray-200 shadow-sm">
+                  <Image
+                    src="/logo.png"
+                    alt="SAT Ziyo Logo"
+                    width={40}
+                    height={40}
+                    className="h-8 w-auto object-contain"
+                    priority
+                  />
+                </div>
               </Link>
               <div className="flex flex-col">
-                <span className="text-sm font-bold text-gray-900 leading-tight">
+                <span className="text-lg font-bold text-gray-900 leading-tight">
                   SAT Ziyo
                 </span>
-                <span className="text-xs text-gray-600 leading-tight">
+                <span className="text-xs text-gray-500 leading-tight">
                   Digital SAT Prep
                 </span>
               </div>
@@ -156,23 +143,25 @@ export function DashboardSidebar() {
                 href="/dashboard"
                 className="flex items-center justify-center"
               >
-                <Image
-                  src="/alogo.jpg"
-                  alt="SAT Ziyo Logo"
-                  width={40}
-                  height={40}
-                  className="h-10 w-auto object-contain"
-                  priority
-                />
+                <div className="relative bg-white p-2 rounded-xl border border-gray-200 shadow-sm">
+                  <Image
+                    src="/logo.png"
+                    alt="SAT Ziyo Logo"
+                    width={40}
+                    height={40}
+                    className="h-10 w-auto object-contain"
+                    priority
+                  />
+                </div>
               </Link>
               <Button
                 variant="ghost"
                 size="icon"
-                className="w-8 h-8 rounded-full bg-white border-2 border-gray-300 shadow-lg hover:bg-blue-50 hover:border-blue-900 hover:shadow-xl transition-all duration-200 flex items-center justify-center group"
+                className="w-9 h-9 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-all duration-200 flex items-center justify-center"
                 onClick={toggleSidebar}
                 aria-label="Expand sidebar"
               >
-                <ChevronRight className="h-4 w-4 text-gray-700 group-hover:text-blue-900 transition-colors" />
+                <ChevronRight className="h-4 w-4 text-gray-600" />
               </Button>
             </div>
           )}
@@ -180,11 +169,11 @@ export function DashboardSidebar() {
             <Button
               variant="ghost"
               size="icon"
-              className="absolute top-1/2 -translate-y-1/2 right-2 w-10 h-10 rounded-full bg-white border-2 border-gray-300 shadow-lg hover:bg-blue-50 hover:border-blue-900 hover:shadow-xl z-50 transition-all duration-200 flex items-center justify-center group"
+              className="absolute top-1/2 -translate-y-1/2 right-3 w-9 h-9 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-all duration-200 flex items-center justify-center"
               onClick={toggleSidebar}
               aria-label="Collapse sidebar"
             >
-              <PanelLeftClose className="h-5 w-5 text-gray-700 group-hover:text-blue-900 transition-colors" />
+              <X className="h-4 w-4 text-gray-600" />
             </Button>
           )}
         </div>
@@ -192,41 +181,53 @@ export function DashboardSidebar() {
         {/* Scrollable Content Area */}
         <div className="flex-1 overflow-y-auto scrollbar-hide">
           {/* Menu */}
-          <div className={cn("p-3", isCollapsed && "px-2")}>
+          <div className={cn("p-4", isCollapsed && "px-2")}>
             {!isCollapsed && (
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                MENU
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4 px-2">
+                Navigation
               </h3>
             )}
-            <nav className="space-y-0.5">
+            <nav className="space-y-1">
               {menuItems.map((item) => {
                 const isActive = pathname === item.href;
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
+                    onClick={() => setIsMobileMenuOpen(false)}
                     className={cn(
-                      "flex items-center rounded-lg text-sm font-medium transition-colors group relative",
+                      "flex items-center rounded-xl text-sm font-medium transition-all duration-200 group relative",
                       isCollapsed
-                        ? "justify-center px-2 py-2"
-                        : "justify-between px-3 py-2",
+                        ? "justify-center px-2 py-3"
+                        : "justify-between px-4 py-3",
                       isActive
-                        ? "bg-blue-900 text-white"
-                        : "text-gray-700 hover:bg-gray-100"
+                        ? "bg-gray-900 text-white shadow-md"
+                        : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
                     )}
                     title={isCollapsed ? item.label : undefined}
                   >
-                    <div className="flex items-center gap-3">
-                      {item.icon}
+                    <div className="flex items-center gap-3 relative z-10">
+                      <div
+                        className={cn(
+                          "transition-colors duration-200",
+                          isActive
+                            ? "text-white"
+                            : "text-gray-500 group-hover:text-gray-900"
+                        )}
+                      >
+                        {item.icon}
+                      </div>
                       {!isCollapsed && <span>{item.label}</span>}
                     </div>
                     {!isCollapsed && item.badge && (
                       <span
                         className={cn(
-                          "text-xs px-2 py-0.5 rounded-full font-medium",
-                          item.badgeColor === "green"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-blue-100 text-blue-900"
+                          "text-xs px-2.5 py-1 rounded-full font-semibold relative z-10",
+                          item.badgeColor === "emerald"
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                            : item.badgeColor === "blue"
+                            ? "bg-blue-50 text-blue-700 border border-blue-200"
+                            : "bg-amber-50 text-amber-700 border border-amber-200"
                         )}
                       >
                         {item.badge}
@@ -235,10 +236,12 @@ export function DashboardSidebar() {
                     {isCollapsed && item.badge && (
                       <span
                         className={cn(
-                          "absolute -top-1 -right-1 w-2 h-2 rounded-full",
-                          item.badgeColor === "green"
-                            ? "bg-green-500"
-                            : "bg-blue-900"
+                          "absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full",
+                          item.badgeColor === "emerald"
+                            ? "bg-emerald-500"
+                            : item.badgeColor === "blue"
+                            ? "bg-blue-500"
+                            : "bg-amber-500"
                         )}
                       />
                     )}
@@ -250,39 +253,37 @@ export function DashboardSidebar() {
 
           {/* Daily Streak Card */}
           {!isCollapsed && (
-            <div className="px-3 pb-3">
-              <div className="animated-border">
-                <Card className="bg-gray-50 border-0">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Zap className="h-4 w-4 text-orange-500" />
-                      <span className="text-sm font-semibold text-gray-900">
-                        Daily Streak
-                      </span>
-                      <span className="ml-auto text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-medium">
-                        ACTIVE
-                      </span>
+            <div className="px-4 pb-4">
+              <Card className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 overflow-hidden relative shadow-sm">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="p-2 bg-gray-900 rounded-lg">
+                      <Zap className="h-4 w-4 text-white" />
                     </div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-lg font-bold text-gray-900">
-                        1 days
-                      </span>
-                      <ArrowRight className="h-4 w-4 text-gray-400" />
-                      <span className="text-lg font-bold text-gray-900">3</span>
-                    </div>
-                    <div className="text-xs text-gray-600">
-                      Active today ✓ 2 to go
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+                    <span className="text-sm font-semibold text-gray-900">
+                      Daily Streak
+                    </span>
+                    <span className="ml-auto text-xs px-2 py-1 bg-emerald-50 text-emerald-700 rounded-full font-medium border border-emerald-200">
+                      ACTIVE
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-2xl font-bold text-gray-900">1</span>
+                    <ChevronRight className="h-4 w-4 text-gray-400" />
+                    <span className="text-2xl font-bold text-gray-900">3</span>
+                  </div>
+                  <div className="text-xs text-gray-600">
+                    Active today ✓ 2 to go
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           )}
 
           {/* Upgrade Button */}
           {!isCollapsed && (
-            <div className="px-3 pb-3">
-              <Button className="w-full bg-blue-900 hover:bg-blue-800 text-white font-medium">
+            <div className="px-4 pb-4">
+              <Button className="w-full bg-gray-900 hover:bg-gray-800 text-white font-semibold shadow-md hover:shadow-lg transition-all duration-200 rounded-xl">
                 Upgrade to Pro
               </Button>
             </div>
@@ -290,28 +291,38 @@ export function DashboardSidebar() {
         </div>
 
         {/* Fixed Bottom Section */}
-        <div className="flex-shrink-0 border-t border-gray-200">
+        <div className="flex-shrink-0 border-t border-gray-100 bg-white">
           {/* Bottom Menu */}
-          <div className={cn("px-3 pt-3 pb-2", isCollapsed && "px-2")}>
-            <nav className="space-y-0.5">
+          <div className={cn("px-4 pt-3 pb-3", isCollapsed && "px-2")}>
+            <nav className="space-y-1">
               {bottomMenuItems.map((item) => {
                 const isActive = pathname === item.href;
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
+                    onClick={() => setIsMobileMenuOpen(false)}
                     className={cn(
-                      "flex items-center rounded-lg text-sm font-medium transition-colors",
+                      "flex items-center rounded-xl text-sm font-medium transition-all duration-200 group relative",
                       isCollapsed
-                        ? "justify-center px-2 py-2"
-                        : "gap-3 px-3 py-2",
+                        ? "justify-center px-2 py-3"
+                        : "gap-3 px-4 py-3",
                       isActive
-                        ? "bg-blue-900 text-white"
-                        : "text-gray-700 hover:bg-gray-100"
+                        ? "bg-gray-900 text-white shadow-md"
+                        : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
                     )}
                     title={isCollapsed ? item.label : undefined}
                   >
-                    {item.icon}
+                    <div
+                      className={cn(
+                        "transition-colors duration-200",
+                        isActive
+                          ? "text-white"
+                          : "text-gray-500 group-hover:text-gray-900"
+                      )}
+                    >
+                      {item.icon}
+                    </div>
                     {!isCollapsed && <span>{item.label}</span>}
                   </Link>
                 );
@@ -320,11 +331,20 @@ export function DashboardSidebar() {
           </div>
         </div>
       </div>
+
+      {/* Mobile Overlay */}
+      {isMobileMenuOpen && (
+        <div
+          className="lg:hidden fixed inset-0 bg-black/20 backdrop-blur-sm z-30"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
       {/* Spacer for collapsed sidebar */}
       <div
         className={cn(
-          "transition-all duration-300",
-          isCollapsed ? "w-20" : "w-64"
+          "hidden lg:block transition-all duration-300",
+          isCollapsed ? "w-20" : "w-72"
         )}
       />
     </>

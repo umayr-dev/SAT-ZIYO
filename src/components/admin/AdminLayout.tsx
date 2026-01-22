@@ -1,10 +1,11 @@
 "use client";
 
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { useAdminStore } from "@/src/stores/admin.store";
+import Image from "next/image";
+import Link from "next/link";
+import { logout as otpLogout } from "@/src/services/otp-auth-client.service";
 import { Button } from "@/src/ui/button";
-import { Loading } from "@/src/ui/loading";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -12,31 +13,16 @@ interface AdminLayoutProps {
 
 export function AdminLayout({ children }: AdminLayoutProps) {
   const router = useRouter();
-  const { isAdminAuthenticated, adminUsername, logout } = useAdminStore();
-  const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const handleLogout = () => {
-    logout();
-    // Immediate redirect to admin login
-    window.location.href = "/admin/login";
+  const handleLogout = async () => {
+    try {
+      await otpLogout();
+    } catch {
+      // ignore errors
+    } finally {
+      router.push("/");
+    }
   };
-
-  // Prevent hydration mismatch
-  if (!mounted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loading size="lg" />
-      </div>
-    );
-  }
-
-  if (!isAdminAuthenticated) {
-    return null;
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -45,19 +31,25 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="bg-orange-500 w-10 h-10 rounded-lg flex items-center justify-center shadow-md">
-                <span className="text-white font-bold text-lg">A</span>
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">Admin Panel</h1>
-                <p className="text-xs text-gray-500">SAT Ziyo Management</p>
-              </div>
+              <Link href="/admin" className="flex items-center space-x-3">
+                <div className="relative w-10 h-10 flex-shrink-0">
+                  <Image
+                    src="/logo.png"
+                    alt="SAT Ziyo Logo"
+                    width={40}
+                    height={40}
+                    className="object-contain rounded-lg"
+                    priority
+                  />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900">Admin Panel</h1>
+                  <p className="text-xs text-gray-500">SAT Ziyo Management</p>
+                </div>
+              </Link>
             </div>
 
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-700">
-                Welcome, <span className="font-semibold">{adminUsername}</span>
-              </span>
               <Button
                 variant="outline"
                 onClick={handleLogout}
@@ -77,3 +69,5 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     </div>
   );
 }
+
+

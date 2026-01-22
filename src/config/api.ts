@@ -1,6 +1,14 @@
 // API Configuration
+// NOTE:
+// - For browser code we use NEXT_PUBLIC_API_URL
+// - For server-side (Next API routes) we prefer BACKEND_API_URL if defined
+const RUNTIME_BASE_URL =
+  process.env.BACKEND_API_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://api.satziyo.uz";
+
 export const API_CONFIG = {
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "https://api.satziyo.uz",
+  baseURL: RUNTIME_BASE_URL,
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",

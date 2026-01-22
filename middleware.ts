@@ -89,8 +89,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Redirect authenticated users away from auth pages
+  // Redirect authenticated users away from auth pages,
+  // EXCEPT when they are going to /auth/login?redirect=/admin (admin login flow)
   if (isAuthRoute && isAuthenticated) {
+    const redirectTarget = request.nextUrl.searchParams.get("redirect");
+    if (redirectTarget === "/admin") {
+      // allow showing login so admin role can be re-checked / switched
+      return NextResponse.next();
+    }
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 

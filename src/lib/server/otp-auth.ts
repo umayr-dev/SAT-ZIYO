@@ -16,20 +16,21 @@ import { API_CONFIG } from "@/src/config/api";
 export async function getServerUser(): Promise<User | null> {
   try {
     const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get("session");
+    // Use the same JWT cookie as the rest of the app (`token`)
+    const tokenCookie = cookieStore.get("token");
 
-    if (!sessionCookie?.value) {
+    if (!tokenCookie?.value) {
       return null;
     }
 
-    // Fetch user profile from API using the session cookie
+    // Fetch user profile from backend API using Bearer token
     const response = await fetch(`${API_CONFIG.baseURL}/auth/me`, {
       method: "GET",
       headers: {
-        Cookie: `session=${sessionCookie.value}`,
+        Authorization: `Bearer ${tokenCookie.value}`,
+        "Content-Type": "application/json",
       },
-      credentials: "include",
-      cache: "no-store", // Always fetch fresh data
+      cache: "no-store",
     });
 
     if (!response.ok) {

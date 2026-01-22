@@ -90,24 +90,60 @@ export const authService = {
 
   /**
    * Get current user profile
-   * Returns authenticated user profile using cookie-based authentication
+   * Returns authenticated user profile using cookie-based or token-based authentication
+   * Uses caching to prevent rate limiting
    */
   async getCurrentUser(): Promise<UserProfile> {
-    // Use our Next.js API route which handles cookie-based auth
-    const response = await fetch("/api/auth/me", {
-      method: "GET",
-      credentials: "include", // Important: include cookies
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error("Not authenticated");
-      }
-      const error = await response.json();
-      throw new Error(error.message || "Failed to get user");
+    // Import cache manager dynamically to avoid circular dependencies
+    const { userCacheManager } = await import("@/src/lib/user-cache");
+    
+    // Check cache first
+    const cached = userCacheManager.get();
+    if (cached) {
+      return cached;
     }
 
-    return response.json();
+    // Use cache manager to prevent multiple simultaneous requests
+    return userCacheManager.getOrCreatePromise(async () => {
+      // Get token from localStorage as fallback
+      const token = tokenStorage.getToken();
+      
+      // Use our Next.js API route which handles cookie-based auth
+      const headers: HeadersInit = {};
+      
+      // If we have a token in localStorage but not in cookie, send it in header
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      const response = await fetch("/api/auth/me", {
+        method: "GET",
+        credentials: "include", // Important: include cookies
+        headers,
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          // Clear invalid token and cache
+          tokenStorage.removeToken();
+          userCacheManager.clear();
+          throw new Error("Not authenticated");
+        }
+        if (response.status === 429) {
+          // Rate limited - wait a bit and return cached if available
+          const cached = userCacheManager.get();
+          if (cached) {
+            return cached;
+          }
+          throw new Error("Too many requests. Please wait a moment.");
+        }
+        const error = await response.json();
+        throw new Error(error.message || "Failed to get user");
+      }
+
+      const userData = await response.json();
+      return userData;
+    });
   },
 
   /**
