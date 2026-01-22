@@ -217,18 +217,18 @@ export default function QuestionReviewPage() {
           )}
 
           {/* Grid-in / Text Answer Review */}
-          {question.questionType === "GRID_IN" && (
+          {question.questionType === "STUDENT_PRODUCED" && (
             <div className="space-y-3 mb-6">
               <div className="p-4 bg-blue-50 rounded-lg">
                 <p className="text-sm text-gray-600 mb-1">Your Answer</p>
                 <p className="text-lg font-mono text-gray-900">
-                  {question.userAnswerText || "No answer provided"}
+                  {question.userTextAnswer || "No answer provided"}
                 </p>
               </div>
               <div className="p-4 bg-green-50 rounded-lg">
                 <p className="text-sm text-gray-600 mb-1">Correct Answer</p>
                 <p className="text-lg font-mono text-gray-900">
-                  {question.correctAnswerText}
+                  {question.correctAnswer || "No correct answer provided"}
                 </p>
               </div>
             </div>
