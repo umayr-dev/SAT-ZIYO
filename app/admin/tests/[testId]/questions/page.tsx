@@ -143,14 +143,14 @@ export default function TestQuestionsPage() {
         
         for (const section of test.sections) {
           if (section.modules && Array.isArray(section.modules)) {
-            for (const module of section.modules) {
+            for (const moduleItem of section.modules) {
               modules.push({
-                moduleId: module.id || module.moduleId || `${testId}-${section.sectionType}-${module.moduleNumber}-${module.difficulty}`,
+                moduleId: moduleItem.id || moduleItem.moduleId || `${testId}-${section.sectionType}-${moduleItem.moduleNumber}-${moduleItem.difficulty}`,
                 sectionType: section.sectionType,
-                moduleNumber: module.moduleNumber,
-                difficulty: module.difficulty || "EASY",
-                questionCount: module.questionCount || (section.sectionType === "ENGLISH" ? 27 : 22),
-                questions: module.questions || [],
+                moduleNumber: moduleItem.moduleNumber,
+                difficulty: moduleItem.difficulty || "EASY",
+                questionCount: moduleItem.questionCount || (section.sectionType === "ENGLISH" ? 27 : 22),
+                questions: moduleItem.questions || [],
               });
             }
           }
@@ -744,7 +744,7 @@ export default function TestQuestionsPage() {
                 disabled={submitting}
               />
             </div>
-
+          </div>
           )}
 
           {/* Collapsed view - show only essential fields */}
@@ -901,106 +901,6 @@ export default function TestQuestionsPage() {
                 </Button>
               </div>
             </div>
-          )}
-
-            {questionType === "MULTIPLE_CHOICE" && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label>Choices *</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleAddChoice}
-                    disabled={submitting}
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add Choice
-                  </Button>
-                </div>
-                {choices.map((choice, index) => (
-                  <div key={index} className="flex items-center gap-3">
-                    <Input
-                      value={choice.text}
-                      onChange={(e) =>
-                        handleChoiceChange(index, "text", e.target.value)
-                      }
-                      placeholder={`Choice ${String.fromCharCode(65 + index)}`}
-                      disabled={submitting}
-                      className="flex-1"
-                    />
-                    <label className="flex items-center gap-2 whitespace-nowrap">
-                      <input
-                        type="checkbox"
-                        checked={choice.isCorrect}
-                        onChange={(e) =>
-                          handleChoiceChange(
-                            index,
-                            "isCorrect",
-                            e.target.checked
-                          )
-                        }
-                        disabled={submitting}
-                      />
-                      <span className="text-sm">Correct</span>
-                    </label>
-                    {choices.length > 2 && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleRemoveChoice(index)}
-                        disabled={submitting}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {questionType === "STUDENT_PRODUCED" && (
-              <div className="space-y-2">
-                <Label htmlFor="correctAnswer">Correct Answer *</Label>
-                <Input
-                  id="correctAnswer"
-                  value={correctAnswer}
-                  onChange={(e) => setCorrectAnswer(e.target.value)}
-                  placeholder="Enter the correct answer (e.g., 4, 3/4, 0.75, -5)"
-                  required
-                  disabled={submitting}
-                />
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="explanation">Explanation (optional)</Label>
-              <textarea
-                id="explanation"
-                value={explanation}
-                onChange={(e) => setExplanation(e.target.value)}
-                placeholder="Explain why this is the correct answer..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                rows={3}
-                disabled={submitting}
-              />
-            </div>
-
-            <div className="flex gap-4">
-              <Button onClick={handleSubmitQuestion} disabled={submitting}>
-                {submitting ? "Adding..." : "Add Question"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.push("/admin/tests")}
-                disabled={submitting}
-              >
-                Back to Tests
-              </Button>
-            </div>
-          </div>
           )}
         </Card>
         </>

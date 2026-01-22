@@ -957,9 +957,9 @@ export default function TestTakingPage() {
                   </p>
                   <ul className="text-xs text-blue-700 space-y-1 list-disc list-inside">
                     <li>Enter only the numerical answer</li>
-                    <li>Use "/" for fractions (e.g., 3/4)</li>
-                    <li>Use "." for decimals (e.g., 0.75)</li>
-                    <li>Use "-" for negative numbers (e.g., -5)</li>
+                    <li>Use &quot;/&quot; for fractions (e.g., 3/4)</li>
+                    <li>Use &quot;.&quot; for decimals (e.g., 0.75)</li>
+                    <li>Use &quot;-&quot; for negative numbers (e.g., -5)</li>
                   </ul>
                 </div>
               </div>
