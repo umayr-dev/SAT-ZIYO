@@ -7,6 +7,8 @@ interface TestTimerProps {
   durationSeconds: number;
   onTimeUp: () => void;
   isPaused?: boolean;
+  onRemainingTimeChange?: (remainingSeconds: number) => void;
+  isHidden?: boolean;
 }
 
 /**
@@ -17,6 +19,8 @@ export function TestTimer({
   durationSeconds,
   onTimeUp,
   isPaused = false,
+  onRemainingTimeChange,
+  isHidden = false,
 }: TestTimerProps) {
   const [remainingSeconds, setRemainingSeconds] = useState(durationSeconds);
 
@@ -33,12 +37,27 @@ export function TestTimer({
           onTimeUp();
           return 0;
         }
-        return prev - 1;
+        const newValue = prev - 1;
+        if (onRemainingTimeChange) {
+          onRemainingTimeChange(newValue);
+        }
+        return newValue;
       });
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isPaused, onTimeUp]);
+  }, [isPaused, onTimeUp, onRemainingTimeChange]);
+
+  // Notify parent of remaining time changes
+  useEffect(() => {
+    if (onRemainingTimeChange) {
+      onRemainingTimeChange(remainingSeconds);
+    }
+  }, [remainingSeconds, onRemainingTimeChange]);
+
+  if (isHidden) {
+    return null;
+  }
 
   const minutes = Math.floor(remainingSeconds / 60);
   const seconds = remainingSeconds % 60;

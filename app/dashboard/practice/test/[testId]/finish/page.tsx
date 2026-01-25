@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Card } from "@/src/ui/card";
 import { Button } from "@/src/ui/button";
@@ -19,13 +19,96 @@ export default function FinishTestPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    submitTest();
-  }, [attemptId]);
+  // Get storage key for answers
+  const getStorageKey = useCallback(() => `test_answers_${attemptId}`, [attemptId]);
 
-  async function submitTest() {
+  // Get all answers from localStorage
+  const getAllAnswersFromStorage = useCallback((): Map<number, { questionId: string; choiceId?: string; textAnswer?: string }> => {
+    if (typeof window === "undefined") return new Map();
+    
+    try {
+      const stored = localStorage.getItem(getStorageKey());
+      if (!stored) return new Map();
+      
+      const answers = JSON.parse(stored);
+      const map = new Map<number, { questionId: string; choiceId?: string; textAnswer?: string }>();
+      Object.keys(answers).forEach((key) => {
+        map.set(parseInt(key), answers[key]);
+      });
+      return map;
+    } catch (err) {
+      console.error("Failed to get answers from localStorage:", err);
+      return new Map();
+    }
+  }, [getStorageKey]);
+
+  // Submit all pending answers from localStorage to server
+  const submitAllPendingAnswers = useCallback(async () => {
+    const allAnswers = getAllAnswersFromStorage();
+    
+    if (allAnswers.size === 0) {
+      console.log("[Finish Page] No answers to submit");
+      return;
+    }
+
+    console.log(`[Finish Page] Submitting ${allAnswers.size} answers to server...`);
+
+    // Submit all answers in parallel (but with rate limiting)
+    const submitPromises: Promise<void>[] = [];
+    let delay = 0;
+
+    // Convert Map to Array to avoid iterator issues
+    const answersArray = Array.from(allAnswers.entries());
+
+    for (const [questionIndex, answer] of answersArray) {
+      submitPromises.push(
+        (async () => {
+          // Stagger requests slightly to avoid overwhelming server
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          delay += 50; // 50ms delay between requests
+
+          try {
+            if (answer.choiceId) {
+              await practiceService.submitAnswer(
+                attemptId,
+                answer.questionId,
+                answer.choiceId
+              );
+            } else if (answer.textAnswer) {
+              await practiceService.submitAnswer(
+                attemptId,
+                answer.questionId,
+                undefined,
+                answer.textAnswer
+              );
+            }
+          } catch (err) {
+            console.error(`Failed to submit answer for question ${questionIndex}:`, err);
+            // Continue submitting other answers even if one fails
+          }
+        })()
+      );
+    }
+
+    await Promise.all(submitPromises);
+    console.log("[Finish Page] All answers submitted successfully");
+
+    // Clear localStorage after successful submission
+    try {
+      localStorage.removeItem(getStorageKey());
+    } catch (err) {
+      console.error("Failed to clear localStorage:", err);
+    }
+  }, [attemptId, getAllAnswersFromStorage, getStorageKey]);
+
+  const submitTest = useCallback(async () => {
     try {
       setSubmitting(true);
+      
+      // First, submit all answers from localStorage
+      await submitAllPendingAnswers();
+      
+      // Then submit the test for scoring
       const testResults = await practiceService.submitTest(attemptId);
       setResults(testResults);
     } catch (err) {
@@ -34,7 +117,11 @@ export default function FinishTestPage() {
       setLoading(false);
       setSubmitting(false);
     }
-  }
+  }, [attemptId, submitAllPendingAnswers]);
+
+  useEffect(() => {
+    submitTest();
+  }, [submitTest]);
 
   if (loading || submitting) {
     return (

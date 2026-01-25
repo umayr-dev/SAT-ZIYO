@@ -33,7 +33,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL || "https://sat-ziyo.com"
+    process.env.NEXT_PUBLIC_SITE_URL || "https://sat-ziyo.uz"
   ),
   title: {
     default: "SAT Ziyo - Digital SAT Prep Platform",

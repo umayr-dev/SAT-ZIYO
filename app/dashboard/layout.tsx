@@ -38,14 +38,7 @@ function DashboardLayoutContent({ children }: DashboardLayoutProps) {
   }
 
   return (
-    <div
-      className={cn(
-        "min-h-screen",
-        isPracticeTestRoute
-          ? "bg-gray-50"
-          : "bg-gray-50"
-      )}
-    >
+    <div className="min-h-screen bg-gray-50">
       {/* Sidebar only for non-test routes */}
       {!isPracticeTestRoute && <DashboardSidebar />}
 
@@ -53,7 +46,9 @@ function DashboardLayoutContent({ children }: DashboardLayoutProps) {
       <div
         className={cn(
           "transition-all duration-300 min-h-screen",
-          isPracticeTestRoute ? "ml-0" : isCollapsed ? "ml-20" : "ml-72"
+          isPracticeTestRoute 
+            ? "ml-0" 
+            : isCollapsed ? "ml-20" : "ml-72"
         )}
       >
         <div

@@ -6,7 +6,7 @@ import { Card } from "@/src/ui/card";
 import { Button } from "@/src/ui/button";
 import { Loading } from "@/src/ui/loading";
 import { practiceService, Test } from "@/src/services/practice.service";
-import { Clock, FileText, Calculator, Coffee } from "lucide-react";
+import { Clock, FileText, Calculator, Coffee, ClipboardList, Pin } from "lucide-react";
 
 export default function PreTestInstructionsPage() {
   const router = useRouter();
@@ -177,109 +177,142 @@ export default function PreTestInstructionsPage() {
   );
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-3xl">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">{test.title}</h1>
+    <div className="w-full max-w-4xl mx-auto">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold text-gray-900 mb-2">{test.title}</h1>
         {test.description && (
-          <p className="text-gray-600">{test.description}</p>
+          <p className="text-lg text-gray-600">{test.description}</p>
         )}
       </div>
 
-      <Card className="p-6 mb-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">
-          📋 Test Overview
-        </h2>
-        <div className="space-y-4">
-          <p className="text-gray-700">
-            This test consists of two sections:
-          </p>
-
-          {englishSection && (
-            <div className="border-l-4 border-blue-500 pl-4">
-              <h3 className="font-semibold text-gray-900 mb-2">
-                1. Reading and Writing ({englishSection.duration} minutes)
-              </h3>
-              <ul className="list-disc list-inside space-y-1 text-gray-700">
-                {englishSection.modules.map((module, idx) => (
-                  <li key={idx}>
-                    Module {module.moduleNumber}: {module.questionCount}{" "}
-                    questions, {module.duration} minutes
-                    {module.moduleNumber === 2 && " (adaptive)"}
-                  </li>
-                ))}
-              </ul>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Test Overview Card */}
+        <Card className="p-6 bg-white border border-gray-200 shadow-sm">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
+              <ClipboardList className="w-5 h-5 text-blue-600" />
             </div>
-          )}
-
-          {mathSection && (
-            <div className="border-l-4 border-green-500 pl-4">
-              <h3 className="font-semibold text-gray-900 mb-2">
-                2. Math ({mathSection.duration} minutes)
-              </h3>
-              <ul className="list-disc list-inside space-y-1 text-gray-700">
-                {mathSection.modules.map((module, idx) => (
-                  <li key={idx}>
-                    Module {module.moduleNumber}: {module.questionCount}{" "}
-                    questions, {module.duration} minutes
-                    {module.moduleNumber === 2 && " (adaptive)"}
-                  </li>
-                ))}
-              </ul>
-              {mathSection.allowCalculator && (
-                <div className="mt-2 flex items-center gap-2 text-gray-700">
-                  <Calculator className="w-4 h-4" />
-                  <span>Calculator allowed (Desmos provided)</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="flex items-center gap-2 text-gray-700 pt-2">
-            <Coffee className="w-4 h-4" />
-            <span>10-minute break between sections</span>
+            <h2 className="text-xl font-semibold text-gray-900">
+              Test Overview
+            </h2>
           </div>
-        </div>
-      </Card>
+          <div className="space-y-5">
+            <p className="text-gray-700 text-sm">
+              This test consists of two sections:
+            </p>
 
-      <Card className="p-6 mb-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">
-          📌 Important Notes:
-        </h2>
-        <ul className="space-y-2 text-gray-700">
-          <li className="flex items-start gap-2">
-            <span className="text-orange-500 mt-1">•</span>
-            <span>
-              You can navigate between questions within a module
-            </span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-orange-500 mt-1">•</span>
-            <span>
-              Once you finish a module, you cannot go back
-            </span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-orange-500 mt-1">•</span>
-            <span>Your progress is saved automatically</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-orange-500 mt-1">•</span>
-            <span>
-              No penalty for wrong answers - answer every question!
-            </span>
-          </li>
-        </ul>
-      </Card>
+            {englishSection && (
+              <div className="relative">
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 rounded-full"></div>
+                <div className="pl-5">
+                  <h3 className="font-semibold text-gray-900 mb-2 text-base">
+                    Reading and Writing ({englishSection.duration} minutes)
+                  </h3>
+                  <ul className="space-y-1.5 text-sm text-gray-700">
+                    {englishSection.modules.map((module, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-blue-500 mt-0.5">•</span>
+                        <span>
+                          Module {module.moduleNumber}: {module.questionCount}{" "}
+                          questions, {module.duration} minutes
+                          {module.moduleNumber === 2 && " (adaptive)"}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
 
-      <div className="flex gap-4">
+            {mathSection && (
+              <div className="relative">
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-green-500 rounded-full"></div>
+                <div className="pl-5">
+                  <h3 className="font-semibold text-gray-900 mb-2 text-base">
+                    Math ({mathSection.duration} minutes)
+                  </h3>
+                  <ul className="space-y-1.5 text-sm text-gray-700">
+                    {mathSection.modules.map((module, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-green-500 mt-0.5">•</span>
+                        <span>
+                          Module {module.moduleNumber}: {module.questionCount}{" "}
+                          questions, {module.duration} minutes
+                          {module.moduleNumber === 2 && " (adaptive)"}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  {mathSection.allowCalculator && (
+                    <div className="mt-3 flex items-center gap-2 text-sm text-gray-700">
+                      <Calculator className="w-4 h-4 text-green-600" />
+                      <span>Calculator allowed (Desmos provided)</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 text-sm text-gray-700 pt-2 border-t border-gray-100">
+              <Coffee className="w-4 h-4 text-amber-600" />
+              <span>10-minute break between sections</span>
+            </div>
+          </div>
+        </Card>
+
+        {/* Important Notes Card */}
+        <Card className="p-6 bg-white border border-gray-200 shadow-sm">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center">
+              <Pin className="w-5 h-5 text-red-600" />
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900">
+              Important Notes:
+            </h2>
+          </div>
+          <ul className="space-y-3 text-sm text-gray-700">
+            <li className="flex items-start gap-3">
+              <span className="text-orange-500 mt-0.5 font-bold">•</span>
+              <span>
+                You can navigate between questions within a module
+              </span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="text-orange-500 mt-0.5 font-bold">•</span>
+              <span>
+                Once you finish a module, you cannot go back
+              </span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="text-orange-500 mt-0.5 font-bold">•</span>
+              <span>Your progress is saved automatically</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="text-orange-500 mt-0.5 font-bold">•</span>
+              <span>
+                No penalty for wrong answers - answer every question!
+              </span>
+            </li>
+          </ul>
+        </Card>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex gap-4 justify-end">
         <Button
           variant="outline"
           onClick={() => router.push("/dashboard/practice")}
           disabled={starting}
+          className="px-6"
         >
           Cancel
         </Button>
-        <Button onClick={handleBeginClick} disabled={starting}>
+        <Button 
+          onClick={handleBeginClick} 
+          disabled={starting}
+          className="px-8 bg-gray-900 hover:bg-gray-800"
+        >
           {starting ? "Starting..." : "Begin Test"}
         </Button>
       </div>

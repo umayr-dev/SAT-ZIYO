@@ -95,6 +95,33 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Test page styles - matching provided design */
+.content-pane {
+  overflow-y: auto;
+  height: 100%;
+}
+
+.divider {
+  position: absolute;
+  width: 5px;
+  height: 100%;
+  background: transparent;
+  cursor: col-resize;
+  z-index: 10;
+  border-left: 1px solid #e5e7eb;
+  border-right: 1px solid #e5e7eb;
+}
+
+.divider:hover {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.question-index-container {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
 /* Section spacing for scroll offset */
 section[id] {
   scroll-margin-top: 80px;
@@ -137,5 +164,16 @@ section[id] {
 }
 
 .scrollbar-hide::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, Opera */
+  display: none !important; /* Chrome, Safari, Opera */
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+.scrollbar-hide::-webkit-scrollbar-track {
+  display: none !important;
+  background: transparent !important;
+}
+.scrollbar-hide::-webkit-scrollbar-thumb {
+  display: none !important;
+  background: transparent !important;
 }

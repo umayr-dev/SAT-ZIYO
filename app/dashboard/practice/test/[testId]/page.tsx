@@ -1,10 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
+import Image from "next/image";
 import { Card } from "@/src/ui/card";
 import { Button } from "@/src/ui/button";
 import { Loading } from "@/src/ui/loading";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/src/ui/dialog";
 import {
   practiceService,
   StartTestResponse,
@@ -21,13 +29,22 @@ import {
   Flag,
   Highlighter,
   Grid3X3,
+  Eye,
+  EyeOff,
+  Type,
+  X,
+  StickyNote,
+  Edit,
+  MoreVertical,
 } from "lucide-react";
+import { useCurrentUser } from "@/src/hooks/use-auth";
 
 export default function TestTakingPage() {
   const router = useRouter();
   const params = useParams();
   // NOTE: Route segment is [testId], but here it actually represents attemptId
   const attemptId = params.testId as string;
+  const { data: currentUser } = useCurrentUser();
 
   const [testState, setTestState] = useState<StartTestResponse | null>(null);
   // Local cache for all questions in current module
@@ -52,43 +69,145 @@ export default function TestTakingPage() {
   const [showFullscreenWarning, setShowFullscreenWarning] = useState(false);
   const [countdown, setCountdown] = useState(10);
   const [showCalculator, setShowCalculator] = useState(false);
-  const [showNavigator, setShowNavigator] = useState(true);
+  const [showNavigator, setShowNavigator] = useState(false);
   const [isMarkupEnabled, setIsMarkupEnabled] = useState(false);
+  const [isTimerHidden, setIsTimerHidden] = useState(false);
+  const [remainingTimeSeconds, setRemainingTimeSeconds] = useState<number | null>(null);
+  const [isEliminationMode, setIsEliminationMode] = useState(false);
+  const [eliminatedChoices, setEliminatedChoices] = useState<Set<string>>(new Set());
+  const [questionNotes, setQuestionNotes] = useState<Map<number, string>>(new Map());
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [newNoteText, setNewNoteText] = useState("");
+  
+  // localStorage key for notes
+  const getNotesStorageKey = useCallback(() => `test_notes_${attemptId}`, [attemptId]);
+  
+  // Save notes to localStorage
+  const saveNotesToStorage = useCallback((notes: Map<number, string>) => {
+    if (typeof window === "undefined") return;
+    try {
+      const notesObj: Record<string, string> = {};
+      notes.forEach((value, key) => {
+        notesObj[key.toString()] = value;
+      });
+      localStorage.setItem(getNotesStorageKey(), JSON.stringify(notesObj));
+    } catch (err) {
+      console.error("Failed to save notes to localStorage:", err);
+    }
+  }, [getNotesStorageKey]);
+  
+  // Add new note
+  const handleAddNote = useCallback(() => {
+    if (!newNoteText.trim() || !testState) return;
+    
+    const currentIndex = testState.currentQuestionIndex;
+    const newNotes = new Map(questionNotes);
+    const existingNote = newNotes.get(currentIndex) || "";
+    const updatedNote = existingNote 
+      ? `${existingNote}\n\n${newNoteText.trim()}`
+      : newNoteText.trim();
+    
+    newNotes.set(currentIndex, updatedNote);
+    setQuestionNotes(newNotes);
+    saveNotesToStorage(newNotes);
+    setNewNoteText("");
+  }, [newNoteText, questionNotes, testState, saveNotesToStorage]);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const wasFullscreenRef = useRef(false);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const loadAnswersTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastAnswersLoadRef = useRef<number>(0);
   const ANSWERS_CACHE_DURATION = 3000; // 3 seconds cache
+  const preloadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // localStorage key for answers
+  const getStorageKey = useCallback(() => `test_answers_${attemptId}`, [attemptId]);
+
+  // Load answers from localStorage on mount
   useEffect(() => {
-    loadTestState();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (typeof window !== "undefined" && attemptId) {
+      try {
+        const stored = localStorage.getItem(getStorageKey());
+        if (stored) {
+          const answers = JSON.parse(stored);
+          // Restore answered questions set
+          const answeredSet = new Set<number>();
+          Object.keys(answers).forEach((key) => {
+            if (answers[key]) {
+              answeredSet.add(parseInt(key));
+            }
+          });
+          setAnsweredQuestions(answeredSet);
+        }
+      } catch (err) {
+        console.error("Failed to load answers from localStorage:", err);
+      }
+    }
+  }, [attemptId, getStorageKey]);
+
+  // Save answer to localStorage
+  const saveAnswerToStorage = (questionIndex: number, answer: { questionId: string; choiceId?: string; textAnswer?: string }) => {
+    if (typeof window === "undefined") return;
     
-    // Cleanup on unmount
+    try {
+      const key = getStorageKey();
+      const stored = localStorage.getItem(key);
+      const answers = stored ? JSON.parse(stored) : {};
+      answers[questionIndex] = answer;
+      localStorage.setItem(key, JSON.stringify(answers));
+    } catch (err) {
+      console.error("Failed to save answer to localStorage:", err);
+    }
+  };
+
+  // Get all answers from localStorage
+  const getAllAnswersFromStorage = useCallback((): Map<number, { questionId: string; choiceId?: string; textAnswer?: string }> => {
+    if (typeof window === "undefined") return new Map();
+    
+    try {
+      const stored = localStorage.getItem(getStorageKey());
+      if (!stored) return new Map();
+      
+      const answers = JSON.parse(stored);
+      const map = new Map<number, { questionId: string; choiceId?: string; textAnswer?: string }>();
+      Object.keys(answers).forEach((key) => {
+        map.set(parseInt(key), answers[key]);
+      });
+      return map;
+    } catch (err) {
+      console.error("Failed to get answers from localStorage:", err);
+      return new Map();
+    }
+  }, [getStorageKey]);
+
+  // Clear localStorage on unmount (only if test is completed)
+  useEffect(() => {
     return () => {
       if (loadAnswersTimeoutRef.current) {
         clearTimeout(loadAnswersTimeoutRef.current);
       }
-    };
-  }, [attemptId]);
-
-  // Check fullscreen on mount
-  useEffect(() => {
-    if (typeof document !== "undefined") {
-      const isFs = !!document.fullscreenElement;
-      setIsFullscreen(isFs);
-      wasFullscreenRef.current = isFs;
-
-      // If not in fullscreen, show warning modal with countdown
-      if (!isFs) {
-        setShowFullscreenWarning(true);
-        setCountdown(10);
-        startCountdown();
+      if (preloadTimeoutRef.current) {
+        clearTimeout(preloadTimeoutRef.current);
       }
-    }
+    };
   }, []);
 
-  function startCountdown() {
+  useEffect(() => {
+    loadTestState();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attemptId]);
+
+  const handleCancelTest = useCallback(async () => {
+    try {
+      await practiceService.abandonAttempt(attemptId);
+    } catch (err) {
+      console.error("Failed to abandon attempt:", err);
+    }
+    router.push("/dashboard/practice");
+  }, [attemptId, router]);
+
+  const startCountdown = useCallback(() => {
     // Clear existing countdown
     if (countdownIntervalRef.current) {
       clearInterval(countdownIntervalRef.current);
@@ -110,16 +229,24 @@ export default function TestTakingPage() {
     }, 1000);
 
     countdownIntervalRef.current = interval;
-  }
+  }, [handleCancelTest]);
 
-  async function handleCancelTest() {
-    try {
-      await practiceService.abandonAttempt(attemptId);
-    } catch (err) {
-      console.error("Failed to abandon attempt:", err);
+  // Check fullscreen on mount
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      const isFs = !!document.fullscreenElement;
+      setIsFullscreen(isFs);
+      wasFullscreenRef.current = isFs;
+
+      // If not in fullscreen, show warning modal with countdown
+      if (!isFs) {
+        setShowFullscreenWarning(true);
+        setCountdown(10);
+        startCountdown();
+      }
     }
-    router.push("/dashboard/practice");
-  }
+  }, [startCountdown]);
+
 
   async function handleEnterFullscreen() {
     try {
@@ -179,15 +306,51 @@ export default function TestTakingPage() {
         clearInterval(countdownIntervalRef.current);
       }
     };
-  }, []);
+  }, [startCountdown]);
 
-  // Preload all questions for current module - DISABLED to reduce server load
-  // Instead, we'll load questions on-demand as user navigates
-  async function preloadAllQuestions(moduleTotalQuestions: number, startIndex: number = 0) {
-    // Don't preload - load on demand instead
-    // This reduces initial server load significantly
-    console.log("[Test Page] Skipping preload - will load questions on demand");
-    return;
+  // Smart preload: preload next 3 questions in background
+  async function preloadNextQuestions(currentIndex: number, totalQuestions: number) {
+    // Clear existing preload timeout
+    if (preloadTimeoutRef.current) {
+      clearTimeout(preloadTimeoutRef.current);
+    }
+
+    // Wait 500ms before preloading to avoid blocking current navigation
+    preloadTimeoutRef.current = setTimeout(async () => {
+      const questionsToPreload = 3;
+      const preloadPromises: Promise<void>[] = [];
+
+      for (let i = 1; i <= questionsToPreload; i++) {
+        const nextIndex = currentIndex + i;
+        
+        // Skip if beyond total questions
+        if (nextIndex >= totalQuestions) break;
+        
+        // Skip if already in cache
+        if (questionsCache.has(nextIndex)) continue;
+
+        // Preload in background (don't await)
+        preloadPromises.push(
+          (async () => {
+            try {
+              const state = await practiceService.jumpToQuestion(attemptId, nextIndex);
+              if (state.question) {
+                setQuestionsCache((prev) => {
+                  const next = new Map(prev);
+                  next.set(nextIndex, state.question);
+                  return next;
+                });
+              }
+            } catch (err) {
+              console.error(`Failed to preload question ${nextIndex}:`, err);
+            }
+          })()
+        );
+      }
+
+      // Execute all preloads in parallel
+      Promise.all(preloadPromises).catch(console.error);
+    }, 500);
   }
 
   async function loadTestState() {
@@ -220,16 +383,23 @@ export default function TestTakingPage() {
       }
       
       setTestState(state);
+      setEliminatedChoices(new Set()); // Clear eliminations when loading new question
       
       // Set totalQuestions from current module if available
       if (state?.currentModule?.totalQuestions) {
         console.log("[Test Page] Setting totalQuestions from currentModule:", state.currentModule.totalQuestions);
         setTotalQuestions(state.currentModule.totalQuestions);
         
-        // Preload all questions for this module in background
-        preloadAllQuestions(state.currentModule.totalQuestions).catch(console.error);
+        // Preload next 3 questions in background
+        preloadNextQuestions(state.currentQuestionIndex, state.currentModule.totalQuestions);
       } else {
         console.warn("[Test Page] No totalQuestions in currentModule:", state.currentModule);
+      }
+      
+      // Initialize timer if module duration is available
+      if (state?.currentModule?.duration && remainingTimeSeconds === null) {
+        const durationSeconds = state.currentModule.duration * 60; // Convert minutes to seconds
+        setRemainingTimeSeconds(durationSeconds);
       }
       
       // Load answered questions only once on initial load (force)
@@ -320,21 +490,26 @@ export default function TestTakingPage() {
     }, 500); // Wait 500ms after last call
   }
 
-  // Submit answer in background (non-blocking)
-  async function handleAnswer() {
+  // Save answer to localStorage only (no server request during test)
+  const handleAnswer = useCallback(() => {
     if (!testState?.question) return;
 
     const currentIndex = testState.currentQuestionIndex;
     const questionId = testState.question.id;
     
-    // Store answer locally first
+    const answerData = {
+      questionId,
+      choiceId: currentAnswer.choiceId,
+      textAnswer: currentAnswer.textAnswer,
+    };
+
+    // Save to localStorage immediately
+    saveAnswerToStorage(currentIndex, answerData);
+
+    // Store in pending answers map (for submission at end)
     setPendingAnswers((prev) => {
       const next = new Map(prev);
-      next.set(currentIndex, {
-        questionId,
-        choiceId: currentAnswer.choiceId,
-        textAnswer: currentAnswer.textAnswer,
-      });
+      next.set(currentIndex, answerData);
       return next;
     });
 
@@ -346,37 +521,9 @@ export default function TestTakingPage() {
     });
     
     setCurrentAnswer({});
-
-    // Submit in background (don't await)
-    (async () => {
-      try {
-        if (testState.question.questionType === "MULTIPLE_CHOICE") {
-          await practiceService.submitAnswer(
-            attemptId,
-            questionId,
-            currentAnswer.choiceId
-          );
-        } else {
-          await practiceService.submitAnswer(
-            attemptId,
-            questionId,
-            undefined,
-            currentAnswer.textAnswer || ""
-          );
-        }
-        
-        // Remove from pending after successful submit
-        setPendingAnswers((prev) => {
-          const next = new Map(prev);
-          next.delete(currentIndex);
-          return next;
-        });
-      } catch (err) {
-        console.error("Failed to submit answer:", err);
-        // Keep in pending for retry later
-      }
-    })();
-  }
+    
+    // NO SERVER REQUEST - answers will be submitted when test finishes
+  }, [testState, currentAnswer, saveAnswerToStorage]);
 
   async function handleNext() {
     if (!testState?.question) return;
@@ -384,8 +531,8 @@ export default function TestTakingPage() {
     try {
       setSubmitting(true);
       
-      // Submit current answer
-      await handleAnswer();
+      // Save current answer (no server request)
+      handleAnswer();
       
       // Clear markup when moving to next question
       setIsMarkupEnabled(false);
@@ -404,7 +551,13 @@ export default function TestTakingPage() {
           question: cachedQuestion,
         });
         setCurrentAnswer({});
+        setEliminatedChoices(new Set());
         setSubmitting(false);
+        
+        // Preload next 3 questions in background
+        if (totalQuestions) {
+          preloadNextQuestions(nextIndex, totalQuestions);
+        }
         return;
       }
       
@@ -422,6 +575,12 @@ export default function TestTakingPage() {
       }
       
       setCurrentAnswer({});
+      setEliminatedChoices(new Set());
+      
+      // Preload next 3 questions in background
+      if (totalQuestions) {
+        preloadNextQuestions(nextIndex, totalQuestions);
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to go to next question"
@@ -436,6 +595,9 @@ export default function TestTakingPage() {
 
     try {
       setSubmitting(true);
+      
+      // Save current answer (no server request)
+      handleAnswer();
       
       // Clear markup when moving to previous question
       setIsMarkupEnabled(false);
@@ -454,6 +616,7 @@ export default function TestTakingPage() {
           question: cachedQuestion,
         });
         setCurrentAnswer({});
+        setEliminatedChoices(new Set());
         setSubmitting(false);
         return;
       }
@@ -472,6 +635,7 @@ export default function TestTakingPage() {
       }
       
       setCurrentAnswer({});
+      setEliminatedChoices(new Set());
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to go to previous question"
@@ -487,6 +651,9 @@ export default function TestTakingPage() {
     try {
       setSubmitting(true);
       
+      // Save current answer (no server request)
+      handleAnswer();
+      
       // Clear markup when jumping to another question
       setIsMarkupEnabled(false);
       
@@ -501,7 +668,13 @@ export default function TestTakingPage() {
           question: cachedQuestion,
         });
         setCurrentAnswer({});
+        setEliminatedChoices(new Set());
         setSubmitting(false);
+        
+        // Preload next 3 questions in background
+        if (totalQuestions) {
+          preloadNextQuestions(index, totalQuestions);
+        }
         return;
       }
       
@@ -519,6 +692,12 @@ export default function TestTakingPage() {
       }
       
       setCurrentAnswer({});
+      setEliminatedChoices(new Set());
+      
+      // Preload next 3 questions in background
+      if (totalQuestions) {
+        preloadNextQuestions(index, totalQuestions);
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to go to selected question"
@@ -554,7 +733,12 @@ export default function TestTakingPage() {
 
     try {
       setSubmitting(true);
-      await handleAnswer();
+      // Save current answer before finishing
+      handleAnswer();
+      
+      // Submit all pending answers to server before finishing section
+      await submitAllPendingAnswers();
+      
       const result = await practiceService.finishModule(attemptId);
 
       switch (result.nextStep) {
@@ -574,8 +758,8 @@ export default function TestTakingPage() {
           if (nextState?.currentModule?.totalQuestions) {
             setTotalQuestions(nextState.currentModule.totalQuestions);
             
-            // Preload all questions for new module
-            preloadAllQuestions(nextState.currentModule.totalQuestions).catch(console.error);
+            // Preload next 3 questions for new module
+            preloadNextQuestions(nextState.currentQuestionIndex, nextState.currentModule.totalQuestions);
           }
           
           // Force reload answered questions when module changes
@@ -597,6 +781,58 @@ export default function TestTakingPage() {
     }
   }
 
+  // Submit all pending answers from localStorage to server
+  async function submitAllPendingAnswers() {
+    const allAnswers = getAllAnswersFromStorage();
+    
+    if (allAnswers.size === 0) {
+      console.log("[Test Page] No answers to submit");
+      return;
+    }
+
+    console.log(`[Test Page] Submitting ${allAnswers.size} answers to server...`);
+
+    // Submit all answers in parallel (but with rate limiting)
+    const submitPromises: Promise<void>[] = [];
+    let delay = 0;
+
+    // Convert Map to Array to avoid iterator issues
+    const answersArray = Array.from(allAnswers.entries());
+
+    for (const [questionIndex, answer] of answersArray) {
+      submitPromises.push(
+        (async () => {
+          // Stagger requests slightly to avoid overwhelming server
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          delay += 50; // 50ms delay between requests
+
+          try {
+            if (answer.choiceId) {
+              await practiceService.submitAnswer(
+                attemptId,
+                answer.questionId,
+                answer.choiceId
+              );
+            } else if (answer.textAnswer) {
+              await practiceService.submitAnswer(
+                attemptId,
+                answer.questionId,
+                undefined,
+                answer.textAnswer
+              );
+            }
+          } catch (err) {
+            console.error(`Failed to submit answer for question ${questionIndex}:`, err);
+            // Continue submitting other answers even if one fails
+          }
+        })()
+      );
+    }
+
+    await Promise.all(submitPromises);
+    console.log("[Test Page] All answers submitted successfully");
+  }
+
   function handleAnswerChange(answer: { choiceId?: string; textAnswer?: string }) {
     setCurrentAnswer(answer);
   }
@@ -608,6 +844,135 @@ export default function TestTakingPage() {
     return Math.round((answeredQuestions.size / total) * 100);
   }
 
+  const handleTimeUp = useCallback(async () => {
+    if (testState) {
+      // Call handleFinishSection directly
+      try {
+        setSubmitting(true);
+        // Save current answer before finishing
+        handleAnswer();
+        
+        // Submit all pending answers
+        const allAnswers = getAllAnswersFromStorage();
+        const answersArray = Array.from(allAnswers.entries());
+        
+        for (const [questionIndex, answer] of answersArray) {
+          try {
+            if (answer.choiceId) {
+              await practiceService.submitAnswer(
+                attemptId,
+                answer.questionId,
+                answer.choiceId
+              );
+            } else if (answer.textAnswer) {
+              await practiceService.submitAnswer(
+                attemptId,
+                answer.questionId,
+                undefined,
+                answer.textAnswer
+              );
+            }
+          } catch (err) {
+            console.error(`Failed to submit answer for question ${questionIndex}:`, err);
+          }
+        }
+        
+        // Submit test
+        await practiceService.submitTest(attemptId);
+        router.push(`/dashboard/practice/test/${attemptId}/finish`);
+      } catch (err) {
+        console.error("Failed to finish section:", err);
+        setError("Failed to finish section. Please try again.");
+      } finally {
+        setSubmitting(false);
+      }
+    }
+  }, [testState, attemptId, router, getAllAnswersFromStorage, handleAnswer]);
+
+  // Handle save and exit
+  const handleSaveAndExit = useCallback(async () => {
+    try {
+      // Submit all pending answers before exiting
+      const allAnswers = getAllAnswersFromStorage();
+      const answersArray = Array.from(allAnswers.entries());
+      
+      for (const [questionIndex, answer] of answersArray) {
+        try {
+          if (answer.choiceId) {
+            await practiceService.submitAnswer(
+              attemptId,
+              answer.questionId,
+              answer.choiceId
+            );
+          } else if (answer.textAnswer) {
+            await practiceService.submitAnswer(
+              attemptId,
+              answer.questionId,
+              undefined,
+              answer.textAnswer
+            );
+          }
+        } catch (err) {
+          console.error(`Failed to submit answer for question ${questionIndex}:`, err);
+        }
+      }
+
+      // Navigate to practice page
+      router.push("/dashboard/practice");
+    } catch (err) {
+      console.error("Failed to save and exit:", err);
+      // Still navigate even if save fails
+      router.push("/dashboard/practice");
+    }
+  }, [attemptId, router, getAllAnswersFromStorage]);
+
+  // Timer countdown effect
+  useEffect(() => {
+    if (remainingTimeSeconds === null || remainingTimeSeconds <= 0) {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+      if (remainingTimeSeconds === 0) {
+        handleTimeUp();
+      }
+      return;
+    }
+
+    timerIntervalRef.current = setInterval(() => {
+      setRemainingTimeSeconds((prev) => {
+        if (prev === null || prev <= 1) {
+          if (timerIntervalRef.current) {
+            clearInterval(timerIntervalRef.current);
+            timerIntervalRef.current = null;
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+    };
+  }, [remainingTimeSeconds, handleTimeUp]);
+
+  // Close more menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showMoreMenu && !(event.target as Element).closest('.relative')) {
+        setShowMoreMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showMoreMenu]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -616,36 +981,13 @@ export default function TestTakingPage() {
     );
   }
 
-  if (error || !testState?.question) {
+  if (!testState || !testState.question) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <Card className="p-6">
-          <div className="space-y-4">
-            <div>
-              <h2 className="text-lg font-semibold text-red-700 mb-2">
-                {error ? "Error Loading Test" : "Test Not Available"}
-              </h2>
-              <p className="text-red-700">
-                {error || "Test not found or no current question"}
-              </p>
-            </div>
-            
-            {testState && !testState.question && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <p className="text-sm text-yellow-800">
-                  <strong>Debug Info:</strong> Test state loaded but no question found.
-                  <br />
-                  Attempt ID: {attemptId}
-                  <br />
-                  Test Title: {testState.testTitle || "N/A"}
-                  <br />
-                  Current Module: {testState.currentModule?.moduleNumber || "N/A"}
-                  <br />
-                  Question Index: {testState.currentQuestionIndex ?? "N/A"}
-                </p>
-              </div>
-            )}
-            
+      <div className="flex min-h-screen bg-gray-50 items-center justify-center">
+        <Card className="p-8 max-w-md w-full">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold mb-4 text-red-600">Error</h2>
+            <p className="text-gray-700 mb-6">{error || "Failed to load test"}</p>
             <div className="flex gap-3">
               <Button
                 variant="outline"
@@ -688,12 +1030,16 @@ export default function TestTakingPage() {
     testState.currentQuestionIndex === Math.max(0, totalQs - 1);
   const isFlagged = flaggedQuestions.has(testState.currentQuestionIndex);
 
-  const handleTimeUp = async () => {
-    await handleFinishSection();
+  // Format timer display (MM:SS)
+  const formatTimer = (seconds: number | null) => {
+    if (seconds === null) return "0:00";
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${minutes}:${secs.toString().padStart(2, "0")}`;
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50 px-4 md:px-5">
       {/* Desmos Calculator Panel (Math only, non-blocking, draggable) */}
       {showCalculator && testState.currentSection.type === "MATH" && (
         <div className="pointer-events-none fixed inset-0 z-40">
@@ -787,215 +1133,372 @@ export default function TestTakingPage() {
         </div>
       )}
 
-      {/* Top Bar */}
-      <div className="bg-white border-b border-gray-200 px-6 py-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-semibold text-gray-900">
-              Section {testState.currentSection.orderIndex + 1}, Module{" "}
-              {testState.currentModule.moduleNumber}:{" "}
-              {testState.currentSection.type === "ENGLISH"
-                ? "Reading and Writing"
-                : "Math"}
-            </h1>
-            <p className="text-xs text-blue-600 mt-0.5">Directions</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <TestTimer
-              durationSeconds={testState.currentModule.duration * 60}
-              onTimeUp={handleTimeUp}
-            />
-            <button
-              type="button"
-              onClick={() => setIsMarkupEnabled((prev) => !prev)}
-              className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-xs ${
-                isMarkupEnabled
-                  ? "bg-yellow-100 border-yellow-500 text-yellow-900"
-                  : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
-              }`}
+      <div className="flex-1 transition-all duration-300">
+        <main className="flex-1">
+          <div 
+            className="min-h-screen flex flex-col font-noto-serif transition-all duration-300"
+            style={{ fontSize: "15px", lineHeight: "24px" }}
+          >
+            {/* Header with dashed border */}
+            <div 
+              className="bg-white text-gray-800 p-2 flex justify-between items-center border-b border-gray-300 relative"
+              style={{
+                borderBottom: "2px dashed",
+                borderImage: "repeating-linear-gradient(to right, rgb(167, 56, 87) 0%, rgb(167, 56, 87) 3.5%, transparent 3.5%, transparent 4%, rgb(249, 223, 205) 4%, rgb(249, 223, 205) 7.5%, transparent 7.5%, transparent 8%, rgb(28, 17, 103) 8%, rgb(28, 17, 103) 11.5%, transparent 11.5%, transparent 12%, rgb(94, 147, 101) 12%, rgb(94, 147, 101) 15.5%, transparent 15.5%, transparent 16%) 1 / 1 / 0 stretch"
+              }}
             >
-              <Highlighter className="w-4 h-4" />
-              <span>Markup</span>
-            </button>
-            {testState.currentSection.type === "MATH" && (
-              <button
-                type="button"
-                onClick={() => setShowCalculator(true)}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 bg-white text-xs text-gray-700 hover:bg-gray-50"
-              >
-                <Calculator className="w-4 h-4" />
-                <span>Calculator</span>
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content - 2 Column Layout */}
-      <div className="flex h-[calc(100vh-73px)]">
-        {/* Left Column: Passage + Question Text */}
-        <div className="w-1/2 border-r border-gray-200 overflow-y-auto bg-white">
-          {/* Passage */}
-          {question.passage && (
-            <div className="p-6 border-b border-gray-200">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase mb-3">
-                PASSAGE
-              </h3>
-              <div className="text-sm text-gray-900 leading-relaxed whitespace-pre-wrap">
-                {question.passage}
+              <div className="pl-4">
+                <p className="font-semibold text-lg">
+                  Section {testState.currentSection.orderIndex + 1}, Module{" "}
+                  {testState.currentModule.moduleNumber}:{" "}
+                  {testState.currentSection.type === "ENGLISH"
+                    ? "Reading and Writing"
+                    : "Math"}
+                </p>
+                <button className="text-sm text-blue-600 hover:underline">
+                  Directions
+                </button>
               </div>
-            </div>
-          )}
-          {question.imageUrl && (
-            <div className="p-6 border-b border-gray-200">
-              <img
-                src={question.imageUrl}
-                alt="Question graphic"
-                className="w-full h-auto rounded-lg"
-              />
-            </div>
-          )}
-          
-          {/* Question Text */}
-          <div className="p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 rounded bg-black text-white flex items-center justify-center text-sm font-semibold">
-                {testState.currentQuestionIndex + 1}
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleToggleFlag}
-                className={isFlagged ? "text-orange-600" : "text-gray-600"}
-              >
-                <Flag className={`w-4 h-4 mr-1 ${isFlagged ? "fill-orange-500" : ""}`} />
-                {isFlagged ? "Unmark" : "Mark"}
-              </Button>
-            </div>
-            
-            {/* Question Text with Markup */}
-            <QuestionDisplay
-              question={question}
-              selectedChoiceId={undefined}
-              textAnswer={undefined}
-              onSelectChoice={() => {}}
-              onTextAnswerChange={() => {}}
-              isFlagged={isFlagged}
-              hidePassage
-              isMarkupEnabled={isMarkupEnabled}
-              showOnlyQuestionText
-            />
-          </div>
-        </div>
-
-        {/* Right Column: Choices Only */}
-        <div className="w-1/2 overflow-y-auto bg-gray-50">
-          <div className="p-6 space-y-4">
-            {/* Choices */}
-            {question.questionType === "MULTIPLE_CHOICE" && question.choices && question.choices.length > 0 ? (
-              <div className="space-y-3">
-                {question.choices.map((choice, index) => {
-                  const isSelected = currentAnswer.choiceId === choice.id;
-                  const letter = String.fromCharCode(65 + index); // A, B, C, D
-
-                  return (
-                    <button
-                      key={choice.id || index}
-                      onClick={() =>
-                        handleAnswerChange({
-                          choiceId: choice.id,
-                          textAnswer: currentAnswer.textAnswer,
-                        })
+              
+              {/* Timer - Centered */}
+              {!isTimerHidden ? (
+                <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-2">
+                  <div className="text-xl font-bold text-black">
+                    {formatTimer(remainingTimeSeconds)}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (remainingTimeSeconds !== null && remainingTimeSeconds <= 300) {
+                        return;
                       }
-                      className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
-                        isSelected
-                          ? "border-blue-500 bg-blue-50"
-                          : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                      setIsTimerHidden(true);
+                    }}
+                    disabled={remainingTimeSeconds !== null && remainingTimeSeconds <= 300}
+                    className="flex items-center justify-center text-xs text-gray-600 hover:text-blue-600 focus:outline-none rounded-md p-1 transition-colors duration-200"
+                    aria-label="Hide timer"
+                    title="Hide timer"
+                  >
+                    <EyeOff className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsTimerHidden(false)}
+                    className="flex items-center justify-center text-xs text-gray-600 hover:text-blue-600 focus:outline-none rounded-md p-1 transition-colors duration-200"
+                    aria-label="Show timer"
+                    title="Show timer"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              {/* Right side buttons */}
+              <div className="flex items-center gap-4 pr-4">
+                <button
+                  type="button"
+                  onClick={() => setShowNotesModal(true)}
+                  className="relative p-2 rounded-lg transition-all duration-200 bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  title="Open Notes"
+                >
+                  <StickyNote className="w-5 h-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsMarkupEnabled((prev) => !prev)}
+                  className={`flex flex-col items-center justify-center text-xs focus:outline-none rounded-md px-2 py-1 transition-colors duration-200 ${
+                    isMarkupEnabled
+                      ? "text-blue-600 bg-gray-100"
+                      : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
+                  }`}
+                  aria-label="Highlights and Notes"
+                >
+                  <Edit className="w-5 h-5 mb-1" />
+                  Highlights & Notes
+                </button>
+                <div className="relative">
+                  {testState.currentSection.type === "MATH" && (
+                    <button
+                      type="button"
+                      onClick={() => setShowCalculator((prev) => !prev)}
+                      className={`flex flex-col items-center justify-center text-xs focus:outline-none rounded-md px-2 py-1 transition-colors duration-200 ${
+                        showCalculator
+                          ? "text-blue-600 bg-gray-100"
+                          : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
                       }`}
+                      aria-label="Calculator"
+                      title="Calculator"
                     >
-                      <div className="flex items-start gap-3">
-                        <span
-                          className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-semibold ${
-                            isSelected
-                              ? "bg-blue-500 text-white"
-                              : "bg-gray-200 text-gray-700"
+                      <Calculator className="w-5 h-5 mb-1" />
+                      Calculator
+                    </button>
+                  )}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowMoreMenu((prev) => !prev)}
+                      className="flex flex-col items-center justify-center text-xs text-gray-700 hover:text-blue-600 focus:outline-none"
+                      aria-label="More options"
+                    >
+                      <MoreVertical className="w-5 h-5 mb-1" />
+                      More
+                    </button>
+                    {showMoreMenu && (
+                      <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[150px]">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowMoreMenu(false);
+                            handleSaveAndExit();
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg"
+                        >
+                          Save and Exit
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Main Content - 2 Column Layout with Resizable Divider */}
+            <div className="flex-1 flex flex-col h-full overflow-hidden">
+              <div className="relative flex h-full">
+                {/* Left Column: Question */}
+                <div 
+                  className="content-pane" 
+                  style={{ 
+                    width: "50%", 
+                    minWidth: "20%"
+                  }}
+                >
+                  {/* Question Index Container */}
+                  <div className="mb-4">
+                    <div className="question-index-container flex items-center justify-between bg-gray-200 rounded mb-2 top-0 z-5">
+                      <div className="flex items-center h-full">
+                        <p className="question-index font-semibold bg-black text-white text-sm h-full px-3 py-2 rounded-l">
+                          {testState.currentQuestionIndex + 1}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleToggleFlag}
+                          className="flex items-center text-sm text-gray-600 hover:text-black mr-2 h-full px-2"
+                        >
+                          <Flag className={`w-5 h-5 text-gray-500 ${isFlagged ? "fill-orange-500 text-orange-500" : ""}`} />
+                          <span className="ml-1">Mark for Review</span>
+                        </button>
+                      </div>
+                      {question.questionType === "MULTIPLE_CHOICE" && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsEliminationMode((prev) => !prev);
+                            if (isEliminationMode) {
+                              setEliminatedChoices(new Set());
+                            }
+                          }}
+                          className={`flex items-center text-sm text-gray-600 hover:text-black mr-2 h-full relative border border-gray-300 rounded-sm w-8 h-8 flex items-center justify-center bg-transparent ${
+                            isEliminationMode ? "bg-blue-100" : ""
                           }`}
                         >
-                          {letter}
-                        </span>
-                        <span className="flex-1 text-gray-900">
-                          {choice.choiceText || `Choice ${letter}`}
-                        </span>
+                          <span className="text-[12px] font-medium text-gray-600">ABC</span>
+                          {isEliminationMode && (
+                            <svg 
+                              fill="none" 
+                              stroke="currentColor" 
+                              viewBox="0 0 24 24" 
+                              className="absolute w-8 h-8 text-gray-500"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M18 6L6 18" />
+                            </svg>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                    
+                    {/* Question Text */}
+                    <div className="prose max-w-none mt-2">
+                      <div>
+                        <QuestionDisplay
+                          question={question}
+                          selectedChoiceId={undefined}
+                          textAnswer={undefined}
+                          onSelectChoice={() => {}}
+                          onTextAnswerChange={() => {}}
+                          isFlagged={isFlagged}
+                          hidePassage
+                          isMarkupEnabled={isMarkupEnabled}
+                          showOnlyQuestionText
+                        />
                       </div>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : question.questionType === "STUDENT_PRODUCED" ? (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Enter your answer:
-                  </label>
-                  <input
-                    type="text"
-                    value={currentAnswer.textAnswer || ""}
-                    onChange={(e) =>
-                      handleAnswerChange({
-                        textAnswer: e.target.value,
-                        choiceId: currentAnswer.choiceId,
-                      })
-                    }
-                    placeholder="Type your answer"
-                    pattern="[0-9.\\-/]+"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
-                  />
+                    </div>
+                  </div>
+                  
                 </div>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <p className="text-sm text-blue-800 font-medium mb-1">
-                    💡 Tips:
-                  </p>
-                  <ul className="text-xs text-blue-700 space-y-1 list-disc list-inside">
-                    <li>Enter only the numerical answer</li>
-                    <li>Use &quot;/&quot; for fractions (e.g., 3/4)</li>
-                    <li>Use &quot;.&quot; for decimals (e.g., 0.75)</li>
-                    <li>Use &quot;-&quot; for negative numbers (e.g., -5)</li>
-                  </ul>
-                </div>
-              </div>
-            ) : (
-              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-sm text-yellow-800">
-                  ⚠ No choices available for this question
-                </p>
-              </div>
-            )}
+                
+                {/* Resizable Divider */}
+                <div className="divider" style={{ left: "50%" }}></div>
+                
+                {/* Right Column: Passage + Choices */}
+                <div 
+                  className="content-pane" 
+                  style={{ 
+                    width: "calc(50% - 5px)", 
+                    minWidth: "20%", 
+                    position: "relative", 
+                    left: "5px" 
+                  }}
+                >
+                  {/* Passage */}
+                  <div className="prose max-w-none mb-4">
+                    <div>
+                      {question.passage ? (
+                        <div className="p-6">
+                          <p className="text-base leading-relaxed whitespace-pre-wrap">
+                            {question.passage}
+                          </p>
+                        </div>
+                      ) : question.imageUrl ? (
+                        <div className="p-6">
+                          <Image
+                            src={question.imageUrl}
+                            alt="Question graphic"
+                            width={800}
+                            height={600}
+                            className="w-full h-auto rounded-lg"
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                  
+                  {/* Choices */}
+                  {question.questionType === "MULTIPLE_CHOICE" && question.choices && question.choices.length > 0 && (
+                    <div className="space-y-2">
+                      {question.choices.map((choice, index) => {
+                        const isSelected = currentAnswer.choiceId === choice.id;
+                        const letter = String.fromCharCode(65 + index);
+                        const isEliminated = eliminatedChoices.has(choice.id);
 
-            {/* Navigation Controls */}
-            <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-              <div className="text-sm text-gray-600">
-                Question {testState.currentQuestionIndex + 1} of {totalQs}
+                        return (
+                          <div key={choice.id || index} className="relative flex items-center w-full mb-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (isEliminationMode) {
+                                  setEliminatedChoices((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(choice.id)) {
+                                      next.delete(choice.id);
+                                    } else {
+                                      next.add(choice.id);
+                                    }
+                                    return next;
+                                  });
+                                } else {
+                                  handleAnswerChange({
+                                    choiceId: choice.id,
+                                    textAnswer: currentAnswer.textAnswer,
+                                  });
+                                }
+                              }}
+                              className={`w-full p-3 text-left border-2 rounded-lg text-base flex items-center gap-3 ${
+                                isSelected
+                                  ? "border-black"
+                                  : isEliminated
+                                  ? "border-gray-300 bg-gray-100 opacity-60"
+                                  : "border-gray-200 hover:bg-gray-200 cursor-pointer"
+                              }`}
+                            >
+                              <div className={`flex items-center justify-center w-6 h-6 rounded-full font-bold border border-black ${
+                                isSelected ? "bg-black text-white" : "text-black"
+                              }`}>
+                                <span className="text-xs">{letter}</span>
+                              </div>
+                              <div className={`flex-1 ${isEliminated ? "line-through text-gray-500" : ""}`}>
+                                {choice.choiceText || `Choice ${letter}`}
+                              </div>
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  
+                  {question.questionType === "STUDENT_PRODUCED" && (
+                    <div className="space-y-4">
+                      <input
+                        type="text"
+                        value={currentAnswer.textAnswer || ""}
+                        onChange={(e) =>
+                          handleAnswerChange({
+                            textAnswer: e.target.value,
+                            choiceId: currentAnswer.choiceId,
+                          })
+                        }
+                        placeholder="Type your answer"
+                        pattern="[0-9.\\-/]+"
+                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            {/* Footer with dashed border */}
+            <div 
+              className="bg-blue-100 p-2 flex justify-between items-center"
+              style={{
+                borderTop: "2px dashed",
+                backgroundColor: "rgb(229, 235, 245)",
+                borderImage: "repeating-linear-gradient(to right, rgb(167, 56, 87) 0%, rgb(167, 56, 87) 3.5%, transparent 3.5%, transparent 4%, rgb(249, 223, 205) 4%, rgb(249, 223, 205) 7.5%, transparent 7.5%, transparent 8%, rgb(28, 17, 103) 8%, rgb(28, 17, 103) 11.5%, transparent 11.5%, transparent 12%, rgb(94, 147, 101) 12%, rgb(94, 147, 101) 15.5%, transparent 15.5%, transparent 16%) 1 / 1 / 0 stretch"
+              }}
+            >
+              <p>{currentUser?.name || currentUser?.email?.split("@")[0] || "User"}</p>
+              <div 
+                className="bg-black text-white p-2 flex items-center gap-2 rounded-xl cursor-pointer"
+                style={{ position: "absolute", left: "50%", transform: "translateX(-50%)" }}
+                onClick={() => setShowNavigator((prev) => !prev)}
+              >
+                <p className="text-white">Question {testState.currentQuestionIndex + 1} of {totalQs}</p>
+                <button className="p-1 rounded" style={{ pointerEvents: "none" }}>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
               <div className="flex gap-2">
                 <Button
                   variant="outline"
                   onClick={handlePrevious}
                   disabled={testState.currentQuestionIndex === 0 || submitting}
+                  className="px-4 py-2 text-white transition-opacity duration-200 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ 
+                    backgroundColor: "rgb(51, 76, 199)", 
+                    borderRadius: "30px",
+                    opacity: testState.currentQuestionIndex === 0 ? 0.5 : 1
+                  }}
                 >
-                  <ChevronLeft className="w-4 h-4 mr-1" />
                   Back
                 </Button>
-                {!isLastQuestion && (
-                  <Button onClick={handleNext} disabled={submitting}>
+                {!isLastQuestion ? (
+                  <Button
+                    onClick={handleNext}
+                    disabled={submitting}
+                    className="px-4 py-2 text-white transition-opacity duration-200 rounded-md cursor-pointer"
+                    style={{ backgroundColor: "rgb(51, 76, 199)", borderRadius: "30px" }}
+                  >
                     Next
-                    <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
-                )}
-                {isLastQuestion && (
+                ) : (
                   <Button
                     onClick={handleFinishSection}
-                    variant="destructive"
                     disabled={submitting}
+                    className="px-4 py-2 text-white transition-opacity duration-200 rounded-md cursor-pointer"
+                    style={{ backgroundColor: "rgb(51, 76, 199)", borderRadius: "30px" }}
                   >
                     Finish Section
                   </Button>
@@ -1003,38 +1506,102 @@ export default function TestTakingPage() {
               </div>
             </div>
           </div>
-        </div>
+        </main>
       </div>
 
-      {/* Bottom Question Navigator bar */}
+      {/* Question Navigator Modal */}
       {showNavigator && (
-        <div className="fixed bottom-10 left-0 right-0 z-30 bg-white border-t border-gray-200 shadow-inner max-h-[220px] overflow-y-auto px-4 py-3">
-          <QuestionNavigator
-            totalQuestions={totalQs}
-            currentIndex={testState.currentQuestionIndex}
-            answeredSet={answeredQuestions}
-            flaggedSet={flaggedQuestions}
-            onJump={handleJumpToQuestion}
-          />
-        </div>
+        <QuestionNavigator
+          totalQuestions={totalQs}
+          currentIndex={testState.currentQuestionIndex}
+          answeredSet={answeredQuestions}
+          flaggedSet={flaggedQuestions}
+          onJump={handleJumpToQuestion}
+          onClose={() => setShowNavigator(false)}
+          sectionTitle={`Section ${testState.currentSection.orderIndex + 1}, Module ${testState.currentModule.moduleNumber}: ${testState.currentSection.type === "ENGLISH" ? "Reading and Writing" : "Math"} Questions`}
+        />
       )}
 
-      <div className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 border-t border-gray-200 px-4 py-2 flex items-center justify-between">
-        <div className="text-xs text-gray-600">
-          Question {testState.currentQuestionIndex + 1} of {totalQs}
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowNavigator((prev) => !prev)}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-full shadow-sm bg-gray-900 text-white text-xs hover:bg-gray-800"
-        >
-          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-[10px] font-semibold">
-            {testState.currentQuestionIndex + 1}/{totalQs}
-          </span>
-          <Grid3X3 className="w-4 h-4" />
-          <span>{showNavigator ? "Hide" : "Questions"}</span>
-        </button>
-      </div>
+      {/* Notes Panel - Right Side */}
+      {showNotesModal && (
+        <>
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-black/20 z-40"
+            onClick={() => setShowNotesModal(false)}
+          />
+          {/* Panel */}
+          <div className="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl z-50 flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Notes for Question {testState.currentQuestionIndex + 1}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowNotesModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Close notes"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+            
+            {/* Existing Notes Display */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {questionNotes.has(testState.currentQuestionIndex) ? (
+                <div className="mb-4">
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">Your Notes:</h3>
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap">
+                    {questionNotes.get(testState.currentQuestionIndex)}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => {
+                      const newNotes = new Map(questionNotes);
+                      newNotes.delete(testState.currentQuestionIndex);
+                      setQuestionNotes(newNotes);
+                      saveNotesToStorage(newNotes);
+                    }}
+                  >
+                    Clear All Notes
+                  </Button>
+                </div>
+              ) : (
+                <div className="text-center text-gray-500 text-sm py-8">
+                  No notes yet. Add your first note below.
+                </div>
+              )}
+            </div>
+            
+            {/* Add Note Section */}
+            <div className="border-t border-gray-200 p-4 bg-gray-50">
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Add Note:</h3>
+              <textarea
+                value={newNoteText}
+                onChange={(e) => setNewNoteText(e.target.value)}
+                placeholder="Type your note here..."
+                className="w-full h-32 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    handleAddNote();
+                  }
+                }}
+              />
+              <Button
+                onClick={handleAddNote}
+                disabled={!newNoteText.trim()}
+                className="w-full mt-2 bg-gray-900 hover:bg-gray-800"
+              >
+                Add Note
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -28,14 +28,16 @@ interface MenuItem {
   href: string;
   badge?: string;
   badgeColor?: "emerald" | "blue" | "amber";
+  enabled?: boolean;
 }
 
 const menuItems: MenuItem[] = [
-  { label: "Home", icon: <Home className="h-5 w-5" />, href: "/dashboard" },
+  { label: "Home", icon: <Home className="h-5 w-5" />, href: "/dashboard", enabled: true },
   {
     label: "Practice",
     icon: <BookOpen className="h-5 w-5" />,
     href: "/dashboard/practice",
+    enabled: true,
   },
   {
     label: "Question Bank",
@@ -43,16 +45,19 @@ const menuItems: MenuItem[] = [
     href: "/dashboard/question-bank",
     badge: "Free",
     badgeColor: "emerald",
+    enabled: false,
   },
   {
     label: "Classes",
     icon: <Users className="h-5 w-5" />,
     href: "/dashboard/classes",
+    enabled: false,
   },
   {
     label: "Vocabulary",
     icon: <BarChart3 className="h-5 w-5" />,
     href: "/dashboard/vocabulary",
+    enabled: false,
   },
 ];
 
@@ -61,11 +66,13 @@ const bottomMenuItems: MenuItem[] = [
     label: "Performance Analytics",
     icon: <TrendingUp className="h-5 w-5" />,
     href: "/dashboard/analytics",
+    enabled: false,
   },
   {
     label: "Support",
     icon: <Headphones className="h-5 w-5" />,
     href: "/support",
+    enabled: true,
   },
 ];
 
@@ -179,7 +186,7 @@ export function DashboardSidebar() {
         </div>
 
         {/* Scrollable Content Area */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide">
+        <div className="flex-1 overflow-y-auto scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {/* Menu */}
           <div className={cn("p-4", isCollapsed && "px-2")}>
             {!isCollapsed && (
@@ -190,62 +197,119 @@ export function DashboardSidebar() {
             <nav className="space-y-1">
               {menuItems.map((item) => {
                 const isActive = pathname === item.href;
+                const isEnabled = item.enabled !== false;
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className={cn(
-                      "flex items-center rounded-xl text-sm font-medium transition-all duration-200 group relative",
-                      isCollapsed
-                        ? "justify-center px-2 py-3"
-                        : "justify-between px-4 py-3",
-                      isActive
-                        ? "bg-gray-900 text-white shadow-md"
-                        : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-                    )}
-                    title={isCollapsed ? item.label : undefined}
-                  >
-                    <div className="flex items-center gap-3 relative z-10">
+                  <div key={item.href} className="relative group/item">
+                    {isEnabled ? (
+                      <Link
+                        href={item.href}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className={cn(
+                          "flex items-center rounded-xl text-sm font-medium transition-all duration-200 group relative",
+                          isCollapsed
+                            ? "justify-center px-2 py-3"
+                            : "justify-between px-4 py-3",
+                          isActive
+                            ? "bg-gray-900 text-white shadow-md"
+                            : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                        )}
+                        title={isCollapsed ? item.label : undefined}
+                      >
+                        <div className="flex items-center gap-3 relative z-10">
+                          <div
+                            className={cn(
+                              "transition-colors duration-200",
+                              isActive
+                                ? "text-white"
+                                : "text-gray-500 group-hover:text-gray-900"
+                            )}
+                          >
+                            {item.icon}
+                          </div>
+                          {!isCollapsed && <span>{item.label}</span>}
+                        </div>
+                        {!isCollapsed && item.badge && (
+                          <span
+                            className={cn(
+                              "text-xs px-2.5 py-1 rounded-full font-semibold relative z-10",
+                              item.badgeColor === "emerald"
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                : item.badgeColor === "blue"
+                                ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                : "bg-amber-50 text-amber-700 border border-amber-200"
+                            )}
+                          >
+                            {item.badge}
+                          </span>
+                        )}
+                        {isCollapsed && item.badge && (
+                          <span
+                            className={cn(
+                              "absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full",
+                              item.badgeColor === "emerald"
+                                ? "bg-emerald-500"
+                                : item.badgeColor === "blue"
+                                ? "bg-blue-500"
+                                : "bg-amber-500"
+                            )}
+                          />
+                        )}
+                      </Link>
+                    ) : (
                       <div
                         className={cn(
-                          "transition-colors duration-200",
-                          isActive
-                            ? "text-white"
-                            : "text-gray-500 group-hover:text-gray-900"
+                          "flex items-center rounded-xl text-sm font-medium transition-all duration-200 relative group/disabled",
+                          isCollapsed
+                            ? "justify-center px-2 py-3"
+                            : "justify-between px-4 py-3",
+                          "text-gray-400"
                         )}
+                        title={isCollapsed ? `${item.label} - Coming Soon` : undefined}
                       >
-                        {item.icon}
+                        <div className="flex items-center gap-3 relative z-10">
+                          <div className="text-gray-400">
+                            {item.icon}
+                          </div>
+                          {!isCollapsed && <span className="text-gray-400">{item.label}</span>}
+                        </div>
+                        {!isCollapsed && item.badge && (
+                          <span
+                            className={cn(
+                              "text-xs px-2.5 py-1 rounded-full font-semibold relative z-10 opacity-50",
+                              item.badgeColor === "emerald"
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                : item.badgeColor === "blue"
+                                ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                : "bg-amber-50 text-amber-700 border border-amber-200"
+                            )}
+                          >
+                            {item.badge}
+                          </span>
+                        )}
+                        {isCollapsed && item.badge && (
+                          <span
+                            className={cn(
+                              "absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full opacity-50",
+                              item.badgeColor === "emerald"
+                                ? "bg-emerald-500"
+                                : item.badgeColor === "blue"
+                                ? "bg-blue-500"
+                                : "bg-amber-500"
+                            )}
+                          />
+                        )}
                       </div>
-                      {!isCollapsed && <span>{item.label}</span>}
-                    </div>
-                    {!isCollapsed && item.badge && (
-                      <span
-                        className={cn(
-                          "text-xs px-2.5 py-1 rounded-full font-semibold relative z-10",
-                          item.badgeColor === "emerald"
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                            : item.badgeColor === "blue"
-                            ? "bg-blue-50 text-blue-700 border border-blue-200"
-                            : "bg-amber-50 text-amber-700 border border-amber-200"
-                        )}
-                      >
-                        {item.badge}
-                      </span>
                     )}
-                    {isCollapsed && item.badge && (
-                      <span
-                        className={cn(
-                          "absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full",
-                          item.badgeColor === "emerald"
-                            ? "bg-emerald-500"
-                            : item.badgeColor === "blue"
-                            ? "bg-blue-500"
-                            : "bg-amber-500"
-                        )}
-                      />
+                    {/* Tooltip for disabled items */}
+                    {!isEnabled && !isCollapsed && (
+                      <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 z-50 opacity-0 group-hover/item:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                        <div className="bg-gray-800 text-white text-xs px-3 py-2 rounded-lg shadow-lg">
+                          Coming soon
+                          <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-800"></div>
+                        </div>
+                      </div>
                     )}
-                  </Link>
+                  </div>
                 );
               })}
             </nav>
@@ -297,34 +361,63 @@ export function DashboardSidebar() {
             <nav className="space-y-1">
               {bottomMenuItems.map((item) => {
                 const isActive = pathname === item.href;
+                const isEnabled = item.enabled !== false;
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className={cn(
-                      "flex items-center rounded-xl text-sm font-medium transition-all duration-200 group relative",
-                      isCollapsed
-                        ? "justify-center px-2 py-3"
-                        : "gap-3 px-4 py-3",
-                      isActive
-                        ? "bg-gray-900 text-white shadow-md"
-                        : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                  <div key={item.href} className="relative group/item">
+                    {isEnabled ? (
+                      <Link
+                        href={item.href}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className={cn(
+                          "flex items-center rounded-xl text-sm font-medium transition-all duration-200 group relative",
+                          isCollapsed
+                            ? "justify-center px-2 py-3"
+                            : "gap-3 px-4 py-3",
+                          isActive
+                            ? "bg-gray-900 text-white shadow-md"
+                            : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                        )}
+                        title={isCollapsed ? item.label : undefined}
+                      >
+                        <div
+                          className={cn(
+                            "transition-colors duration-200",
+                            isActive
+                              ? "text-white"
+                              : "text-gray-500 group-hover:text-gray-900"
+                          )}
+                        >
+                          {item.icon}
+                        </div>
+                        {!isCollapsed && <span>{item.label}</span>}
+                      </Link>
+                    ) : (
+                      <div
+                        className={cn(
+                          "flex items-center rounded-xl text-sm font-medium transition-all duration-200 relative group/disabled",
+                          isCollapsed
+                            ? "justify-center px-2 py-3"
+                            : "gap-3 px-4 py-3",
+                          "text-gray-400"
+                        )}
+                        title={isCollapsed ? `${item.label} - Coming Soon` : undefined}
+                      >
+                        <div className="text-gray-400">
+                          {item.icon}
+                        </div>
+                        {!isCollapsed && <span className="text-gray-400">{item.label}</span>}
+                      </div>
                     )}
-                    title={isCollapsed ? item.label : undefined}
-                  >
-                    <div
-                      className={cn(
-                        "transition-colors duration-200",
-                        isActive
-                          ? "text-white"
-                          : "text-gray-500 group-hover:text-gray-900"
-                      )}
-                    >
-                      {item.icon}
-                    </div>
-                    {!isCollapsed && <span>{item.label}</span>}
-                  </Link>
+                    {/* Tooltip for disabled items */}
+                    {!isEnabled && !isCollapsed && (
+                      <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 z-50 opacity-0 group-hover/disabled:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                        <div className="bg-gray-800 text-white text-xs px-3 py-2 rounded-lg shadow-lg">
+                          Coming soon
+                          <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-800"></div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </nav>

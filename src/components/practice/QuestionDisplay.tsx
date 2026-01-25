@@ -40,7 +40,7 @@ export function QuestionDisplay({
   isMarkupEnabled = false,
   showOnlyQuestionText = false,
 }: QuestionDisplayProps) {
-  // Text highlight state: map of word index -> color
+  // Text highlight state: map of character index -> color
   const [selectedStyle, setSelectedStyle] = useState<HighlightStyle>("yellow");
   const [highlights, setHighlights] = useState<Record<number, HighlightStyle>>({});
   const textRef = useRef<HTMLParagraphElement | null>(null);
@@ -66,6 +66,13 @@ export function QuestionDisplay({
     }
   }, [storageKey, question.id]);
 
+  // Clear highlights when markup is disabled
+  useEffect(() => {
+    if (!isMarkupEnabled) {
+      setHighlights({});
+    }
+  }, [isMarkupEnabled]);
+
   useEffect(() => {
     try {
       window.localStorage.setItem(storageKey, JSON.stringify(highlights));
@@ -74,7 +81,7 @@ export function QuestionDisplay({
     }
   }, [highlights, storageKey]);
 
-  const handleWordClick = (index: number, isMarkupEnabled: boolean | undefined) => {
+  const handleCharClick = (index: number, isMarkupEnabled: boolean | undefined) => {
     if (!isMarkupEnabled) return;
 
     setHighlights((prev) => {
@@ -93,9 +100,13 @@ export function QuestionDisplay({
     setHighlights({});
   };
 
-  const words = useMemo(() => {
-    // split by spaces, keep array of words
-    return question.questionText.split(" ");
+  // Convert question text to array of characters with their indices
+  const characters = useMemo(() => {
+    const text = question.questionText || "";
+    return text.split("").map((char, index) => ({
+      char,
+      index,
+    }));
   }, [question.questionText]);
 
   const styleClasses: Record<HighlightStyle, string> = {
@@ -165,14 +176,64 @@ export function QuestionDisplay({
     if (!selection || selection.isCollapsed || selection.rangeCount === 0) return;
 
     const range = selection.getRangeAt(0);
+    const selectedText = selection.toString();
+    
+    if (!selectedText || !textRef.current) {
+      setShowFloatingToolbar(false);
+      return;
+    }
 
-    const getWordSpan = (node: Node | null): HTMLSpanElement | null => {
+    // Get the full text content
+    const fullText = question.questionText || "";
+    
+    // Find character index by traversing DOM
+    const getCharIndex = (node: Node, offset: number): number => {
+      // First try to find parent span with charIndex
       let current: Node | null = node;
-      while (current) {
+      while (current && current !== textRef.current) {
+        if (current instanceof HTMLElement && current.dataset.charIndex !== undefined) {
+          const baseIndex = Number(current.dataset.charIndex);
+          // If node is the span itself, return baseIndex + offset
+          if (current === node || current.contains(node)) {
+            return baseIndex + offset;
+          }
+        }
+        current = current.parentNode;
+      }
+      
+      // Fallback: count all characters before this node
+      let charIndex = 0;
+      let walker = document.createTreeWalker(
+        textRef.current!,
+        NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+        null
+      );
+      
+      let currentNode: Node | null;
+      while ((currentNode = walker.nextNode())) {
+        if (currentNode === node) {
+          return charIndex + offset;
+        }
+        if (currentNode instanceof HTMLElement && currentNode.dataset.charIndex !== undefined) {
+          charIndex = Number(currentNode.dataset.charIndex) + 1;
+        } else if (currentNode.nodeType === Node.TEXT_NODE) {
+          charIndex += currentNode.textContent?.length || 0;
+        }
+      }
+      
+      // Final fallback: use text matching
+      const startPos = fullText.indexOf(selectedText);
+      return startPos !== -1 ? startPos : 0;
+    };
+
+    // Try to get character indices from data attributes first
+    const getCharSpan = (node: Node | null): HTMLSpanElement | null => {
+      let current: Node | null = node;
+      while (current && current !== textRef.current) {
         if (
           current instanceof HTMLElement &&
           current.dataset &&
-          current.dataset.wordIndex !== undefined
+          current.dataset.charIndex !== undefined
         ) {
           return current as HTMLSpanElement;
         }
@@ -181,16 +242,33 @@ export function QuestionDisplay({
       return null;
     };
 
-    const startSpan = getWordSpan(range.startContainer);
-    const endSpan = getWordSpan(range.endContainer);
+    const startSpan = getCharSpan(range.startContainer);
+    const endSpan = getCharSpan(range.endContainer);
 
-    if (!startSpan || !endSpan) {
-      setShowFloatingToolbar(false);
-      return;
+    let startIndex: number;
+    let endIndex: number;
+
+    if (startSpan && endSpan) {
+      // Both are in character spans
+      startIndex = Number(startSpan.dataset.charIndex);
+      endIndex = Number(endSpan.dataset.charIndex);
+    } else {
+      // Calculate from range offsets
+      startIndex = getCharIndex(range.startContainer, range.startOffset);
+      endIndex = getCharIndex(range.endContainer, range.endOffset);
+      
+      // If calculation failed, use text matching as fallback
+      if (Number.isNaN(startIndex) || Number.isNaN(endIndex)) {
+        const startPos = fullText.indexOf(selectedText);
+        if (startPos !== -1) {
+          startIndex = startPos;
+          endIndex = startPos + selectedText.length - 1;
+        } else {
+          setShowFloatingToolbar(false);
+          return;
+        }
+      }
     }
-
-    const startIndex = Number(startSpan.dataset.wordIndex);
-    const endIndex = Number(endSpan.dataset.wordIndex);
 
     if (Number.isNaN(startIndex) || Number.isNaN(endIndex)) {
       setShowFloatingToolbar(false);
@@ -300,19 +378,18 @@ export function QuestionDisplay({
           className="text-base text-gray-900 leading-relaxed select-text"
         >
           {question.questionText ? (
-            words.map((word, idx) => {
-              const style = highlights[idx];
+            characters.map(({ char, index }) => {
+              const style = highlights[index];
               return (
                 <span
-                  key={idx}
-                  data-word-index={idx}
-                  onClick={() => handleWordClick(idx, isMarkupEnabled)}
-                  className={`${isMarkupEnabled ? "cursor-pointer" : ""} px-0.5 rounded-sm ${
+                  key={index}
+                  data-char-index={index}
+                  onClick={() => handleCharClick(index, isMarkupEnabled)}
+                  className={`${isMarkupEnabled ? "cursor-pointer" : ""} ${
                     style ? styleClasses[style] : ""
                   }`}
                 >
-                  {word}
-                  {idx < words.length - 1 ? " " : ""}
+                  {char}
                 </span>
               );
             })
