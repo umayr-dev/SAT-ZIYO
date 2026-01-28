@@ -1,0 +1,123 @@
+/**
+ * Comment Replies API Route
+ * GET /api/comments/:commentId/replies
+ * POST /api/comments/:commentId/replies
+ *
+ * Proxies to external API for comment replies
+ */
+
+import { NextRequest, NextResponse } from "next/server";
+import { API_CONFIG } from "@/src/config/api";
+
+function getTokenFromRequest(request: NextRequest): string | null {
+  let token = request.cookies.get("token")?.value || null;
+  if (!token) {
+    const authHeader = request.headers.get("Authorization");
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.substring(7);
+    }
+  }
+  return token;
+}
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { commentId: string } }
+) {
+  try {
+    const { commentId } = params;
+    const { searchParams } = new URL(request.url);
+    const page = searchParams.get("page") || "1";
+    const limit = searchParams.get("limit") || "20";
+
+    const backendUrl = `${API_CONFIG.baseURL}/comments/${commentId}/replies?page=${page}&limit=${limit}`;
+
+    const response = await fetch(backendUrl, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      return NextResponse.json(
+        {
+          message:
+            data.message ||
+            data.error ||
+            `Backend /comments/replies returned ${response.status}`,
+        },
+        { status: response.status }
+      );
+    }
+
+    return NextResponse.json(data, { status: 200 });
+  } catch (error) {
+    console.error("Replies GET error:", error);
+    return NextResponse.json(
+      {
+        message: "Failed to get replies",
+        error: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { commentId: string } }
+) {
+  try {
+    const token = getTokenFromRequest(request);
+    const { commentId } = params;
+
+    if (!token) {
+      return NextResponse.json(
+        { message: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json().catch(() => ({}));
+
+    const backendUrl = `${API_CONFIG.baseURL}/comments/${commentId}/replies`;
+
+    const response = await fetch(backendUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      return NextResponse.json(
+        {
+          message:
+            data.message ||
+            data.error ||
+            `Backend /comments/replies returned ${response.status}`,
+        },
+        { status: response.status }
+      );
+    }
+
+    return NextResponse.json(data, { status: 200 });
+  } catch (error) {
+    console.error("Replies POST error:", error);
+    return NextResponse.json(
+      {
+        message: "Failed to create reply",
+        error: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
+  }
+}
+

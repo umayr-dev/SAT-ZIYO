@@ -44,7 +44,7 @@ export default function MobileMenu() {
 
       {isOpen && (
         <div className="absolute top-16 left-0 right-0 bg-white border-b shadow-lg z-40">
-          <nav className="container mx-auto px-4 py-4 space-y-4">
+          <nav className="max-w-[1440px] mx-auto px-4 py-4 space-y-4">
             <a
               href={isHomePage ? "#features" : "/#features"}
               onClick={() => handleScrollTo("features")}

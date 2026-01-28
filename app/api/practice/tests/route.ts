@@ -23,19 +23,31 @@ function getTokenFromRequest(request: NextRequest): string | null {
 export async function GET(request: NextRequest) {
   try {
     const token = getTokenFromRequest(request);
+    const backendUrl = `${API_CONFIG.baseURL}/practice/tests`;
 
-    const response = await fetch(`${API_CONFIG.baseURL}/practice/tests`, {
+    console.log("[Practice Tests API] Fetching from:", backendUrl);
+
+    const response = await fetch(backendUrl, {
       method: "GET",
       headers: {
         Authorization: token ? `Bearer ${token}` : "",
         "Content-Type": "application/json",
       },
+      credentials: "include",
     });
 
-     if (!response.ok) {
+    if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      console.error("[Practice Tests API] Backend error:", {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorData,
+      });
       return NextResponse.json(
-        { message: errorData.message || "Failed to fetch tests" },
+        { 
+          message: errorData.message || errorData.error || "Failed to fetch tests",
+          error: errorData 
+        },
         { status: response.status }
       );
     }
@@ -115,9 +127,16 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(transformedTests, { status: 200 });
   } catch (error) {
-    console.error("Practice tests GET error:", error);
+    console.error("[Practice Tests API] Error:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
     return NextResponse.json(
-      { message: "Failed to fetch tests", error: error instanceof Error ? error.message : String(error) },
+      { 
+        message: "Failed to fetch tests", 
+        error: errorMessage,
+        stack: process.env.NODE_ENV === "development" ? errorStack : undefined
+      },
       { status: 500 }
     );
   }

@@ -50,7 +50,7 @@ export default function Header() {
         }`}
       >
         {/* Nav with container inside - full width header, container in nav */}
-        <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <nav className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-20 items-center justify-between">
             {/* Logo with image */}
             <Link

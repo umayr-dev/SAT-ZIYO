@@ -7,7 +7,15 @@ import { Button } from "@/src/ui/button";
 import { Input } from "@/src/ui/input";
 import { Loading } from "@/src/ui/loading";
 import { UserEditModal } from "@/src/components/admin/UserEditModal";
-import { Search, Edit, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, Edit, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Filter, X } from "lucide-react";
+import { useCurrentUser } from "@/src/hooks/use-auth";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/src/ui/dialog";
+import { Label } from "@/src/ui/label";
 
 interface User {
   id: string;
@@ -25,14 +33,22 @@ interface User {
 
 export default function UsersPage() {
   const router = useRouter();
+  const { data: currentUser } = useCurrentUser();
   const [mounted, setMounted] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<"name" | "date" | "email">("name");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [currentPage, setCurrentPage] = useState(1);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  
+  const USERS_PER_PAGE = 10;
 
   useEffect(() => {
     setMounted(true);
@@ -91,14 +107,22 @@ export default function UsersPage() {
         );
       }
 
+      const responseData = await response.json().catch(() => ({}));
+      
+      // Update state with the response data (includes updated role)
+      const updatedUserData = {
+        ...updates,
+        ...(responseData.user || responseData),
+      };
+
       setUsers((prevUsers) =>
         prevUsers.map((user) =>
-          user.id === userId ? { ...user, ...updates } : user
+          user.id === userId ? { ...user, ...updatedUserData } : user
         )
       );
 
       if (selectedUser && selectedUser.id === userId) {
-        setSelectedUser({ ...selectedUser, ...updates });
+        setSelectedUser({ ...selectedUser, ...updatedUserData });
       }
     } catch (err) {
       console.error("Failed to update user:", err);
@@ -107,6 +131,15 @@ export default function UsersPage() {
   }
 
   const handleUserClick = (user: User) => {
+    // Prevent owner from editing another owner
+    if (
+      currentUser?.role === "OWNER" &&
+      user.role?.toUpperCase() === "OWNER" &&
+      currentUser.id !== user.id
+    ) {
+      setError("Owners cannot edit other owners");
+      return;
+    }
     setSelectedUser(user);
     setIsModalOpen(true);
   };
@@ -128,13 +161,65 @@ export default function UsersPage() {
     });
   };
 
-  const filteredUsers = users.filter((user) => {
+  // Filter and sort users
+  let filteredUsers = users.filter((user) => {
+    // Search filter
     const query = searchQuery.toLowerCase();
-    return (
+    const matchesSearch =
+      !searchQuery ||
       user.email?.toLowerCase().includes(query) ||
-      user.name?.toLowerCase().includes(query)
-    );
+      user.name?.toLowerCase().includes(query);
+
+    // Role filter
+    const matchesRole =
+      roleFilter === "all" ||
+      user.role?.toUpperCase() === roleFilter.toUpperCase();
+
+    return matchesSearch && matchesRole;
   });
+
+  // Sort users
+  filteredUsers = [...filteredUsers].sort((a, b) => {
+    let aValue: string | number = "";
+    let bValue: string | number = "";
+
+    switch (sortBy) {
+      case "name":
+        aValue = (a.name || a.email || "").toLowerCase();
+        bValue = (b.name || b.email || "").toLowerCase();
+        break;
+      case "email":
+        aValue = (a.email || "").toLowerCase();
+        bValue = (b.email || "").toLowerCase();
+        break;
+      case "date":
+        aValue = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        bValue = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        break;
+    }
+
+    if (sortOrder === "asc") {
+      return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+    } else {
+      return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+    }
+  });
+
+  // Pagination
+  const totalPages = Math.ceil(filteredUsers.length / USERS_PER_PAGE);
+  const startIndex = (currentPage - 1) * USERS_PER_PAGE;
+  const endIndex = startIndex + USERS_PER_PAGE;
+  const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, roleFilter, sortBy, sortOrder]);
+
+  // Get unique roles from database
+  const availableRoles = Array.from(
+    new Set(users.map((user) => user.role).filter((role): role is string => !!role))
+  ).sort();
 
   const getRoleBadgeColor = (role?: string) => {
     switch (role) {
@@ -165,17 +250,35 @@ export default function UsersPage() {
         </div>
       </div>
 
-      {/* Search */}
+      {/* Search and Filter */}
       <Card className="p-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-          <Input
-            type="text"
-            placeholder="Search users by email or name..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10"
-          />
+        <div className="flex items-center gap-3">
+          {/* Search */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Input
+              type="text"
+              placeholder="Search by email or name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10"
+            />
+          </div>
+
+          {/* Filter Button */}
+          <Button
+            variant="outline"
+            onClick={() => setIsFilterModalOpen(true)}
+            className="flex items-center gap-2"
+          >
+            <Filter className="w-4 h-4" />
+            Filter
+            {(roleFilter !== "all" || sortBy !== "name" || sortOrder !== "asc") && (
+              <span className="ml-1 px-1.5 py-0.5 text-xs bg-orange-500 text-white rounded-full">
+                {(roleFilter !== "all" ? 1 : 0) + (sortBy !== "name" ? 1 : 0) + (sortOrder !== "asc" ? 1 : 0)}
+              </span>
+            )}
+          </Button>
         </div>
       </Card>
 
@@ -189,15 +292,17 @@ export default function UsersPage() {
         <div className="flex items-center justify-center h-64">
           <Loading size="lg" />
         </div>
-      ) : filteredUsers.length === 0 ? (
-        <Card className="p-8 text-center">
-          <p className="text-gray-600">
-            {searchQuery
-              ? "No users found matching your search"
-              : "No users found"}
-          </p>
-        </Card>
       ) : (
+        <>
+          {filteredUsers.length === 0 ? (
+            <Card className="p-8 text-center">
+              <p className="text-gray-600">
+                {searchQuery
+                  ? "No users found matching your search"
+                  : "No users found"}
+              </p>
+            </Card>
+          ) : (
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -224,7 +329,7 @@ export default function UsersPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredUsers.map((user) => {
+                {paginatedUsers.map((user) => {
                   const isExpanded = expandedRows.has(user.id);
                   const features = [
                     { key: "isPremium", label: "Premium" },
@@ -295,6 +400,18 @@ export default function UsersPage() {
                                 e.stopPropagation();
                                 handleUserClick(user);
                               }}
+                              disabled={
+                                currentUser?.role === "OWNER" &&
+                                user.role?.toUpperCase() === "OWNER" &&
+                                currentUser.id !== user.id
+                              }
+                              title={
+                                currentUser?.role === "OWNER" &&
+                                user.role?.toUpperCase() === "OWNER" &&
+                                currentUser.id !== user.id
+                                  ? "Owners cannot edit other owners"
+                                  : "Edit user"
+                              }
                             >
                               <Edit className="w-4 h-4 mr-1" />
                               Edit
@@ -384,7 +501,129 @@ export default function UsersPage() {
             </table>
           </div>
         </Card>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 0 && (
+            <Card className="p-4">
+              <div className="flex items-center justify-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="flex items-center gap-1"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Previous
+                </Button>
+                
+                {/* Page Numbers */}
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <Button
+                      key={page}
+                      variant={currentPage === page ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentPage(page)}
+                      className={`min-w-[40px] ${
+                        currentPage === page
+                          ? "bg-orange-500 hover:bg-orange-600 text-white border-orange-500"
+                          : ""
+                      }`}
+                    >
+                      {page}
+                    </Button>
+                  ))}
+                </div>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="flex items-center gap-1"
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </Card>
+          )}
+        </>
       )}
+
+      {/* Filter Modal */}
+      <Dialog open={isFilterModalOpen} onOpenChange={setIsFilterModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Filter & Sort Users</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* Role Filter */}
+            <div className="space-y-2">
+              <Label htmlFor="role-filter">Role</Label>
+              <select
+                id="role-filter"
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+              >
+                <option value="all">All Roles</option>
+                {availableRoles.map((role) => (
+                  <option key={role} value={role}>
+                    {role}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Sort By */}
+            <div className="space-y-2">
+              <Label htmlFor="sort-by">Sort By</Label>
+              <select
+                id="sort-by"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as "name" | "date" | "email")}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+              >
+                <option value="name">Name</option>
+                <option value="email">Email</option>
+                <option value="date">Date</option>
+              </select>
+            </div>
+
+            {/* Sort Order */}
+            <div className="space-y-2">
+              <Label htmlFor="sort-order">Order</Label>
+              <select
+                id="sort-order"
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as "asc" | "desc")}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+              >
+                <option value="asc">A-Z / Oldest</option>
+                <option value="desc">Z-A / Newest</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRoleFilter("all");
+                setSortBy("name");
+                setSortOrder("asc");
+              }}
+            >
+              Reset
+            </Button>
+            <Button onClick={() => setIsFilterModalOpen(false)}>
+              Apply
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* User Edit Modal */}
       <UserEditModal
@@ -392,6 +631,7 @@ export default function UsersPage() {
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         onUpdate={updateUser}
+        availableRoles={availableRoles}
       />
     </div>
   );

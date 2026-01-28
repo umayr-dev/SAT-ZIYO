@@ -33,4 +33,21 @@ export const API_ENDPOINTS = {
     dates: "/exams/dates",
     select: "/exams/select",
   },
+  scoring: {
+    percentile: (score: number) => `/scoring/percentile/${score}`,
+  },
+  tests: {
+    analytics: (testId: string) => `/tests/${testId}/analytics`,
+    comments: (testId: string) => `/tests/${testId}/comments`,
+  },
+  comments: {
+    replies: (commentId: string) => `/comments/${commentId}/replies`,
+    thread: (commentId: string) => `/comments/${commentId}/thread`,
+    update: (commentId: string) => `/comments/${commentId}`,
+    delete: (commentId: string) => `/comments/${commentId}`,
+  },
+  reference: {
+    mathFormulas: "/reference/math-formulas",
+    mathFormulasByCategory: (category: string) => `/reference/math-formulas/${category}`,
+  },
 } as const;

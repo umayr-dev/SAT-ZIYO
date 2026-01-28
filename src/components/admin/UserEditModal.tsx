@@ -26,6 +26,7 @@ interface UserEditModalProps {
   isOpen: boolean;
   onClose: () => void;
   onUpdate: (userId: string, updates: Partial<User>) => Promise<void>;
+  availableRoles?: string[]; // Roles from database
 }
 
 /**
@@ -37,6 +38,7 @@ export function UserEditModal({
   isOpen,
   onClose,
   onUpdate,
+  availableRoles = [],
 }: UserEditModalProps) {
   const [formData, setFormData] = useState<Partial<User>>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -169,9 +171,32 @@ export function UserEditModal({
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                   >
                     <option value="">Select role</option>
-                    <option value="STUDENT">Student</option>
-                    <option value="ADMIN">Admin</option>
-                    <option value="TEACHER">Teacher</option>
+                    {(() => {
+                      // Always include STUDENT and ADMIN, plus any other roles from database (except OWNER)
+                      const baseRoles = ["STUDENT", "ADMIN"];
+                      const dbRoles = availableRoles
+                        .filter((role) => role && role.toUpperCase() !== "OWNER")
+                        .map((r) => r.toUpperCase());
+                      
+                      // Combine and deduplicate
+                      const allRoles = Array.from(new Set([...baseRoles, ...dbRoles]));
+                      
+                      return allRoles.map((role) => {
+                        const roleLabel =
+                          role === "STUDENT"
+                            ? "Student"
+                            : role === "ADMIN"
+                            ? "Admin"
+                            : role === "TEACHER"
+                            ? "Teacher"
+                            : role;
+                        return (
+                          <option key={role} value={role}>
+                            {roleLabel}
+                          </option>
+                        );
+                      });
+                    })()}
                   </select>
                 </div>
                 {user.createdAt && (

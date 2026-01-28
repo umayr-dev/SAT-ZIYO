@@ -4,7 +4,7 @@ import { Button } from "@/src/ui/button";
 export default function CTA() {
   return (
     <section className="py-20 bg-gradient-to-br from-orange-500 to-orange-600 text-white">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-extrabold mb-4">
             Ready to Ace Your SAT?

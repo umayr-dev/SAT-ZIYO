@@ -57,12 +57,22 @@ export interface StartTestResponse {
   breakStatus: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
 }
 
+export interface Passage {
+  id: string;
+  title: string | null;
+  content: string;
+  source: string | null;
+  wordCount: number | null;
+}
+
 export interface Question {
   id: string;
   questionText: string;
   questionType: "MULTIPLE_CHOICE" | "STUDENT_PRODUCED";
   orderIndex: number;
-  passage?: string;
+  passage?: string; // Legacy field - use sharedPassage instead
+  passageId?: string | null; // Reference to shared passage
+  sharedPassage?: Passage | null; // Included when fetched
   imageUrl?: string;
   choices?: {
     id: string;
@@ -203,13 +213,15 @@ class PracticeService {
   }
 
   /**
-   * Submit answer
+   * Submit answer (single)
    */
   async submitAnswer(
     attemptId: string,
     questionId: string,
     choiceId?: string,
-    textAnswer?: string
+    textAnswer?: string,
+    markedForReview?: boolean,
+    eliminatedChoices?: string[]
   ): Promise<AnswerResponse> {
     const body: any = { questionId };
     if (choiceId) {
@@ -218,12 +230,88 @@ class PracticeService {
     if (textAnswer !== undefined) {
       body.textAnswer = textAnswer;
     }
+    if (markedForReview !== undefined) {
+      body.markedForReview = markedForReview;
+    }
+    if (eliminatedChoices !== undefined) {
+      body.eliminatedChoices = eliminatedChoices;
+    }
 
     return apiClient<AnswerResponse>(`/api/practice/attempts/${attemptId}/answer`, {
       method: "POST",
       body: JSON.stringify(body),
       requireAuth: true,
     });
+  }
+
+  /**
+   * Submit multiple answers in batch (production-ready)
+   */
+  async submitAnswersBatch(
+    attemptId: string,
+    answers: Array<{
+      questionId: string;
+      choiceId?: string;
+      textAnswer?: string;
+      markedForReview?: boolean;
+      eliminatedChoices?: string[];
+    }>
+  ): Promise<{ success: boolean; processed: number; failed: number }> {
+    if (answers.length === 0) {
+      return { success: true, processed: 0, failed: 0 };
+    }
+
+    // Use batch endpoint if available, otherwise fallback to individual requests
+    try {
+      const response = await apiClient<{ success: boolean; processed: number; failed: number }>(
+        `/api/practice/attempts/${attemptId}/answers/batch`,
+        {
+          method: "POST",
+          body: JSON.stringify({ answers }),
+          requireAuth: true,
+        }
+      );
+      return response;
+    } catch (error) {
+      // Fallback: submit individually (but this should be avoided in production)
+      console.warn("[PracticeService] Batch endpoint not available, falling back to individual submissions");
+      
+      let processed = 0;
+      let failed = 0;
+
+      // Submit in smaller batches to avoid overwhelming server
+      const batchSize = 5;
+      for (let i = 0; i < answers.length; i += batchSize) {
+        const batch = answers.slice(i, i + batchSize);
+        const results = await Promise.allSettled(
+          batch.map((answer) =>
+            this.submitAnswer(
+              attemptId,
+              answer.questionId,
+              answer.choiceId,
+              answer.textAnswer,
+              answer.markedForReview,
+              answer.eliminatedChoices
+            )
+          )
+        );
+
+        results.forEach((result) => {
+          if (result.status === "fulfilled") {
+            processed++;
+          } else {
+            failed++;
+          }
+        });
+
+        // Small delay between batches
+        if (i + batchSize < answers.length) {
+          await new Promise((resolve) => setTimeout(resolve, 200));
+        }
+      }
+
+      return { success: failed === 0, processed, failed };
+    }
   }
 
   /**
@@ -337,6 +425,267 @@ class PracticeService {
         requireAuth: true,
       }
     );
+  }
+
+  /**
+   * Save highlights for a question
+   */
+  async saveHighlights(
+    attemptId: string,
+    questionId: string,
+    highlights: Array<{
+      startOffset: number;
+      endOffset: number;
+      color: "YELLOW" | "GREEN" | "BLUE" | "PINK" | "ORANGE";
+      note?: string | null;
+    }>
+  ): Promise<void> {
+    return apiClient(`/api/practice/attempts/${attemptId}/highlights`, {
+      method: "POST",
+      body: JSON.stringify({
+        questionId,
+        highlights,
+      }),
+      requireAuth: true,
+    });
+  }
+
+  /**
+   * Get highlights for a question or all questions in attempt
+   */
+  async getHighlights(
+    attemptId: string,
+    questionId?: string
+  ): Promise<Array<{
+    id: string;
+    questionId: string;
+    startOffset: number;
+    endOffset: number;
+    color: "YELLOW" | "GREEN" | "BLUE" | "PINK" | "ORANGE";
+    note: string | null;
+  }>> {
+    const url = questionId
+      ? `/api/practice/attempts/${attemptId}/highlights?questionId=${questionId}`
+      : `/api/practice/attempts/${attemptId}/highlights`;
+    
+    return apiClient(url, {
+      method: "GET",
+      requireAuth: true,
+    });
+  }
+
+  /**
+   * Get test analytics
+   */
+  async getTestAnalytics(testId: string): Promise<{
+    testId: string;
+    title: string;
+    viewCount: number;
+    attemptCount: number;
+    completionCount: number;
+    completionRate: number;
+    averageScore: number | null;
+    averageTimeMinutes: number | null;
+    commentCount: number;
+  }> {
+    return apiClient(`/api/tests/${testId}/analytics`, {
+      method: "GET",
+      requireAuth: false,
+    });
+  }
+
+  /**
+   * Get comments for a test
+   */
+  async getTestComments(
+    testId: string,
+    page: number = 1,
+    limit: number = 20
+  ): Promise<{
+    data: Array<{
+      id: string;
+      content: string;
+      isEdited: boolean;
+      createdAt: string;
+      updatedAt: string;
+      user: {
+        id: string;
+        name: string;
+      };
+      replyCount: number;
+    }>;
+    meta: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+  }> {
+    return apiClient(`/api/tests/${testId}/comments?page=${page}&limit=${limit}`, {
+      method: "GET",
+      requireAuth: false,
+    });
+  }
+
+  /**
+   * Create a comment
+   */
+  async createComment(
+    testId: string,
+    content: string
+  ): Promise<{
+    id: string;
+    content: string;
+    isEdited: boolean;
+    createdAt: string;
+    updatedAt: string;
+    user: {
+      id: string;
+      name: string;
+    };
+    replyCount: number;
+  }> {
+    return apiClient(`/api/tests/${testId}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ content }),
+      requireAuth: true,
+    });
+  }
+
+  /**
+   * Get replies to a comment
+   */
+  async getCommentReplies(
+    commentId: string,
+    page: number = 1,
+    limit: number = 20
+  ): Promise<{
+    data: Array<{
+      id: string;
+      content: string;
+      parentId: string;
+      isEdited: boolean;
+      createdAt: string;
+      updatedAt: string;
+      user: {
+        id: string;
+        name: string;
+      };
+      replyCount: number;
+    }>;
+    meta: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+  }> {
+    return apiClient(`/api/comments/${commentId}/replies?page=${page}&limit=${limit}`, {
+      method: "GET",
+      requireAuth: false,
+    });
+  }
+
+  /**
+   * Reply to a comment
+   */
+  async replyToComment(
+    commentId: string,
+    content: string
+  ): Promise<{
+    id: string;
+    content: string;
+    parentId: string;
+    isEdited: boolean;
+    createdAt: string;
+    updatedAt: string;
+    user: {
+      id: string;
+      name: string;
+    };
+    replyCount: number;
+  }> {
+    return apiClient(`/api/comments/${commentId}/replies`, {
+      method: "POST",
+      body: JSON.stringify({ content }),
+      requireAuth: true,
+    });
+  }
+
+  /**
+   * Get full comment thread
+   */
+  async getCommentThread(
+    commentId: string,
+    maxDepth: number = 10
+  ): Promise<{
+    id: string;
+    content: string;
+    isEdited: boolean;
+    createdAt: string;
+    updatedAt: string;
+    user: {
+      id: string;
+      name: string;
+    };
+    replies: Array<any>;
+  }> {
+    return apiClient(`/api/comments/${commentId}/thread?maxDepth=${maxDepth}`, {
+      method: "GET",
+      requireAuth: false,
+    });
+  }
+
+  /**
+   * Edit a comment
+   */
+  async editComment(
+    commentId: string,
+    content: string
+  ): Promise<{
+    id: string;
+    content: string;
+    isEdited: boolean;
+    updatedAt: string;
+  }> {
+    return apiClient(`/api/comments/${commentId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ content }),
+      requireAuth: true,
+    });
+  }
+
+  /**
+   * Delete a comment
+   */
+  async deleteComment(commentId: string): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    return apiClient(`/api/comments/${commentId}`, {
+      method: "DELETE",
+      requireAuth: true,
+    });
+  }
+
+  /**
+   * Get math reference formulas
+   */
+  async getMathFormulas(category?: string): Promise<Record<string, Array<{
+    id: string;
+    name: string;
+    formula: string;
+    description: string | null;
+    imageUrl: string | null;
+  }>>> {
+    const url = category
+      ? `/api/reference/math-formulas?category=${category}`
+      : `/api/reference/math-formulas`;
+    
+    return apiClient(url, {
+      method: "GET",
+      requireAuth: false,
+    });
   }
 }
 

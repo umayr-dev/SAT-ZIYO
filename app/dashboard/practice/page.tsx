@@ -11,6 +11,13 @@ import {
   Attempt,
 } from "@/src/services/practice.service";
 import { Clock, FileText, Trophy, Play, RotateCcw, Filter, Star, BookOpen, RefreshCw, CheckCircle2, Users, MessageCircle } from "lucide-react";
+import { CommentsSection } from "@/src/components/comments/CommentsSection";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/src/ui/dialog";
 
 // Cache for practice page data
 const CACHE_KEY = "practice_page_cache";
@@ -456,6 +463,7 @@ export default function PracticePage() {
                     )}
                     <Button
                       variant="outline"
+                      onClick={() => router.push(`/dashboard/practice/test/${test.id}/comments`)}
                       className="bg-white border-gray-300 hover:bg-gray-50 rounded-lg px-3"
                       title="Discuss"
                     >
@@ -468,6 +476,7 @@ export default function PracticePage() {
           })}
         </div>
       )}
+
     </div>
   );
 }

@@ -6,27 +6,24 @@ import { Card } from "@/src/ui/card";
 import { Button } from "@/src/ui/button";
 import { Loading } from "@/src/ui/loading";
 import { practiceService, BreakStatusResponse } from "@/src/services/practice.service";
-import { Coffee, Clock } from "lucide-react";
+import { Clock, Coffee } from "lucide-react";
 
 export default function BreakPage() {
   const router = useRouter();
   const params = useParams();
-  // Route segment is [testId], value is attemptId
   const attemptId = params.testId as string;
 
-  const [breakStatus, setBreakStatus] = useState<BreakStatusResponse | null>(
-    null
-  );
+  const [breakStatus, setBreakStatus] = useState<BreakStatusResponse | null>(null);
   const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Load break status once on mount
+  // Load break status
   useEffect(() => {
     checkBreakStatus();
   }, [attemptId]);
 
-  // Update timer locally without API calls
+  // Update timer locally
   useEffect(() => {
     if (breakStatus?.breakEndsAt) {
       const endTime = new Date(breakStatus.breakEndsAt).getTime();
@@ -36,7 +33,6 @@ export default function BreakPage() {
         setRemainingSeconds(remaining);
 
         if (remaining === 0 && breakStatus.nextStep === "NEW_SECTION") {
-          // Break ended, move to next section
           router.push(`/dashboard/practice/test/${attemptId}`);
         }
       };
@@ -53,7 +49,6 @@ export default function BreakPage() {
       setBreakStatus(status);
 
       if (status.nextStep === "NEW_SECTION") {
-        // Break complete, redirect to test
         router.push(`/dashboard/practice/test/${attemptId}`);
       }
     } catch (err) {
@@ -63,22 +58,18 @@ export default function BreakPage() {
     }
   }
 
-  async function handleEndBreakEarly() {
-    if (!confirm("Are you sure you want to end your break early?")) {
-      return;
-    }
-
+  async function handleContinueTest() {
     try {
-      // Check status which will trigger next section if break is complete
-      await checkBreakStatus();
+      // Navigate to test - break will be handled by backend
+      router.push(`/dashboard/practice/test/${attemptId}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to end break");
+      setError(err instanceof Error ? err.message : "Failed to continue test");
     }
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Loading size="lg" />
       </div>
     );
@@ -86,13 +77,12 @@ export default function BreakPage() {
 
   if (error || !breakStatus) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <Card className="p-6">
-          <p className="text-red-700">{error || "Break status not found"}</p>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <Card className="p-6 text-center">
+          <p className="text-red-700 mb-4">{error || "Break status not found"}</p>
           <Button
             variant="outline"
             onClick={() => router.push("/dashboard/practice")}
-            className="mt-4"
           >
             Back to Tests
           </Button>
@@ -106,7 +96,7 @@ export default function BreakPage() {
   const formatted = `${minutes}:${seconds.toString().padStart(2, "0")}`;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <Card className="max-w-2xl w-full p-8 text-center">
         <div className="mb-8">
           <Coffee className="w-16 h-16 mx-auto text-orange-500 mb-4" />
@@ -120,7 +110,7 @@ export default function BreakPage() {
           <p className="text-lg text-gray-700 mb-4">
             Take a 10-minute break before Math.
           </p>
-          <div className="inline-flex items-center gap-3 px-6 py-3 bg-white rounded-full shadow-sm">
+          <div className="inline-flex items-center gap-3 px-6 py-3 bg-white rounded-full shadow-sm border border-gray-200">
             <Clock className="w-5 h-5 text-blue-600" />
             <span className="text-2xl font-mono font-semibold text-gray-900">
               {formatted}
@@ -150,13 +140,11 @@ export default function BreakPage() {
           >
             Exit to Dashboard
           </Button>
-          <Button onClick={handleEndBreakEarly}>
-            End Break Early & Continue
+          <Button onClick={handleContinueTest}>
+            Continue Test Early
           </Button>
         </div>
       </Card>
     </div>
   );
 }
-
-

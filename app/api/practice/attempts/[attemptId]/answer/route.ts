@@ -37,6 +37,10 @@ export async function POST(
 
     const body = await request.json().catch(() => ({}));
 
+    // Filter out fields that backend doesn't support yet
+    // Backend currently doesn't accept markedForReview and eliminatedChoices
+    const { markedForReview, eliminatedChoices, ...backendBody } = body;
+
     const backendUrl = `${API_CONFIG.baseURL}/practice/attempts/${attemptId}/answer`;
 
     const response = await fetch(backendUrl, {
@@ -45,7 +49,7 @@ export async function POST(
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify(backendBody),
     });
 
     const data = await response.json().catch(() => ({}));

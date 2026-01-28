@@ -21,6 +21,7 @@ import {
 import { TestTimer } from "@/src/components/practice/TestTimer";
 import { QuestionDisplay } from "@/src/components/practice/QuestionDisplay";
 import { QuestionNavigator } from "@/src/components/practice/QuestionNavigator";
+import { MathFormulasSheet } from "@/src/components/reference/MathFormulasSheet";
 import {
   Calculator,
   ChevronLeft,
@@ -36,8 +37,10 @@ import {
   StickyNote,
   Edit,
   MoreVertical,
+  BookOpen,
 } from "lucide-react";
 import { useCurrentUser } from "@/src/hooks/use-auth";
+import { debounce } from "@/src/utils/request-queue";
 
 export default function TestTakingPage() {
   const router = useRouter();
@@ -69,6 +72,7 @@ export default function TestTakingPage() {
   const [showFullscreenWarning, setShowFullscreenWarning] = useState(false);
   const [countdown, setCountdown] = useState(10);
   const [showCalculator, setShowCalculator] = useState(false);
+  const [showMathFormulas, setShowMathFormulas] = useState(false);
   const [showNavigator, setShowNavigator] = useState(false);
   const [isMarkupEnabled, setIsMarkupEnabled] = useState(false);
   const [isTimerHidden, setIsTimerHidden] = useState(false);
@@ -123,6 +127,93 @@ export default function TestTakingPage() {
 
   // localStorage key for answers
   const getStorageKey = useCallback(() => `test_answers_${attemptId}`, [attemptId]);
+  
+  // localStorage key for highlights
+  const getHighlightsStorageKey = useCallback(() => `test_highlights_${attemptId}`, [attemptId]);
+  
+  // Get all highlights from localStorage (grouped by questionId)
+  const getAllHighlightsFromStorage = useCallback((): Map<string, Array<{
+    startOffset: number;
+    endOffset: number;
+    color: "YELLOW" | "GREEN" | "BLUE" | "PINK" | "ORANGE";
+    note?: string | null;
+  }>> => {
+    if (typeof window === "undefined") return new Map();
+    try {
+      const stored = localStorage.getItem(getHighlightsStorageKey());
+      if (!stored) return new Map();
+      const highlights = JSON.parse(stored);
+      const map = new Map<string, Array<{
+        startOffset: number;
+        endOffset: number;
+        color: "YELLOW" | "GREEN" | "BLUE" | "PINK" | "ORANGE";
+        note?: string | null;
+      }>>();
+      Object.keys(highlights).forEach((questionId) => {
+        map.set(questionId, highlights[questionId]);
+      });
+      return map;
+    } catch (err) {
+      console.error("Failed to get highlights from localStorage:", err);
+      return new Map();
+    }
+  }, [getHighlightsStorageKey]);
+  
+  // Save highlights to localStorage (grouped by questionId)
+  const saveHighlightsToStorage = useCallback((questionId: string, highlights: Array<{
+    startOffset: number;
+    endOffset: number;
+    color: "YELLOW" | "GREEN" | "BLUE" | "PINK" | "ORANGE";
+    note?: string | null;
+  }>) => {
+    if (typeof window === "undefined") return;
+    try {
+      const key = getHighlightsStorageKey();
+      const stored = localStorage.getItem(key);
+      const allHighlights = stored ? JSON.parse(stored) : {};
+      allHighlights[questionId] = highlights;
+      localStorage.setItem(key, JSON.stringify(allHighlights));
+    } catch (err) {
+      console.error("Failed to save highlights to localStorage:", err);
+    }
+  }, [getHighlightsStorageKey]);
+  
+  // Submit all highlights to backend (batch)
+  const submitAllHighlights = useCallback(async () => {
+    const allHighlights = getAllHighlightsFromStorage();
+    
+    if (allHighlights.size === 0) {
+      console.log("[Test Page] No highlights to submit");
+      return;
+    }
+
+    console.log(`[Test Page] Submitting ${allHighlights.size} question highlights to server...`);
+
+    const submitPromises: Promise<void>[] = [];
+    let delay = 0;
+
+    const highlightsArray = Array.from(allHighlights.entries());
+
+    for (const [questionId, highlights] of highlightsArray) {
+      if (highlights.length === 0) continue; // Skip empty highlights
+      
+      submitPromises.push(
+        (async () => {
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          delay += 50; // 50ms delay between requests
+
+          try {
+            await practiceService.saveHighlights(attemptId, questionId, highlights);
+          } catch (err) {
+            console.error(`Failed to submit highlights for question ${questionId}:`, err);
+          }
+        })()
+      );
+    }
+
+    await Promise.all(submitPromises);
+    console.log("[Test Page] All highlights submitted successfully");
+  }, [attemptId, getAllHighlightsFromStorage]);
 
   // Load answers from localStorage on mount
   useEffect(() => {
@@ -147,7 +238,7 @@ export default function TestTakingPage() {
   }, [attemptId, getStorageKey]);
 
   // Save answer to localStorage
-  const saveAnswerToStorage = (questionIndex: number, answer: { questionId: string; choiceId?: string; textAnswer?: string }) => {
+  const saveAnswerToStorage = useCallback((questionIndex: number, answer: { questionId: string; choiceId?: string; textAnswer?: string; markedForReview?: boolean; eliminatedChoices?: string[] }) => {
     if (typeof window === "undefined") return;
     
     try {
@@ -159,10 +250,10 @@ export default function TestTakingPage() {
     } catch (err) {
       console.error("Failed to save answer to localStorage:", err);
     }
-  };
+  }, [getStorageKey]);
 
   // Get all answers from localStorage
-  const getAllAnswersFromStorage = useCallback((): Map<number, { questionId: string; choiceId?: string; textAnswer?: string }> => {
+  const getAllAnswersFromStorage = useCallback((): Map<number, { questionId: string; choiceId?: string; textAnswer?: string; markedForReview?: boolean; eliminatedChoices?: string[] }> => {
     if (typeof window === "undefined") return new Map();
     
     try {
@@ -170,7 +261,7 @@ export default function TestTakingPage() {
       if (!stored) return new Map();
       
       const answers = JSON.parse(stored);
-      const map = new Map<number, { questionId: string; choiceId?: string; textAnswer?: string }>();
+      const map = new Map<number, { questionId: string; choiceId?: string; textAnswer?: string; markedForReview?: boolean; eliminatedChoices?: string[] }>();
       Object.keys(answers).forEach((key) => {
         map.set(parseInt(key), answers[key]);
       });
@@ -271,6 +362,18 @@ export default function TestTakingPage() {
     }
   }
 
+  // Handle continue without fullscreen (smaller text mode)
+  const handleContinueWithoutFullscreen = useCallback(() => {
+    setShowFullscreenWarning(false);
+    setCountdown(10);
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    // Test continues but user is warned they're not in fullscreen
+    // UI will be smaller but functional
+  }, []);
+
   useEffect(() => {
     const handler = () => {
       const now = !!document.fullscreenElement;
@@ -308,50 +411,13 @@ export default function TestTakingPage() {
     };
   }, [startCountdown]);
 
-  // Smart preload: preload next 3 questions in background
-  async function preloadNextQuestions(currentIndex: number, totalQuestions: number) {
-    // Clear existing preload timeout
-    if (preloadTimeoutRef.current) {
-      clearTimeout(preloadTimeoutRef.current);
-    }
-
-    // Wait 500ms before preloading to avoid blocking current navigation
-    preloadTimeoutRef.current = setTimeout(async () => {
-      const questionsToPreload = 3;
-      const preloadPromises: Promise<void>[] = [];
-
-      for (let i = 1; i <= questionsToPreload; i++) {
-        const nextIndex = currentIndex + i;
-        
-        // Skip if beyond total questions
-        if (nextIndex >= totalQuestions) break;
-        
-        // Skip if already in cache
-        if (questionsCache.has(nextIndex)) continue;
-
-        // Preload in background (don't await)
-        preloadPromises.push(
-          (async () => {
-            try {
-              const state = await practiceService.jumpToQuestion(attemptId, nextIndex);
-              if (state.question) {
-                setQuestionsCache((prev) => {
-                  const next = new Map(prev);
-                  next.set(nextIndex, state.question);
-                  return next;
-                });
-              }
-            } catch (err) {
-              console.error(`Failed to preload question ${nextIndex}:`, err);
-            }
-          })()
-        );
-      }
-
-      // Execute all preloads in parallel
-      Promise.all(preloadPromises).catch(console.error);
-    }, 500);
-  }
+  // DISABLED: Preloading removed to prevent rate limiting
+  // Questions will be loaded on-demand when user navigates
+  const preloadNextQuestions = useCallback(async (currentIndex: number, totalQuestions: number) => {
+    // Preloading disabled to avoid 429 errors
+    // Questions will be fetched when user actually navigates to them
+    return;
+  }, []);
 
   async function loadTestState() {
     try {
@@ -384,6 +450,29 @@ export default function TestTakingPage() {
       
       setTestState(state);
       setEliminatedChoices(new Set()); // Clear eliminations when loading new question
+      
+      // Load saved answer for current question from localStorage
+      const savedAnswer = getAllAnswersFromStorage().get(state.currentQuestionIndex);
+      if (savedAnswer) {
+        setCurrentAnswer({
+          choiceId: savedAnswer.choiceId,
+          textAnswer: savedAnswer.textAnswer,
+        });
+        // Restore eliminated choices if any
+        if (savedAnswer.eliminatedChoices && savedAnswer.eliminatedChoices.length > 0) {
+          setEliminatedChoices(new Set(savedAnswer.eliminatedChoices));
+        }
+        // Restore flagged status if any
+        if (savedAnswer.markedForReview) {
+          setFlaggedQuestions((prev) => {
+            const next = new Set(prev);
+            next.add(state.currentQuestionIndex);
+            return next;
+          });
+        }
+      } else {
+        setCurrentAnswer({});
+      }
       
       // Set totalQuestions from current module if available
       if (state?.currentModule?.totalQuestions) {
@@ -501,6 +590,8 @@ export default function TestTakingPage() {
       questionId,
       choiceId: currentAnswer.choiceId,
       textAnswer: currentAnswer.textAnswer,
+      markedForReview: flaggedQuestions.has(currentIndex),
+      eliminatedChoices: Array.from(eliminatedChoices),
     };
 
     // Save to localStorage immediately
@@ -523,7 +614,7 @@ export default function TestTakingPage() {
     setCurrentAnswer({});
     
     // NO SERVER REQUEST - answers will be submitted when test finishes
-  }, [testState, currentAnswer, saveAnswerToStorage]);
+  }, [testState, currentAnswer, saveAnswerToStorage, flaggedQuestions, eliminatedChoices]);
 
   async function handleNext() {
     if (!testState?.question) return;
@@ -736,8 +827,11 @@ export default function TestTakingPage() {
       // Save current answer before finishing
       handleAnswer();
       
-      // Submit all pending answers to server before finishing section
-      await submitAllPendingAnswers();
+      // Submit all pending answers and highlights to server before finishing section
+      await Promise.all([
+        submitAllPendingAnswers(),
+        submitAllHighlights(),
+      ]);
       
       const result = await practiceService.finishModule(attemptId);
 
@@ -781,8 +875,8 @@ export default function TestTakingPage() {
     }
   }
 
-  // Submit all pending answers from localStorage to server
-  async function submitAllPendingAnswers() {
+  // Submit all pending answers from localStorage to server (PRODUCTION-READY: Batch submission)
+  const submitAllPendingAnswers = useCallback(async () => {
     const allAnswers = getAllAnswersFromStorage();
     
     if (allAnswers.size === 0) {
@@ -790,48 +884,112 @@ export default function TestTakingPage() {
       return;
     }
 
-    console.log(`[Test Page] Submitting ${allAnswers.size} answers to server...`);
-
-    // Submit all answers in parallel (but with rate limiting)
-    const submitPromises: Promise<void>[] = [];
-    let delay = 0;
+    console.log(`[Test Page] Submitting ${allAnswers.size} answers to server (batch mode)...`);
 
     // Convert Map to Array to avoid iterator issues
     const answersArray = Array.from(allAnswers.entries());
+    
+    // Filter out invalid answers before submission
+    const validAnswers = answersArray
+      .map(([questionIndex, answer]) => {
+        // Get question from cache to check type
+        const question = questionsCache.get(questionIndex);
+        
+        if (!question) {
+          // If question not in cache, include it (will be validated on server)
+          return { questionIndex, answer };
+        }
+        
+        // Validate: MULTIPLE_CHOICE requires choiceId
+        if (question.questionType === "MULTIPLE_CHOICE" && !answer.choiceId) {
+          console.warn(`[Test Page] Skipping question ${questionIndex}: MULTIPLE_CHOICE requires choiceId`);
+          return null;
+        }
+        
+        // Validate: STUDENT_PRODUCED requires textAnswer
+        if (question.questionType === "STUDENT_PRODUCED" && !answer.textAnswer) {
+          console.warn(`[Test Page] Skipping question ${questionIndex}: STUDENT_PRODUCED requires textAnswer`);
+          return null;
+        }
+        
+        return { questionIndex, answer };
+      })
+      .filter((item): item is { questionIndex: number; answer: any } => item !== null);
 
-    for (const [questionIndex, answer] of answersArray) {
-      submitPromises.push(
-        (async () => {
-          // Stagger requests slightly to avoid overwhelming server
-          await new Promise((resolve) => setTimeout(resolve, delay));
-          delay += 50; // 50ms delay between requests
-
-          try {
-            if (answer.choiceId) {
-              await practiceService.submitAnswer(
-                attemptId,
-                answer.questionId,
-                answer.choiceId
-              );
-            } else if (answer.textAnswer) {
-              await practiceService.submitAnswer(
-                attemptId,
-                answer.questionId,
-                undefined,
-                answer.textAnswer
-              );
-            }
-          } catch (err) {
-            console.error(`Failed to submit answer for question ${questionIndex}:`, err);
-            // Continue submitting other answers even if one fails
-          }
-        })()
-      );
+    if (validAnswers.length === 0) {
+      console.log("[Test Page] No valid answers to submit");
+      return;
     }
 
-    await Promise.all(submitPromises);
-    console.log("[Test Page] All answers submitted successfully");
-  }
+    // PRODUCTION-READY: Use batch submission instead of individual requests
+    try {
+      const batchAnswers = validAnswers.map(({ answer }) => ({
+        questionId: answer.questionId,
+        choiceId: answer.choiceId,
+        textAnswer: answer.textAnswer,
+        markedForReview: answer.markedForReview,
+        eliminatedChoices: answer.eliminatedChoices,
+      }));
+
+      // Submit in batches of 10 to avoid overwhelming server
+      const BATCH_SIZE = 10;
+      let successCount = 0;
+      let failCount = 0;
+
+      for (let i = 0; i < batchAnswers.length; i += BATCH_SIZE) {
+        const batch = batchAnswers.slice(i, i + BATCH_SIZE);
+        
+        try {
+          const result = await practiceService.submitAnswersBatch(attemptId, batch);
+          successCount += result.processed;
+          failCount += result.failed;
+          
+          // Small delay between batches to avoid rate limiting
+          if (i + BATCH_SIZE < batchAnswers.length) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+          }
+        } catch (err) {
+          console.error(`[Test Page] Batch submission failed for batch ${i / BATCH_SIZE + 1}:`, err);
+          failCount += batch.length;
+        }
+      }
+
+      console.log(`[Test Page] Batch submission complete: ${successCount} succeeded, ${failCount} failed`);
+    } catch (err) {
+      console.error("[Test Page] Batch submission error:", err);
+      // Fallback: individual submission (should rarely happen)
+      console.warn("[Test Page] Falling back to individual submission...");
+      
+      let successCount = 0;
+      let failCount = 0;
+      
+      for (let i = 0; i < validAnswers.length; i++) {
+        const { questionIndex, answer } = validAnswers[i];
+        
+        try {
+          await practiceService.submitAnswer(
+            attemptId,
+            answer.questionId,
+            answer.choiceId,
+            answer.textAnswer,
+            answer.markedForReview,
+            answer.eliminatedChoices
+          );
+          successCount++;
+          
+          // Delay between requests
+          if (i < validAnswers.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 200));
+          }
+        } catch (err) {
+          console.error(`Failed to submit answer for question ${questionIndex}:`, err);
+          failCount++;
+        }
+      }
+      
+      console.log(`[Test Page] Fallback submission complete: ${successCount} succeeded, ${failCount} failed`);
+    }
+  }, [attemptId, getAllAnswersFromStorage, questionsCache]);
 
   function handleAnswerChange(answer: { choiceId?: string; textAnswer?: string }) {
     setCurrentAnswer(answer);
@@ -852,30 +1010,11 @@ export default function TestTakingPage() {
         // Save current answer before finishing
         handleAnswer();
         
-        // Submit all pending answers
-        const allAnswers = getAllAnswersFromStorage();
-        const answersArray = Array.from(allAnswers.entries());
-        
-        for (const [questionIndex, answer] of answersArray) {
-          try {
-            if (answer.choiceId) {
-              await practiceService.submitAnswer(
-                attemptId,
-                answer.questionId,
-                answer.choiceId
-              );
-            } else if (answer.textAnswer) {
-              await practiceService.submitAnswer(
-                attemptId,
-                answer.questionId,
-                undefined,
-                answer.textAnswer
-              );
-            }
-          } catch (err) {
-            console.error(`Failed to submit answer for question ${questionIndex}:`, err);
-          }
-        }
+        // Submit all pending answers and highlights
+        await Promise.all([
+          submitAllPendingAnswers(),
+          submitAllHighlights(),
+        ]);
         
         // Submit test
         await practiceService.submitTest(attemptId);
@@ -887,35 +1026,16 @@ export default function TestTakingPage() {
         setSubmitting(false);
       }
     }
-  }, [testState, attemptId, router, getAllAnswersFromStorage, handleAnswer]);
+  }, [testState, attemptId, router, submitAllPendingAnswers, submitAllHighlights, handleAnswer]);
 
   // Handle save and exit
   const handleSaveAndExit = useCallback(async () => {
     try {
-      // Submit all pending answers before exiting
-      const allAnswers = getAllAnswersFromStorage();
-      const answersArray = Array.from(allAnswers.entries());
-      
-      for (const [questionIndex, answer] of answersArray) {
-        try {
-          if (answer.choiceId) {
-            await practiceService.submitAnswer(
-              attemptId,
-              answer.questionId,
-              answer.choiceId
-            );
-          } else if (answer.textAnswer) {
-            await practiceService.submitAnswer(
-              attemptId,
-              answer.questionId,
-              undefined,
-              answer.textAnswer
-            );
-          }
-        } catch (err) {
-          console.error(`Failed to submit answer for question ${questionIndex}:`, err);
-        }
-      }
+      // Submit all pending answers and highlights before exiting
+      await Promise.all([
+        submitAllPendingAnswers(),
+        submitAllHighlights(),
+      ]);
 
       // Navigate to practice page
       router.push("/dashboard/practice");
@@ -924,7 +1044,7 @@ export default function TestTakingPage() {
       // Still navigate even if save fails
       router.push("/dashboard/practice");
     }
-  }, [attemptId, router, getAllAnswersFromStorage]);
+  }, [router, submitAllPendingAnswers, submitAllHighlights]);
 
   // Timer countdown effect
   useEffect(() => {
@@ -1040,6 +1160,14 @@ export default function TestTakingPage() {
 
   return (
     <div className="flex min-h-screen bg-gray-50 px-4 md:px-5">
+      {/* Math Reference Formulas Dialog */}
+      {testState && testState.currentSection.type === "MATH" && (
+        <MathFormulasSheet
+          open={showMathFormulas}
+          onOpenChange={setShowMathFormulas}
+        />
+      )}
+
       {/* Desmos Calculator Panel (Math only, non-blocking, draggable) */}
       {showCalculator && testState.currentSection.type === "MATH" && (
         <div className="pointer-events-none fixed inset-0 z-40">
@@ -1095,19 +1223,19 @@ export default function TestTakingPage() {
           </div>
         </div>
       )}
-      {/* Fullscreen Warning Modal */}
+      {/* Fullscreen Exit Warning Modal */}
       {showFullscreenWarning && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-8 text-center space-y-6">
-            <div className="w-16 h-16 mx-auto rounded-full bg-orange-500 text-white flex items-center justify-center text-2xl font-bold">
+            <div className="w-20 h-20 mx-auto rounded-full bg-orange-500 text-white flex items-center justify-center text-3xl font-bold animate-pulse">
               {countdown > 0 ? countdown : "⚠"}
             </div>
             <div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                Fullscreen Required
+                Fullscreen Exited
               </h2>
               <p className="text-sm text-gray-600 mb-2">
-                You must enable fullscreen mode to continue the test.
+                You have exited fullscreen mode. Please choose how to continue:
               </p>
               {countdown > 0 && (
                 <p className="text-lg font-semibold text-orange-600 mb-2">
@@ -1116,25 +1244,49 @@ export default function TestTakingPage() {
               )}
               {countdown === 0 && (
                 <p className="text-sm font-semibold text-red-600 mb-2">
-                  Test cancelled. Redirecting...
+                  Test will be cancelled. Redirecting...
                 </p>
               )}
             </div>
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Button
-                className="w-full bg-blue-600 hover:bg-blue-700"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                 onClick={handleEnterFullscreen}
                 disabled={countdown === 0}
+                size="lg"
               >
-                Enter Fullscreen
+                Continue in Fullscreen
+              </Button>
+              <Button
+                className="w-full bg-gray-600 hover:bg-gray-700 text-white"
+                onClick={handleContinueWithoutFullscreen}
+                disabled={countdown === 0}
+                size="lg"
+                variant="outline"
+              >
+                Continue with Smaller Text (Not Fullscreen)
               </Button>
             </div>
           </div>
         </div>
       )}
 
-      <div className="flex-1 transition-all duration-300">
-        <main className="flex-1">
+      <div className="flex-1 transition-all duration-300 relative">
+        {/* Watermark with glass blur effect */}
+        <div className="fixed inset-0 pointer-events-none z-0 flex items-center justify-center overflow-hidden">
+          <div className="relative w-full h-full">
+            {/* Glass blur background */}
+            <div className="absolute inset-0 backdrop-blur-xl bg-gradient-to-br from-white/20 via-white/10 to-transparent"></div>
+            {/* Watermark text */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-7xl md:text-9xl lg:text-[12rem] font-extrabold text-gray-300/20 select-none transform -rotate-12 tracking-wider">
+                SATZIYO
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <main className="flex-1 relative z-10">
           <div 
             className="min-h-screen flex flex-col font-noto-serif transition-all duration-300"
             style={{ fontSize: "15px", lineHeight: "24px" }}
@@ -1221,10 +1373,25 @@ export default function TestTakingPage() {
                 </button>
                 <div className="relative">
                   {testState.currentSection.type === "MATH" && (
-                    <button
-                      type="button"
-                      onClick={() => setShowCalculator((prev) => !prev)}
-                      className={`flex flex-col items-center justify-center text-xs focus:outline-none rounded-md px-2 py-1 transition-colors duration-200 ${
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setShowMathFormulas((prev) => !prev)}
+                        className={`flex flex-col items-center justify-center text-xs focus:outline-none rounded-md px-2 py-1 transition-colors duration-200 ${
+                          showMathFormulas
+                            ? "text-blue-600 bg-gray-100"
+                            : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
+                        }`}
+                        aria-label="Math Reference Formulas"
+                        title="Math Reference Formulas"
+                      >
+                        <BookOpen className="w-5 h-5 mb-1" />
+                        Formulas
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowCalculator((prev) => !prev)}
+                        className={`flex flex-col items-center justify-center text-xs focus:outline-none rounded-md px-2 py-1 transition-colors duration-200 ${
                         showCalculator
                           ? "text-blue-600 bg-gray-100"
                           : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
@@ -1235,6 +1402,7 @@ export default function TestTakingPage() {
                       <Calculator className="w-5 h-5 mb-1" />
                       Calculator
                     </button>
+                    </>
                   )}
                   <div className="relative">
                     <button
@@ -1333,6 +1501,28 @@ export default function TestTakingPage() {
                           hidePassage
                           isMarkupEnabled={isMarkupEnabled}
                           showOnlyQuestionText
+                          attemptId={attemptId}
+                          onHighlightsChange={(highlights) => {
+                            // Save highlights to localStorage in test page format
+                            if (highlights.length > 0) {
+                              saveHighlightsToStorage(question.id, highlights);
+                            } else {
+                              // Remove highlights for this question if empty
+                              const allHighlights = getAllHighlightsFromStorage();
+                              allHighlights.delete(question.id);
+                              if (typeof window !== "undefined") {
+                                try {
+                                  const highlightsObj: Record<string, any> = {};
+                                  allHighlights.forEach((value, key) => {
+                                    highlightsObj[key] = value;
+                                  });
+                                  localStorage.setItem(getHighlightsStorageKey(), JSON.stringify(highlightsObj));
+                                } catch (err) {
+                                  console.error("Failed to save highlights to localStorage:", err);
+                                }
+                              }
+                            }
+                          }}
                         />
                       </div>
                     </div>

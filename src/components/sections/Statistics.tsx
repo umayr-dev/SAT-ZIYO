@@ -51,7 +51,7 @@ export default function Statistics() {
 
   return (
     <section className="py-16 bg-gradient-to-br from-orange-500 to-orange-600 text-white">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
           {stats.map((stat, index) => (
             <div

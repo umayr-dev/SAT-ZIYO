@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Calculator,
   Info,
@@ -2537,6 +2537,10 @@ export function ScoreCalculatorClient() {
     return score;
   };
 
+  // Percentile state - fetched from backend
+  const [percentile, setPercentile] = useState<number | null>(null);
+  const [percentileLoading, setPercentileLoading] = useState(false);
+
   // Calculate scores instantly - no API calls
   const scores = useMemo(() => {
     const readingWritingScore = calculateReadingWritingScore(
@@ -2546,15 +2550,41 @@ export function ScoreCalculatorClient() {
     // Math uchun 2D lookup table ishlatamiz (M1 va M2 alohida)
     const mathScore = calculateMathScore(mathModule1, mathModule2);
     const totalScore = readingWritingScore + mathScore;
-    const percentile = calculatePercentile(totalScore);
 
     return {
       readingWriting: readingWritingScore,
       math: mathScore,
       total: totalScore,
-      percentile,
+      percentile: percentile ?? calculatePercentile(totalScore), // Fallback to local calculation
     };
-  }, [rwModule1, rwModule2, mathModule1, mathModule2]);
+  }, [rwModule1, rwModule2, mathModule1, mathModule2, percentile]);
+
+  // Fetch percentile from backend when total score changes
+  useEffect(() => {
+    const fetchPercentile = async () => {
+      if (scores.total >= 400 && scores.total <= 1600) {
+        setPercentileLoading(true);
+        try {
+          const response = await fetch(`/api/scoring/percentile/${scores.total}`);
+          if (response.ok) {
+            const data = await response.json();
+            setPercentile(data.percentile ?? null);
+          } else {
+            // Fallback to local calculation on error
+            setPercentile(calculatePercentile(scores.total));
+          }
+        } catch (error) {
+          console.error("Failed to fetch percentile:", error);
+          // Fallback to local calculation on error
+          setPercentile(calculatePercentile(scores.total));
+        } finally {
+          setPercentileLoading(false);
+        }
+      }
+    };
+
+    fetchPercentile();
+  }, [scores.total]);
 
   const handleInputChange = (
     setter: (value: number) => void,
