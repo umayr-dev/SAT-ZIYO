@@ -1,7 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+  useCallback,
+} from "react";
 import { Question } from "@/src/services/practice.service";
+import { MathRenderer } from "@/src/components/math/MathRenderer";
 
 type HighlightStyle =
   | "yellow"
@@ -24,12 +31,14 @@ interface QuestionDisplayProps {
   isMarkupEnabled?: boolean;
   showOnlyQuestionText?: boolean;
   attemptId?: string; // For saving highlights in test page format
-  onHighlightsChange?: (highlights: Array<{
-    startOffset: number;
-    endOffset: number;
-    color: "YELLOW" | "GREEN" | "BLUE" | "PINK" | "ORANGE";
-    note?: string | null;
-  }>) => void; // Callback when highlights change
+  onHighlightsChange?: (
+    highlights: Array<{
+      startOffset: number;
+      endOffset: number;
+      color: "YELLOW" | "GREEN" | "BLUE" | "PINK" | "ORANGE";
+      note?: string | null;
+    }>,
+  ) => void; // Callback when highlights change
 }
 
 /**
@@ -51,77 +60,104 @@ export function QuestionDisplay({
 }: QuestionDisplayProps) {
   // Text highlight state: map of character index -> color
   const [selectedStyle, setSelectedStyle] = useState<HighlightStyle>("yellow");
-  const [highlights, setHighlights] = useState<Record<number, HighlightStyle>>({});
+  const [highlights, setHighlights] = useState<Record<number, HighlightStyle>>(
+    {},
+  );
   const textRef = useRef<HTMLParagraphElement | null>(null);
 
   // Use test page storage key if attemptId is provided, otherwise use question-specific key
   const storageKey = useMemo(
-    () => attemptId ? `test_highlights_${attemptId}` : `sat-question-highlights-${question.id}`,
-    [question.id, attemptId]
+    () =>
+      attemptId
+        ? `test_highlights_${attemptId}`
+        : `sat-question-highlights-${question.id}`,
+    [question.id, attemptId],
   );
-  
+
   // Convert highlights from character index format to startOffset/endOffset format
-  const convertHighlightsToBackendFormat = useCallback((highlights: Record<number, HighlightStyle>): Array<{
-    startOffset: number;
-    endOffset: number;
-    color: "YELLOW" | "GREEN" | "BLUE" | "PINK" | "ORANGE";
-    note?: string | null;
-  }> => {
-    if (Object.keys(highlights).length === 0) return [];
-    
-    // Group consecutive indices with same style into ranges
-    const sortedIndices = Object.keys(highlights).map(Number).sort((a, b) => a - b);
-    const ranges: Array<{ start: number; end: number; style: HighlightStyle }> = [];
-    
-    if (sortedIndices.length === 0) return [];
-    
-    let currentStart = sortedIndices[0];
-    let currentEnd = sortedIndices[0];
-    let currentStyle = highlights[sortedIndices[0]];
-    
-    for (let i = 1; i < sortedIndices.length; i++) {
-      const idx = sortedIndices[i];
-      const style = highlights[idx];
-      
-      // If consecutive and same style, extend range
-      if (idx === currentEnd + 1 && style === currentStyle) {
-        currentEnd = idx;
-      } else {
-        // Save current range and start new one
-        ranges.push({ start: currentStart, end: currentEnd, style: currentStyle });
-        currentStart = idx;
-        currentEnd = idx;
-        currentStyle = style;
+  const convertHighlightsToBackendFormat = useCallback(
+    (
+      highlights: Record<number, HighlightStyle>,
+    ): Array<{
+      startOffset: number;
+      endOffset: number;
+      color: "YELLOW" | "GREEN" | "BLUE" | "PINK" | "ORANGE";
+      note?: string | null;
+    }> => {
+      if (Object.keys(highlights).length === 0) return [];
+
+      // Group consecutive indices with same style into ranges
+      const sortedIndices = Object.keys(highlights)
+        .map(Number)
+        .sort((a, b) => a - b);
+      const ranges: Array<{
+        start: number;
+        end: number;
+        style: HighlightStyle;
+      }> = [];
+
+      if (sortedIndices.length === 0) return [];
+
+      let currentStart = sortedIndices[0];
+      let currentEnd = sortedIndices[0];
+      let currentStyle = highlights[sortedIndices[0]];
+
+      for (let i = 1; i < sortedIndices.length; i++) {
+        const idx = sortedIndices[i];
+        const style = highlights[idx];
+
+        // If consecutive and same style, extend range
+        if (idx === currentEnd + 1 && style === currentStyle) {
+          currentEnd = idx;
+        } else {
+          // Save current range and start new one
+          ranges.push({
+            start: currentStart,
+            end: currentEnd,
+            style: currentStyle,
+          });
+          currentStart = idx;
+          currentEnd = idx;
+          currentStyle = style;
+        }
       }
-    }
-    
-    // Add last range
-    ranges.push({ start: currentStart, end: currentEnd, style: currentStyle });
-    
-    // Convert to backend format
-    const colorMap: Record<HighlightStyle, "YELLOW" | "GREEN" | "BLUE" | "PINK" | "ORANGE"> = {
-      yellow: "YELLOW",
-      green: "GREEN",
-      blue: "BLUE",
-      pink: "PINK",
-      underline: "YELLOW", // Default to yellow for underline
-      dotted: "YELLOW", // Default to yellow for dotted
-      bold: "YELLOW", // Default to yellow for bold
-      italic: "YELLOW", // Default to yellow for italic
-    };
-    
-    return ranges.map(range => ({
-      startOffset: range.start,
-      endOffset: range.end + 1, // endOffset is exclusive in backend
-      color: colorMap[range.style] || "YELLOW",
-      note: null,
-    }));
-  }, []);
+
+      // Add last range
+      ranges.push({
+        start: currentStart,
+        end: currentEnd,
+        style: currentStyle,
+      });
+
+      // Convert to backend format
+      const colorMap: Record<
+        HighlightStyle,
+        "YELLOW" | "GREEN" | "BLUE" | "PINK" | "ORANGE"
+      > = {
+        yellow: "YELLOW",
+        green: "GREEN",
+        blue: "BLUE",
+        pink: "PINK",
+        underline: "YELLOW", // Default to yellow for underline
+        dotted: "YELLOW", // Default to yellow for dotted
+        bold: "YELLOW", // Default to yellow for bold
+        italic: "YELLOW", // Default to yellow for italic
+      };
+
+      return ranges.map((range) => ({
+        startOffset: range.start,
+        endOffset: range.end + 1, // endOffset is exclusive in backend
+        color: colorMap[range.style] || "YELLOW",
+        note: null,
+      }));
+    },
+    [],
+  );
 
   useEffect(() => {
     // Clear highlights when question changes (question.id changes)
     setHighlights({});
-    
+
     // Load saved highlights for this specific question
     if (attemptId) {
       // Load from test page format (grouped by questionId)
@@ -132,17 +168,19 @@ export function QuestionDisplay({
           const questionHighlights = allHighlights[question.id] || [];
           // Convert from backend format to character index format
           const charIndexHighlights: Record<number, HighlightStyle> = {};
-          questionHighlights.forEach((h: { startOffset: number; endOffset: number; color: string }) => {
-            for (let i = h.startOffset; i < h.endOffset; i++) {
-              const colorMap: Record<string, HighlightStyle> = {
-                YELLOW: "yellow",
-                GREEN: "green",
-                BLUE: "blue",
-                PINK: "pink",
-              };
-              charIndexHighlights[i] = colorMap[h.color] || "yellow";
-            }
-          });
+          questionHighlights.forEach(
+            (h: { startOffset: number; endOffset: number; color: string }) => {
+              for (let i = h.startOffset; i < h.endOffset; i++) {
+                const colorMap: Record<string, HighlightStyle> = {
+                  YELLOW: "yellow",
+                  GREEN: "green",
+                  BLUE: "blue",
+                  PINK: "pink",
+                };
+                charIndexHighlights[i] = colorMap[h.color] || "yellow";
+              }
+            },
+          );
           setHighlights(charIndexHighlights);
         }
       } catch {
@@ -183,9 +221,18 @@ export function QuestionDisplay({
         // ignore
       }
     }
-  }, [highlights, storageKey, attemptId, onHighlightsChange, convertHighlightsToBackendFormat]);
+  }, [
+    highlights,
+    storageKey,
+    attemptId,
+    onHighlightsChange,
+    convertHighlightsToBackendFormat,
+  ]);
 
-  const handleCharClick = (index: number, isMarkupEnabled: boolean | undefined) => {
+  const handleCharClick = (
+    index: number,
+    isMarkupEnabled: boolean | undefined,
+  ) => {
     if (!isMarkupEnabled) return;
 
     setHighlights((prev) => {
@@ -279,11 +326,12 @@ export function QuestionDisplay({
     if (!isMarkupEnabled) return;
 
     const selection = window.getSelection();
-    if (!selection || selection.isCollapsed || selection.rangeCount === 0) return;
+    if (!selection || selection.isCollapsed || selection.rangeCount === 0)
+      return;
 
     const range = selection.getRangeAt(0);
     const selectedText = selection.toString();
-    
+
     if (!selectedText || !textRef.current) {
       setShowFloatingToolbar(false);
       return;
@@ -291,13 +339,16 @@ export function QuestionDisplay({
 
     // Get the full text content
     const fullText = question.questionText || "";
-    
+
     // Find character index by traversing DOM
     const getCharIndex = (node: Node, offset: number): number => {
       // First try to find parent span with charIndex
       let current: Node | null = node;
       while (current && current !== textRef.current) {
-        if (current instanceof HTMLElement && current.dataset.charIndex !== undefined) {
+        if (
+          current instanceof HTMLElement &&
+          current.dataset.charIndex !== undefined
+        ) {
           const baseIndex = Number(current.dataset.charIndex);
           // If node is the span itself, return baseIndex + offset
           if (current === node || current.contains(node)) {
@@ -306,27 +357,30 @@ export function QuestionDisplay({
         }
         current = current.parentNode;
       }
-      
+
       // Fallback: count all characters before this node
       let charIndex = 0;
       let walker = document.createTreeWalker(
         textRef.current!,
         NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
-        null
+        null,
       );
-      
+
       let currentNode: Node | null;
       while ((currentNode = walker.nextNode())) {
         if (currentNode === node) {
           return charIndex + offset;
         }
-        if (currentNode instanceof HTMLElement && currentNode.dataset.charIndex !== undefined) {
+        if (
+          currentNode instanceof HTMLElement &&
+          currentNode.dataset.charIndex !== undefined
+        ) {
           charIndex = Number(currentNode.dataset.charIndex) + 1;
         } else if (currentNode.nodeType === Node.TEXT_NODE) {
           charIndex += currentNode.textContent?.length || 0;
         }
       }
-      
+
       // Final fallback: use text matching
       const startPos = fullText.indexOf(selectedText);
       return startPos !== -1 ? startPos : 0;
@@ -362,7 +416,7 @@ export function QuestionDisplay({
       // Calculate from range offsets
       startIndex = getCharIndex(range.startContainer, range.startOffset);
       endIndex = getCharIndex(range.endContainer, range.endOffset);
-      
+
       // If calculation failed, use text matching as fallback
       if (Number.isNaN(startIndex) || Number.isNaN(endIndex)) {
         const startPos = fullText.indexOf(selectedText);
@@ -478,38 +532,56 @@ export function QuestionDisplay({
 
       {/* Question Text */}
       <div className="space-y-2">
-        <p
-          ref={textRef}
-          onMouseUp={handleMouseUp}
-          className="text-base text-gray-900 leading-relaxed select-text"
-        >
-          {question.questionText ? (
-            characters.map(({ char, index }) => {
-              const style = highlights[index];
-              return (
-                <span
-                  key={index}
-                  data-char-index={index}
-                  onClick={() => handleCharClick(index, isMarkupEnabled)}
-                  className={`${isMarkupEnabled ? "cursor-pointer" : ""} ${
-                    style ? styleClasses[style] : ""
-                  }`}
-                >
-                  {char}
-                </span>
-              );
-            })
-          ) : (
-            <span className="text-gray-500 italic">No question text available</span>
-          )}
-        </p>
+        {/* When markup is enabled, keep character-level rendering for highlighting.
+            When markup is disabled, render math-friendly content using KaTeX. */}
+        {isMarkupEnabled ? (
+          <p
+            ref={textRef}
+            onMouseUp={handleMouseUp}
+            className="text-base text-gray-900 leading-relaxed select-text"
+          >
+            {question.questionText ? (
+              characters.map(({ char, index }) => {
+                const style = highlights[index];
+                return (
+                  <span
+                    key={index}
+                    data-char-index={index}
+                    onClick={() => handleCharClick(index, isMarkupEnabled)}
+                    className={`${isMarkupEnabled ? "cursor-pointer" : ""} ${
+                      style ? styleClasses[style] : ""
+                    }`}
+                  >
+                    {char}
+                  </span>
+                );
+              })
+            ) : (
+              <span className="text-gray-500 italic">
+                No question text available
+              </span>
+            )}
+          </p>
+        ) : (
+          <div className="text-base text-gray-900 leading-relaxed">
+            {question.questionText ? (
+              parseMathContent(question.questionText)
+            ) : (
+              <span className="text-gray-500 italic">
+                No question text available
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Only show choices if not showOnlyQuestionText */}
       {!showOnlyQuestionText && (
         <>
           {/* Multiple Choice */}
-          {question.questionType === "MULTIPLE_CHOICE" && question.choices && question.choices.length > 0 ? (
+          {question.questionType === "MULTIPLE_CHOICE" &&
+          question.choices &&
+          question.choices.length > 0 ? (
             <div className="space-y-3 mt-4">
               {question.choices.map((choice, index) => {
                 const isSelected = selectedChoiceId === choice.id;
@@ -586,3 +658,39 @@ export function QuestionDisplay({
   );
 }
 
+// Simple LaTeX-aware text parser: splits plain text and $...$ inline math,
+// and renders math parts through MathRenderer.
+function parseMathContent(text: string): React.ReactNode {
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+
+  // Inline math: $...$
+  const inlineRegex = /\$([^$]+)\$/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = inlineRegex.exec(text)) !== null) {
+    // Push plain text before math
+    if (match.index > lastIndex) {
+      parts.push(text.substring(lastIndex, match.index));
+    }
+
+    // Push math expression
+    parts.push(
+      <MathRenderer
+        key={`inline-${match.index}`}
+        content={match[1]}
+        displayMode={false}
+        className="inline-block"
+      />,
+    );
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Remaining plain text
+  if (lastIndex < text.length) {
+    parts.push(text.substring(lastIndex));
+  }
+
+  return parts.length > 0 ? parts : text;
+}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { practiceService } from "@/src/services/practice.service";
-import { CommentForm } from "./CommentForm";
+import { CommentForm, type Comment } from "./CommentForm";
 import { Button } from "@/src/ui/button";
 import { ChevronDown, ChevronUp } from "lucide-react";
 // Simple date formatting function
@@ -21,18 +21,8 @@ const formatDistanceToNow = (date: Date): string => {
   return date.toLocaleDateString();
 };
 
-interface Reply {
-  id: string;
-  content: string;
+interface Reply extends Comment {
   parentId: string;
-  isEdited: boolean;
-  createdAt: string;
-  updatedAt: string;
-  user: {
-    id: string;
-    name: string;
-  };
-  replyCount: number;
 }
 
 interface ReplyThreadProps {
@@ -48,7 +38,11 @@ export function ReplyThread({ commentId }: ReplyThreadProps) {
   const loadReplies = async () => {
     try {
       setLoading(true);
-      const response = await practiceService.getCommentReplies(commentId, 1, 20);
+      const response = await practiceService.getCommentReplies(
+        commentId,
+        1,
+        20,
+      );
       setReplies(response.data);
     } catch (err) {
       console.error("Failed to load replies:", err);
@@ -63,8 +57,9 @@ export function ReplyThread({ commentId }: ReplyThreadProps) {
     }
   }, [expanded, commentId]);
 
-  const handleReplyCreated = (newReply: Reply) => {
-    setReplies((prev) => [...prev, newReply]);
+  const handleReplyCreated = (newReply: Comment) => {
+    // Cast to Reply; backend replies include parentId so shape is compatible
+    setReplies((prev) => [...prev, newReply as Reply]);
     setShowReplyForm(false);
   };
 
@@ -146,4 +141,3 @@ export function ReplyThread({ commentId }: ReplyThreadProps) {
     </div>
   );
 }
-

@@ -64,27 +64,49 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    console.log(`[Admin Users API] Backend response status: ${response.status}`);
+    console.log(
+      `[Admin Users API] Backend response status: ${response.status}`,
+    );
 
     if (response.ok) {
       const users = await response.json();
-      const usersArray = Array.isArray(users) 
-        ? users 
-        : Array.isArray(users?.data) 
-          ? users.data 
-          : Array.isArray(users?.users) 
-            ? users.users 
+
+      // Normalize backend shape to { data: [...users], meta: {...} }
+      const dataArray = Array.isArray(users)
+        ? users
+        : Array.isArray(users?.data)
+          ? users.data
+          : Array.isArray(users?.users)
+            ? users.users
             : [];
-      
-      console.log(`[Admin Users API] Returning ${usersArray.length} users`);
-      return NextResponse.json(usersArray, {
-        status: 200,
-      });
+
+      const meta = users?.meta || {
+        total: dataArray.length,
+        page: Number(page),
+        limit: Number(limit),
+        totalPages: Math.ceil(
+          (users?.meta?.total || dataArray.length || 1) / Number(limit || "10"),
+        ),
+      };
+
+      console.log(
+        `[Admin Users API] Returning ${dataArray.length} users (page ${meta.page}/${meta.totalPages})`,
+      );
+
+      return NextResponse.json(
+        {
+          data: dataArray,
+          meta,
+        },
+        {
+          status: 200,
+        },
+      );
     }
 
     const errorBody = await response.json().catch(() => ({}));
     console.error(`[Admin Users API] Backend error:`, errorBody);
-    
+
     return NextResponse.json(
       {
         error:
@@ -92,14 +114,16 @@ export async function GET(request: NextRequest) {
           errorBody.error ||
           `Backend /users returned ${response.status}`,
       },
-      { status: response.status }
+      { status: response.status },
     );
   } catch (error) {
     console.error("[Admin Users API] Fetch error:", error);
     return NextResponse.json(
-      { error: "Failed to fetch users", details: error instanceof Error ? error.message : String(error) },
-      { status: 500 }
+      {
+        error: "Failed to fetch users",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
     );
   }
 }
-

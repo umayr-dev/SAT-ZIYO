@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import {
   BarChart,
   Bar,
@@ -13,37 +12,18 @@ import {
 } from "recharts";
 import { Card } from "@/src/ui/card";
 import { Loading } from "@/src/ui/loading";
-
-interface HourDistribution {
-  hour: number;
-  count: number;
-}
+import { useAdminStats } from "@/src/components/admin/useAdminStats";
 
 /**
  * Test Attempt Hours Chart Component
- * Shows distribution of test attempts by hour of day
+ * Shows distribution of test attempts by hour of day.
+ *
+ * Uses the shared admin stats hook so we don't re-fetch /api/admin/stats
+ * separately from other widgets.
  */
 export default function TestAttemptHoursChart() {
-  const [data, setData] = useState<HourDistribution[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const response = await fetch("/api/admin/stats");
-        if (response.ok) {
-          const stats = await response.json();
-          setData(stats.hourDistribution || []);
-        }
-      } catch (error) {
-        console.error("Failed to fetch hour distribution:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchData();
-  }, []);
+  const { data: stats, isLoading } = useAdminStats();
+  const data = stats?.hourDistribution ?? [];
 
   const formatHour = (hour: number): string => {
     if (hour === 0) return "12 AM";
@@ -58,7 +38,7 @@ export default function TestAttemptHoursChart() {
     count: item.count,
   }));
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Card className="p-6">
         <div className="flex items-center justify-center h-64">
@@ -90,7 +70,10 @@ export default function TestAttemptHoursChart() {
           />
           <YAxis tick={{ fontSize: 12 }} />
           <Tooltip
-            formatter={(value: number | undefined) => [`${value ?? 0} attempts`, "Count"]}
+            formatter={(value: number | undefined) => [
+              `${value ?? 0} attempts`,
+              "Count",
+            ]}
             labelFormatter={(label) => `Hour: ${label}`}
           />
           <Legend />
@@ -105,5 +88,3 @@ export default function TestAttemptHoursChart() {
     </Card>
   );
 }
-
-

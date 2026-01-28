@@ -1,43 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Card } from "@/src/ui/card";
 import { Loading } from "@/src/ui/loading";
-
-interface AdminStats {
-  usersCount: number;
-  testsCount: number;
-  hourDistribution: { hour: number; count: number }[];
-}
+import { useAdminStats } from "@/src/components/admin/useAdminStats";
 
 /**
  * Admin Stats Cards - Client Component
  *
- * Performance: Dynamically imported to reduce initial bundle
+ * Uses shared admin stats hook (React Query) so that:
+ * - /api/admin/stats is fetched once and cached
+ * - Admin dashboard widgets don't spam the server
  */
 export default function AdminStatsCards() {
-  const [stats, setStats] = useState<AdminStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: stats, isLoading } = useAdminStats();
 
-  useEffect(() => {
-    async function fetchStats() {
-      try {
-        const response = await fetch("/api/admin/stats");
-        if (response.ok) {
-          const data = await response.json();
-          setStats(data);
-        }
-      } catch (error) {
-        console.error("Failed to fetch admin stats:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchStats();
-  }, []);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[1, 2, 3].map((i) => (
@@ -134,5 +111,3 @@ export default function AdminStatsCards() {
     </div>
   );
 }
-
-

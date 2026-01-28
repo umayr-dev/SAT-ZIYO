@@ -6,7 +6,7 @@ import { Button } from "@/src/ui/button";
 import { Textarea } from "@/src/ui/textarea";
 import { Send } from "lucide-react";
 
-interface Comment {
+export interface Comment {
   id: string;
   content: string;
   isEdited: boolean;
@@ -40,7 +40,7 @@ export function CommentForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!content.trim()) {
       setError("Comment cannot be empty");
       return;
@@ -57,9 +57,15 @@ export function CommentForm({
 
       let newComment: Comment;
       if (parentId) {
-        newComment = await practiceService.replyToComment(parentId, content.trim());
+        newComment = await practiceService.replyToComment(
+          parentId,
+          content.trim(),
+        );
       } else {
-        newComment = await practiceService.createComment(testId, content.trim());
+        newComment = await practiceService.createComment(
+          testId,
+          content.trim(),
+        );
       }
 
       setContent("");
@@ -88,9 +94,7 @@ export function CommentForm({
         maxLength={2000}
         className="resize-none"
       />
-      {error && (
-        <p className="text-sm text-red-600">{error}</p>
-      )}
+      {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex items-center justify-between">
         <span className="text-xs text-gray-500">
           {content.length}/2000 characters
@@ -121,4 +125,3 @@ export function CommentForm({
     </form>
   );
 }
-

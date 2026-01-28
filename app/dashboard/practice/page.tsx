@@ -1,143 +1,35 @@
 "use client";
 
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/src/ui/card";
 import { Button } from "@/src/ui/button";
 import { Loading } from "@/src/ui/loading";
 import {
-  practiceService,
-  Test,
-  Attempt,
-} from "@/src/services/practice.service";
-import { Clock, FileText, Trophy, Play, RotateCcw, Filter, Star, BookOpen, RefreshCw, CheckCircle2, Users, MessageCircle } from "lucide-react";
-import { CommentsSection } from "@/src/components/comments/CommentsSection";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/src/ui/dialog";
-
-// Cache for practice page data
-const CACHE_KEY = "practice_page_cache";
-const CACHE_DURATION = 30000; // 30 seconds
-
-interface CacheData {
-  tests: Test[];
-  attempts: Attempt[];
-  timestamp: number;
-}
+  Clock,
+  FileText,
+  Trophy,
+  Play,
+  RotateCcw,
+  Filter,
+  Star,
+  BookOpen,
+  RefreshCw,
+  CheckCircle2,
+  Users,
+  MessageCircle,
+} from "lucide-react";
+import { usePracticeOverview } from "@/src/components/practice/usePracticeOverview";
 
 type FilterType = "all" | "new" | "free" | "in_progress" | "completed";
 
 export default function PracticePage() {
   const router = useRouter();
-  const [tests, setTests] = useState<Test[]>([]);
-  const [attempts, setAttempts] = useState<Attempt[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const { data, isLoading, error } = usePracticeOverview();
+  const tests = data?.tests ?? [];
+  const attempts = data?.attempts ?? [];
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest");
-  const fetchingRef = useRef(false);
-  const mountedRef = useRef(true);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    fetchData();
-    
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
-
-  async function fetchData() {
-    // Prevent multiple simultaneous calls
-    if (fetchingRef.current) {
-      console.log("[Practice Page] Fetch already in progress, skipping...");
-      return;
-    }
-
-    // Check cache first
-    if (typeof window !== "undefined") {
-      try {
-        const cached = localStorage.getItem(CACHE_KEY);
-        if (cached) {
-          const cacheData: CacheData = JSON.parse(cached);
-          const now = Date.now();
-          
-          // Use cache if it's still valid
-          if (now - cacheData.timestamp < CACHE_DURATION) {
-            console.log("[Practice Page] Using cached data");
-            if (mountedRef.current) {
-              setTests(cacheData.tests);
-              setAttempts(cacheData.attempts);
-              setLoading(false);
-            }
-            return;
-          }
-        }
-      } catch (err) {
-        console.error("[Practice Page] Failed to read cache:", err);
-      }
-    }
-
-    try {
-      fetchingRef.current = true;
-      if (mountedRef.current) {
-        setLoading(true);
-        setError("");
-      }
-      
-      const [testsData, attemptsData] = await Promise.all([
-        practiceService.getAvailableTests(),
-        practiceService.getMyAttempts(),
-      ]);
-      
-      if (!mountedRef.current) return;
-      
-      console.log("[Practice Page] Raw tests data:", testsData);
-      console.log("[Practice Page] Tests count:", testsData?.length || 0);
-      
-      // Filter only active tests (backend should already filter, but double-check on frontend)
-      // Also handle cases where isActive might be undefined (default to true)
-      const activeTests = (testsData || []).filter((test) => {
-        // If isActive is explicitly false, exclude it
-        // If isActive is undefined/null, include it (default to active)
-        return test.isActive !== false;
-      });
-      
-      console.log("[Practice Page] Active tests count:", activeTests.length);
-      console.log("[Practice Page] Active tests:", activeTests);
-      
-      // Save to cache
-      if (typeof window !== "undefined") {
-        try {
-          const cacheData: CacheData = {
-            tests: activeTests,
-            attempts: attemptsData || [],
-            timestamp: Date.now(),
-          };
-          localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
-        } catch (err) {
-          console.error("[Practice Page] Failed to save cache:", err);
-        }
-      }
-      
-      setTests(activeTests);
-      setAttempts(attemptsData || []);
-    } catch (err) {
-      if (!mountedRef.current) return;
-      
-      console.error("[Practice Page] Fetch error:", err);
-      setError(err instanceof Error ? err.message : "Failed to load tests");
-    } finally {
-      fetchingRef.current = false;
-      if (mountedRef.current) {
-        setLoading(false);
-      }
-    }
-  }
 
   function getTestAttempts(testId: string): Attempt[] {
     return attempts.filter((a) => a.testId === testId);
@@ -145,7 +37,7 @@ export default function PracticePage() {
 
   function getInProgressAttempt(testId: string): Attempt | undefined {
     return attempts.find(
-      (a) => a.testId === testId && a.status === "IN_PROGRESS"
+      (a) => a.testId === testId && a.status === "IN_PROGRESS",
     );
   }
 
@@ -160,32 +52,36 @@ export default function PracticePage() {
     if (!test.sections || !Array.isArray(test.sections)) {
       return test.totalDuration || 0;
     }
-    return test.sections.reduce(
-      (total, section) => total + (section.duration || 0),
+    return (
+      test.sections.reduce(
+        (total, section) => total + (section.duration || 0),
+        0,
+      ) ||
+      test.totalDuration ||
       0
-    ) || test.totalDuration || 0;
+    );
   }
 
   function calculateTotalQuestions(test: Test): number {
     if (!test.sections || !Array.isArray(test.sections)) {
       return test.totalQuestions || 0;
     }
-    return test.sections.reduce(
-      (total, section) => {
+    return (
+      test.sections.reduce((total, section) => {
         if (!section.modules || !Array.isArray(section.modules)) {
           return total;
         }
         return (
           total +
           section.modules.reduce(
-            (moduleTotal, module) =>
-              moduleTotal + (module.questionCount || 0),
-            0
+            (moduleTotal, module) => moduleTotal + (module.questionCount || 0),
+            0,
           )
         );
-      },
+      }, 0) ||
+      test.totalQuestions ||
       0
-    ) || test.totalQuestions || 0;
+    );
   }
 
   // Filter and sort tests
@@ -207,7 +103,9 @@ export default function PracticePage() {
         break;
       case "in_progress":
         filtered = filtered.filter((test) => {
-          return attempts.some((a) => a.testId === test.id && a.status === "IN_PROGRESS");
+          return attempts.some(
+            (a) => a.testId === test.id && a.status === "IN_PROGRESS",
+          );
         });
         break;
       case "completed":
@@ -240,14 +138,25 @@ export default function PracticePage() {
   const filterCounts = useMemo(() => {
     return {
       all: tests.length,
-      new: tests.filter((test) => attempts.filter((a) => a.testId === test.id).length === 0).length,
+      new: tests.filter(
+        (test) => attempts.filter((a) => a.testId === test.id).length === 0,
+      ).length,
       free: tests.length, // All are free for now
-      in_progress: tests.filter((test) => attempts.find((a) => a.testId === test.id && a.status === "IN_PROGRESS") !== undefined).length,
-      completed: tests.filter((test) => attempts.filter((a) => a.testId === test.id).some((a) => a.status === "COMPLETED")).length,
+      in_progress: tests.filter(
+        (test) =>
+          attempts.find(
+            (a) => a.testId === test.id && a.status === "IN_PROGRESS",
+          ) !== undefined,
+      ).length,
+      completed: tests.filter((test) =>
+        attempts
+          .filter((a) => a.testId === test.id)
+          .some((a) => a.status === "COMPLETED"),
+      ).length,
     };
   }, [tests, attempts]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loading size="lg" />
@@ -263,18 +172,24 @@ export default function PracticePage() {
           Your Practice Papers
         </h1>
         <p className="text-gray-600 text-lg">
-          Hone your skills with official past papers. Consistency is key to success.
+          Hone your skills with official past papers. Consistency is key to
+          success.
         </p>
         <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
           <p className="text-sm text-yellow-800">
-            <strong>Important Note:</strong> If your test is not listed under the &apos;In Progress&apos; or &apos;Completed&apos; tabs, it may have been unpublished or permanently removed by the exam administrator.
+            <strong>Important Note:</strong> If your test is not listed under
+            the &apos;In Progress&apos; or &apos;Completed&apos; tabs, it may
+            have been unpublished or permanently removed by the exam
+            administrator.
           </p>
         </div>
       </div>
 
       {error && (
         <Card className="p-4 bg-red-50 border-red-200 mb-6">
-          <p className="text-red-700">{error}</p>
+          <p className="text-red-700">
+            {error instanceof Error ? error.message : String(error)}
+          </p>
         </Card>
       )}
 
@@ -370,8 +285,12 @@ export default function PracticePage() {
       {/* Test Cards Grid */}
       {filteredAndSortedTests.length === 0 ? (
         <Card className="p-12 text-center">
-          <p className="text-gray-600 text-lg mb-2">No practice tests available</p>
-          <p className="text-gray-500 text-sm">Try selecting a different filter</p>
+          <p className="text-gray-600 text-lg mb-2">
+            No practice tests available
+          </p>
+          <p className="text-gray-500 text-sm">
+            Try selecting a different filter
+          </p>
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -381,13 +300,20 @@ export default function PracticePage() {
             const totalDuration = calculateTotalDuration(test);
             const totalQuestions = calculateTotalQuestions(test);
             const testAttempts = getTestAttempts(test.id);
-            const completedAttempts = testAttempts.filter((a) => a.status === "COMPLETED");
+            const completedAttempts = testAttempts.filter(
+              (a) => a.status === "COMPLETED",
+            );
             const peopleTook = completedAttempts.length;
-            const allAttemptsForTest = attempts.filter((a) => a.testId === test.id);
+            const allAttemptsForTest = attempts.filter(
+              (a) => a.testId === test.id,
+            );
             const totalPeopleTook = allAttemptsForTest.length;
 
             return (
-              <Card key={test.id} className="p-6 bg-white border border-gray-200 hover:shadow-xl transition-all duration-200 rounded-xl">
+              <Card
+                key={test.id}
+                className="p-6 bg-white border border-gray-200 hover:shadow-xl transition-all duration-200 rounded-xl"
+              >
                 <div className="space-y-4">
                   {/* Test Title and Icon */}
                   <div className="flex items-start gap-3 mb-4">
@@ -396,10 +322,13 @@ export default function PracticePage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <h2 className="text-lg font-bold text-gray-900 mb-1 line-clamp-2">
-                        {test.title || `Paper #${filteredAndSortedTests.length - index}`}
+                        {test.title ||
+                          `Paper #${filteredAndSortedTests.length - index}`}
                       </h2>
                       {test.description && (
-                        <p className="text-xs text-gray-500 line-clamp-1">{test.description}</p>
+                        <p className="text-xs text-gray-500 line-clamp-1">
+                          {test.description}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -423,7 +352,9 @@ export default function PracticePage() {
                         <Users className="w-4 h-4" />
                         <span className="text-xs">People took</span>
                       </div>
-                      <span className="font-semibold text-gray-900">{totalPeopleTook}</span>
+                      <span className="font-semibold text-gray-900">
+                        {totalPeopleTook}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 text-gray-600">
@@ -442,7 +373,7 @@ export default function PracticePage() {
                       <Button
                         onClick={() =>
                           router.push(
-                            `/dashboard/practice/test/${inProgressAttempt.id}`
+                            `/dashboard/practice/test/${inProgressAttempt.id}`,
                           )
                         }
                         className="flex-1 bg-gray-900 hover:bg-gray-800 text-white rounded-lg"
@@ -453,7 +384,9 @@ export default function PracticePage() {
                     ) : (
                       <Button
                         onClick={() =>
-                          router.push(`/dashboard/practice/test/${test.id}/start`)
+                          router.push(
+                            `/dashboard/practice/test/${test.id}/start`,
+                          )
                         }
                         className="flex-1 bg-gray-900 hover:bg-gray-800 text-white rounded-lg"
                       >
@@ -463,7 +396,11 @@ export default function PracticePage() {
                     )}
                     <Button
                       variant="outline"
-                      onClick={() => router.push(`/dashboard/practice/test/${test.id}/comments`)}
+                      onClick={() =>
+                        router.push(
+                          `/dashboard/practice/test/${test.id}/comments`,
+                        )
+                      }
                       className="bg-white border-gray-300 hover:bg-gray-50 rounded-lg px-3"
                       title="Discuss"
                     >
@@ -476,9 +413,6 @@ export default function PracticePage() {
           })}
         </div>
       )}
-
     </div>
   );
 }
-
-

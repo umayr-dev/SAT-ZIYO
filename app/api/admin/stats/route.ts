@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
             Authorization: token ? `Bearer ${token}` : "",
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       if (adminStatsResponse.ok) {
@@ -71,50 +71,85 @@ export async function GET(request: NextRequest) {
             Authorization: token ? `Bearer ${token}` : "",
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       let users: any[] = [];
+      let usersTotal = 0;
       if (usersResponse.ok) {
         const usersData = await usersResponse.json();
-        users = Array.isArray(usersData) ? usersData : Array.isArray(usersData?.data) ? usersData.data : [];
-        console.log(`[Admin Stats] Fetched ${users.length} users`);
+        // Support both paginated and non-paginated shapes
+        if (Array.isArray(usersData)) {
+          users = usersData;
+          usersTotal = usersData.length;
+        } else {
+          users = Array.isArray(usersData?.data) ? usersData.data : [];
+          usersTotal =
+            typeof usersData?.meta?.total === "number"
+              ? usersData.meta.total
+              : users.length;
+        }
+        console.log(
+          `[Admin Stats] Fetched ${users.length} users (total: ${usersTotal})`,
+        );
       } else {
-        console.warn(`[Admin Stats] Users fetch failed: ${usersResponse.status} ${usersResponse.statusText}`);
+        console.warn(
+          `[Admin Stats] Users fetch failed: ${usersResponse.status} ${usersResponse.statusText}`,
+        );
       }
 
       let tests: any[] = [];
+      let testsTotal = 0;
       if (testsResponse.ok) {
         const testsData = await testsResponse.json();
-        tests = Array.isArray(testsData) ? testsData : Array.isArray(testsData?.data) ? testsData.data : [];
-        console.log(`[Admin Stats] Fetched ${tests.length} tests`);
+        if (Array.isArray(testsData)) {
+          tests = testsData;
+          testsTotal = testsData.length;
+        } else {
+          tests = Array.isArray(testsData?.data) ? testsData.data : [];
+          testsTotal =
+            typeof testsData?.meta?.total === "number"
+              ? testsData.meta.total
+              : tests.length;
+        }
+        console.log(
+          `[Admin Stats] Fetched ${tests.length} tests (total: ${testsTotal})`,
+        );
       } else {
-        console.warn(`[Admin Stats] Tests fetch failed: ${testsResponse.status} ${testsResponse.statusText}`);
+        console.warn(
+          `[Admin Stats] Tests fetch failed: ${testsResponse.status} ${testsResponse.statusText}`,
+        );
       }
 
       let attempts: any[] = [];
       if (attemptsResponse.ok) {
         const attemptsData = await attemptsResponse.json();
-        attempts = Array.isArray(attemptsData) ? attemptsData : Array.isArray(attemptsData?.data) ? attemptsData.data : [];
+        attempts = Array.isArray(attemptsData)
+          ? attemptsData
+          : Array.isArray(attemptsData?.data)
+            ? attemptsData.data
+            : [];
         console.log(`[Admin Stats] Fetched ${attempts.length} attempts`);
       } else {
-        console.warn(`[Admin Stats] Attempts fetch failed: ${attemptsResponse.status} ${attemptsResponse.statusText}`);
+        console.warn(
+          `[Admin Stats] Attempts fetch failed: ${attemptsResponse.status} ${attemptsResponse.statusText}`,
+        );
       }
 
       const hourDistribution = calculateHourDistribution(attempts);
 
       return NextResponse.json(
         {
-          usersCount: Array.isArray(users) ? users.length : 0,
-          testsCount: Array.isArray(tests) ? tests.length : 0,
+          usersCount: usersTotal,
+          testsCount: testsTotal,
           hourDistribution,
         },
-        { status: 200 }
+        { status: 200 },
       );
     } catch (backendError) {
       console.warn(
         "Backend endpoints not available, using mock data:",
-        backendError
+        backendError,
       );
 
       return NextResponse.json(
@@ -123,7 +158,7 @@ export async function GET(request: NextRequest) {
           testsCount: 0,
           hourDistribution: generateMockHourDistribution(),
         },
-        { status: 200 }
+        { status: 200 },
       );
     }
   } catch (error) {
@@ -134,13 +169,13 @@ export async function GET(request: NextRequest) {
         testsCount: 0,
         hourDistribution: generateMockHourDistribution(),
       },
-      { status: 200 }
+      { status: 200 },
     );
   }
 }
 
 function calculateHourDistribution(
-  attempts: any[]
+  attempts: any[],
 ): { hour: number; count: number }[] {
   const hourCounts: { [key: number]: number } = {};
 
@@ -177,4 +212,3 @@ function generateMockHourDistribution(): { hour: number; count: number }[] {
   }
   return distribution;
 }
-
