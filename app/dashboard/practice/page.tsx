@@ -20,14 +20,15 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { usePracticeOverview } from "@/src/components/practice/usePracticeOverview";
+import type { Attempt, Test } from "@/src/services/practice.service";
 
 type FilterType = "all" | "new" | "free" | "in_progress" | "completed";
 
 export default function PracticePage() {
   const router = useRouter();
   const { data, isLoading, error } = usePracticeOverview();
-  const tests = data?.tests ?? [];
-  const attempts = data?.attempts ?? [];
+  const tests = useMemo(() => data?.tests ?? [], [data?.tests]);
+  const attempts = useMemo(() => data?.attempts ?? [], [data?.attempts]);
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest");
 
