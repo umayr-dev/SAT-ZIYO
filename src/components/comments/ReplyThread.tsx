@@ -61,11 +61,10 @@ export function ReplyThread({ commentId }: ReplyThreadProps) {
     // Cast to Reply; backend replies include parentId so shape is compatible
     setReplies((prev) => [...prev, newReply as Reply]);
     setShowReplyForm(false);
+    if (!expanded) {
+      setExpanded(true);
+    }
   };
-
-  if (replies.length === 0 && !expanded) {
-    return null;
-  }
 
   return (
     <div className="mt-2 space-y-2">

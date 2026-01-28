@@ -8,7 +8,8 @@ interface DropdownMenuContextValue {
   setOpen: (open: boolean) => void;
 }
 
-const DropdownMenuContext = React.createContext<DropdownMenuContextValue | null>(null);
+const DropdownMenuContext =
+  React.createContext<DropdownMenuContextValue | null>(null);
 
 const DropdownMenu = ({ children }: { children: React.ReactNode }) => {
   const [open, setOpen] = React.useState(false);
@@ -21,14 +22,15 @@ const DropdownMenu = ({ children }: { children: React.ReactNode }) => {
 };
 
 const DropdownMenuTrigger = React.forwardRef<
-  HTMLButtonElement,
-  React.ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean }
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement> & { asChild?: boolean }
 >(({ className, children, onClick, asChild, ...props }, ref) => {
   const context = React.useContext(DropdownMenuContext);
-  if (!context) throw new Error("DropdownMenuTrigger must be used within DropdownMenu");
+  if (!context)
+    throw new Error("DropdownMenuTrigger must be used within DropdownMenu");
 
   return (
-    <button
+    <div
       ref={ref}
       onClick={(e) => {
         context.setOpen(!context.open);
@@ -38,7 +40,7 @@ const DropdownMenuTrigger = React.forwardRef<
       {...props}
     >
       {children}
-    </button>
+    </div>
   );
 });
 DropdownMenuTrigger.displayName = "DropdownMenuTrigger";
@@ -48,7 +50,8 @@ const DropdownMenuContent = React.forwardRef<
   React.HTMLAttributes<HTMLDivElement> & { align?: "start" | "end" }
 >(({ className, align = "start", children, ...props }, ref) => {
   const context = React.useContext(DropdownMenuContext);
-  if (!context) throw new Error("DropdownMenuContent must be used within DropdownMenu");
+  if (!context)
+    throw new Error("DropdownMenuContent must be used within DropdownMenu");
 
   if (!context.open) return null;
 
@@ -59,7 +62,7 @@ const DropdownMenuContent = React.forwardRef<
         "absolute z-50 min-w-[8rem] overflow-hidden rounded-md border bg-white p-1 text-gray-950 shadow-md",
         align === "end" ? "right-0" : "left-0",
         "mt-1",
-        className
+        className,
       )}
       {...props}
     >
@@ -81,7 +84,7 @@ const DropdownMenuItem = React.forwardRef<
       className={cn(
         "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-gray-100 focus:bg-gray-100 focus:text-gray-900",
         inset && "pl-8",
-        className
+        className,
       )}
       onClick={(e) => {
         context?.setOpen(false);
@@ -99,4 +102,3 @@ export {
   DropdownMenuContent,
   DropdownMenuItem,
 };
-

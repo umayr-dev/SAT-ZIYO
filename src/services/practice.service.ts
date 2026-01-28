@@ -208,7 +208,7 @@ class PracticeService {
       `/api/practice/attempts/${attemptId}/current`,
       {
         requireAuth: true,
-      }
+      },
     );
   }
 
@@ -221,7 +221,7 @@ class PracticeService {
     choiceId?: string,
     textAnswer?: string,
     markedForReview?: boolean,
-    eliminatedChoices?: string[]
+    eliminatedChoices?: string[],
   ): Promise<AnswerResponse> {
     const body: any = { questionId };
     if (choiceId) {
@@ -237,11 +237,14 @@ class PracticeService {
       body.eliminatedChoices = eliminatedChoices;
     }
 
-    return apiClient<AnswerResponse>(`/api/practice/attempts/${attemptId}/answer`, {
-      method: "POST",
-      body: JSON.stringify(body),
-      requireAuth: true,
-    });
+    return apiClient<AnswerResponse>(
+      `/api/practice/attempts/${attemptId}/answer`,
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+        requireAuth: true,
+      },
+    );
   }
 
   /**
@@ -255,7 +258,7 @@ class PracticeService {
       textAnswer?: string;
       markedForReview?: boolean;
       eliminatedChoices?: string[];
-    }>
+    }>,
   ): Promise<{ success: boolean; processed: number; failed: number }> {
     if (answers.length === 0) {
       return { success: true, processed: 0, failed: 0 };
@@ -263,19 +266,22 @@ class PracticeService {
 
     // Use batch endpoint if available, otherwise fallback to individual requests
     try {
-      const response = await apiClient<{ success: boolean; processed: number; failed: number }>(
-        `/api/practice/attempts/${attemptId}/answers/batch`,
-        {
-          method: "POST",
-          body: JSON.stringify({ answers }),
-          requireAuth: true,
-        }
-      );
+      const response = await apiClient<{
+        success: boolean;
+        processed: number;
+        failed: number;
+      }>(`/api/practice/attempts/${attemptId}/answers/batch`, {
+        method: "POST",
+        body: JSON.stringify({ answers }),
+        requireAuth: true,
+      });
       return response;
     } catch (error) {
       // Fallback: submit individually (but this should be avoided in production)
-      console.warn("[PracticeService] Batch endpoint not available, falling back to individual submissions");
-      
+      console.warn(
+        "[PracticeService] Batch endpoint not available, falling back to individual submissions",
+      );
+
       let processed = 0;
       let failed = 0;
 
@@ -291,9 +297,9 @@ class PracticeService {
               answer.choiceId,
               answer.textAnswer,
               answer.markedForReview,
-              answer.eliminatedChoices
-            )
-          )
+              answer.eliminatedChoices,
+            ),
+          ),
         );
 
         results.forEach((result) => {
@@ -323,7 +329,7 @@ class PracticeService {
       {
         method: "POST",
         requireAuth: true,
-      }
+      },
     );
   }
 
@@ -336,7 +342,7 @@ class PracticeService {
       {
         method: "POST",
         requireAuth: true,
-      }
+      },
     );
   }
 
@@ -345,28 +351,26 @@ class PracticeService {
    */
   async jumpToQuestion(
     attemptId: string,
-    questionIndex: number
+    questionIndex: number,
   ): Promise<StartTestResponse> {
     return apiClient<StartTestResponse>(
       `/api/practice/attempts/${attemptId}/goto/${questionIndex}`,
       {
         method: "POST",
         requireAuth: true,
-      }
+      },
     );
   }
 
   /**
    * Get answered questions list
    */
-  async getAnsweredQuestions(
-    attemptId: string
-  ): Promise<AnsweredQuestions> {
+  async getAnsweredQuestions(attemptId: string): Promise<AnsweredQuestions> {
     return apiClient<AnsweredQuestions>(
       `/api/practice/attempts/${attemptId}/answers`,
       {
         requireAuth: true,
-      }
+      },
     );
   }
 
@@ -379,7 +383,7 @@ class PracticeService {
       {
         method: "POST",
         requireAuth: true,
-      }
+      },
     );
   }
 
@@ -391,7 +395,7 @@ class PracticeService {
       `/api/practice/attempts/${attemptId}/break-status`,
       {
         requireAuth: true,
-      }
+      },
     );
   }
 
@@ -409,10 +413,13 @@ class PracticeService {
    * Submit test for scoring
    */
   async submitTest(attemptId: string): Promise<TestResults> {
-    return apiClient<TestResults>(`/api/practice/attempts/${attemptId}/submit`, {
-      method: "POST",
-      requireAuth: true,
-    });
+    return apiClient<TestResults>(
+      `/api/practice/attempts/${attemptId}/submit`,
+      {
+        method: "POST",
+        requireAuth: true,
+      },
+    );
   }
 
   /**
@@ -423,7 +430,7 @@ class PracticeService {
       `/api/practice/attempts/${attemptId}/results`,
       {
         requireAuth: true,
-      }
+      },
     );
   }
 
@@ -438,7 +445,7 @@ class PracticeService {
       endOffset: number;
       color: "YELLOW" | "GREEN" | "BLUE" | "PINK" | "ORANGE";
       note?: string | null;
-    }>
+    }>,
   ): Promise<void> {
     return apiClient(`/api/practice/attempts/${attemptId}/highlights`, {
       method: "POST",
@@ -455,19 +462,21 @@ class PracticeService {
    */
   async getHighlights(
     attemptId: string,
-    questionId?: string
-  ): Promise<Array<{
-    id: string;
-    questionId: string;
-    startOffset: number;
-    endOffset: number;
-    color: "YELLOW" | "GREEN" | "BLUE" | "PINK" | "ORANGE";
-    note: string | null;
-  }>> {
+    questionId?: string,
+  ): Promise<
+    Array<{
+      id: string;
+      questionId: string;
+      startOffset: number;
+      endOffset: number;
+      color: "YELLOW" | "GREEN" | "BLUE" | "PINK" | "ORANGE";
+      note: string | null;
+    }>
+  > {
     const url = questionId
       ? `/api/practice/attempts/${attemptId}/highlights?questionId=${questionId}`
       : `/api/practice/attempts/${attemptId}/highlights`;
-    
+
     return apiClient(url, {
       method: "GET",
       requireAuth: true,
@@ -490,7 +499,7 @@ class PracticeService {
   }> {
     return apiClient(`/api/tests/${testId}/analytics`, {
       method: "GET",
-      requireAuth: false,
+      requireAuth: true,
     });
   }
 
@@ -500,7 +509,7 @@ class PracticeService {
   async getTestComments(
     testId: string,
     page: number = 1,
-    limit: number = 20
+    limit: number = 20,
   ): Promise<{
     data: Array<{
       id: string;
@@ -521,10 +530,13 @@ class PracticeService {
       totalPages: number;
     };
   }> {
-    return apiClient(`/api/tests/${testId}/comments?page=${page}&limit=${limit}`, {
-      method: "GET",
-      requireAuth: false,
-    });
+    return apiClient(
+      `/api/tests/${testId}/comments?page=${page}&limit=${limit}`,
+      {
+        method: "GET",
+        requireAuth: false,
+      },
+    );
   }
 
   /**
@@ -532,7 +544,7 @@ class PracticeService {
    */
   async createComment(
     testId: string,
-    content: string
+    content: string,
   ): Promise<{
     id: string;
     content: string;
@@ -558,7 +570,7 @@ class PracticeService {
   async getCommentReplies(
     commentId: string,
     page: number = 1,
-    limit: number = 20
+    limit: number = 20,
   ): Promise<{
     data: Array<{
       id: string;
@@ -580,10 +592,13 @@ class PracticeService {
       totalPages: number;
     };
   }> {
-    return apiClient(`/api/comments/${commentId}/replies?page=${page}&limit=${limit}`, {
-      method: "GET",
-      requireAuth: false,
-    });
+    return apiClient(
+      `/api/comments/${commentId}/replies?page=${page}&limit=${limit}`,
+      {
+        method: "GET",
+        requireAuth: false,
+      },
+    );
   }
 
   /**
@@ -591,7 +606,7 @@ class PracticeService {
    */
   async replyToComment(
     commentId: string,
-    content: string
+    content: string,
   ): Promise<{
     id: string;
     content: string;
@@ -617,7 +632,7 @@ class PracticeService {
    */
   async getCommentThread(
     commentId: string,
-    maxDepth: number = 10
+    maxDepth: number = 10,
   ): Promise<{
     id: string;
     content: string;
@@ -641,7 +656,7 @@ class PracticeService {
    */
   async editComment(
     commentId: string,
-    content: string
+    content: string,
   ): Promise<{
     id: string;
     content: string;
@@ -671,17 +686,22 @@ class PracticeService {
   /**
    * Get math reference formulas
    */
-  async getMathFormulas(category?: string): Promise<Record<string, Array<{
-    id: string;
-    name: string;
-    formula: string;
-    description: string | null;
-    imageUrl: string | null;
-  }>>> {
+  async getMathFormulas(category?: string): Promise<
+    Record<
+      string,
+      Array<{
+        id: string;
+        name: string;
+        formula: string;
+        description: string | null;
+        imageUrl: string | null;
+      }>
+    >
+  > {
     const url = category
       ? `/api/reference/math-formulas?category=${category}`
       : `/api/reference/math-formulas`;
-    
+
     return apiClient(url, {
       method: "GET",
       requireAuth: false,
@@ -690,4 +710,3 @@ class PracticeService {
 }
 
 export const practiceService = new PracticeService();
-

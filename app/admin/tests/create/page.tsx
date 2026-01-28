@@ -8,7 +8,6 @@ import { Input } from "@/src/ui/input";
 import { Label } from "@/src/ui/label";
 import { Loading } from "@/src/ui/loading";
 import { adminTestService } from "@/src/services/admin-test.service";
-import { FileText } from "lucide-react";
 
 interface Section {
   sectionType: "ENGLISH" | "MATH";
@@ -63,53 +62,53 @@ export default function CreateTestPage() {
 
     try {
       const simpleSections: Section[] = [
-          {
-            sectionType: "ENGLISH",
-            orderIndex: 0,
-            duration: 64,
-            allowCalculator: false,
-            breakDurationAfter: 10,
-            modules: [
-              {
-                moduleNumber: 1,
-                difficulty: "EASY",
-                questionCount: 27,
-                duration: 32,
-                questions: [],
-              },
-              {
-                moduleNumber: 2,
-                difficulty: "EASY",
-                questionCount: 27,
-                duration: 32,
-                questions: [],
-              },
-            ],
-          },
-          {
-            sectionType: "MATH",
-            orderIndex: 1,
-            duration: 70,
-            allowCalculator: true,
-            breakDurationAfter: 0,
-            modules: [
-              {
-                moduleNumber: 1,
-                difficulty: "EASY",
-                questionCount: 22,
-                duration: 35,
-                questions: [],
-              },
-              {
-                moduleNumber: 2,
-                difficulty: "EASY",
-                questionCount: 22,
-                duration: 35,
-                questions: [],
-              },
-            ],
-          },
-        ];
+        {
+          sectionType: "ENGLISH",
+          orderIndex: 0,
+          duration: 64,
+          allowCalculator: false,
+          breakDurationAfter: 10,
+          modules: [
+            {
+              moduleNumber: 1,
+              difficulty: "EASY",
+              questionCount: 27,
+              duration: 32,
+              questions: [],
+            },
+            {
+              moduleNumber: 2,
+              difficulty: "EASY",
+              questionCount: 27,
+              duration: 32,
+              questions: [],
+            },
+          ],
+        },
+        {
+          sectionType: "MATH",
+          orderIndex: 1,
+          duration: 70,
+          allowCalculator: true,
+          breakDurationAfter: 0,
+          modules: [
+            {
+              moduleNumber: 1,
+              difficulty: "EASY",
+              questionCount: 22,
+              duration: 35,
+              questions: [],
+            },
+            {
+              moduleNumber: 2,
+              difficulty: "EASY",
+              questionCount: 22,
+              duration: 35,
+              questions: [],
+            },
+          ],
+        },
+      ];
 
       const result = await adminTestService.createTest({
         title,
@@ -139,9 +138,13 @@ export default function CreateTestPage() {
     <div className="space-y-6">
       <div>
         <h2 className="text-3xl font-bold text-gray-900 mb-2">
-          Create New Test
+          Create SAT Test
         </h2>
-        <p className="text-gray-600">Create a new SAT practice test</p>
+        <p className="text-gray-600 max-w-2xl">
+          Just give the test a name. We will automatically create the standard
+          SAT structure (English + Math, 2 modules each). You can add questions
+          on the next step.
+        </p>
       </div>
 
       <Card className="p-6">
@@ -157,7 +160,6 @@ export default function CreateTestPage() {
               {success}
             </div>
           )}
-
 
           <div className="space-y-2">
             <Label htmlFor="title">Test Title *</Label>
@@ -184,38 +186,18 @@ export default function CreateTestPage() {
             />
           </div>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="font-semibold text-blue-900 mb-2">
-              Full Test Structure
-            </h4>
-            <p className="text-sm text-blue-800 mb-3">
-              Creates a standard SAT test with 2 modules per section:
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+            <p className="text-sm text-blue-900 font-semibold">
+              What will be created?
             </p>
-            <div className="space-y-2 text-sm text-blue-800">
-              <div>
-                <strong>English Section (64 minutes):</strong>
-                <ul className="list-disc list-inside ml-4 mt-1">
-                  <li>Module 1: 27 questions - 32 minutes</li>
-                  <li>Module 2: 27 questions - 32 minutes</li>
-                </ul>
-              </div>
-              <div className="mt-2">
-                <strong>10-minute break</strong>
-              </div>
-              <div>
-                <strong>Math Section (70 minutes):</strong>
-                <ul className="list-disc list-inside ml-4 mt-1">
-                  <li>Module 1: 22 questions - 35 minutes</li>
-                  <li>Module 2: 22 questions - 35 minutes</li>
-                </ul>
-              </div>
-              <div className="mt-2 font-semibold">
-                Total: 98 questions across 4 modules
-              </div>
-            </div>
-            <p className="text-sm text-blue-700 mt-3">
-              After creation, you&apos;ll be redirected to add questions to each
-              module.
+            <p className="text-sm text-blue-800">
+              - 1 English section (2 modules, 27 questions each) <br />- 1 Math
+              section (2 modules, 22 questions each) <br />- 10-minute break
+              between English and Math
+            </p>
+            <p className="text-xs text-blue-700">
+              After you create the test, you&apos;ll go to the next page to add
+              or import questions for each module.
             </p>
           </div>
 
@@ -237,5 +219,3 @@ export default function CreateTestPage() {
     </div>
   );
 }
-
-

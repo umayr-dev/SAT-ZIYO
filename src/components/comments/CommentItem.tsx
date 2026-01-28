@@ -48,8 +48,11 @@ interface CommentItemProps {
   onUpdated: (commentId: string, content: string) => void;
 }
 
-export function CommentItem({ comment, onDeleted, onUpdated }: CommentItemProps) {
-  const [showReplyForm, setShowReplyForm] = useState(false);
+export function CommentItem({
+  comment,
+  onDeleted,
+  onUpdated,
+}: CommentItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(comment.content);
   const [submitting, setSubmitting] = useState(false);
@@ -58,7 +61,11 @@ export function CommentItem({ comment, onDeleted, onUpdated }: CommentItemProps)
   const isOwner = currentUser?.id === comment.user.id;
 
   const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete this comment? All replies will also be deleted.")) {
+    if (
+      !confirm(
+        "Are you sure you want to delete this comment? All replies will also be deleted.",
+      )
+    ) {
       return;
     }
 
@@ -87,11 +94,6 @@ export function CommentItem({ comment, onDeleted, onUpdated }: CommentItemProps)
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const handleReplyCreated = () => {
-    setShowReplyForm(false);
-    // Refresh replies will be handled by ReplyThread component
   };
 
   return (
@@ -156,14 +158,6 @@ export function CommentItem({ comment, onDeleted, onUpdated }: CommentItemProps)
           {/* Actions */}
           {!isEditing && (
             <div className="flex items-center gap-4 mt-2">
-              <button
-                onClick={() => setShowReplyForm(!showReplyForm)}
-                className="text-xs text-gray-600 hover:text-gray-900 flex items-center gap-1"
-              >
-                <Reply className="h-3 w-3" />
-                Reply
-              </button>
-
               {isOwner && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -176,7 +170,10 @@ export function CommentItem({ comment, onDeleted, onUpdated }: CommentItemProps)
                       <Edit2 className="h-4 w-4 mr-2" />
                       Edit
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleDelete} className="text-red-600">
+                    <DropdownMenuItem
+                      onClick={handleDelete}
+                      className="text-red-600"
+                    >
                       <Trash2 className="h-4 w-4 mr-2" />
                       Delete
                     </DropdownMenuItem>
@@ -186,28 +183,12 @@ export function CommentItem({ comment, onDeleted, onUpdated }: CommentItemProps)
             </div>
           )}
 
-          {/* Reply Form */}
-          {showReplyForm && (
-            <div className="mt-3 ml-4 pl-4 border-l-2 border-gray-200">
-              <CommentForm
-                testId=""
-                parentId={comment.id}
-                onCommentCreated={handleReplyCreated}
-                placeholder="Write a reply..."
-                onCancel={() => setShowReplyForm(false)}
-              />
-            </div>
-          )}
-
-          {/* Replies */}
-          {comment.replyCount > 0 && (
-            <div className="mt-3">
-              <ReplyThread commentId={comment.id} />
-            </div>
-          )}
+          {/* Replies & reply form (managed inside thread) */}
+          <div className="mt-3">
+            <ReplyThread commentId={comment.id} />
+          </div>
         </div>
       </div>
     </div>
   );
 }
-
