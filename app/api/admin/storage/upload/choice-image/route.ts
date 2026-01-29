@@ -57,13 +57,13 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const file = formData.get("file");
-    if (!file) {
+    if (!file || !(file instanceof Blob)) {
       return NextResponse.json(
-        { message: "No file provided (field: file)" },
+        { message: "No file provided or invalid file (field: file)" },
         { status: 400 },
       );
     }
-    const blob = file instanceof Blob ? file : (file as Blob);
+    const blob = file;
     if ((blob.size ?? 0) === 0) {
       return NextResponse.json({ message: "Empty file" }, { status: 400 });
     }
