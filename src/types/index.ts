@@ -41,6 +41,7 @@ export interface UserProfile {
   role: string;
   name?: string;
   targetScore?: number;
+  examDate?: string; // ISO 8601
 }
 
 // API Response types

@@ -7,7 +7,6 @@ import { Button } from "@/src/ui/button";
 import { Input } from "@/src/ui/input";
 import Link from "next/link";
 import { authService } from "@/src/services/auth.service";
-import { API_CONFIG, API_ENDPOINTS } from "@/src/config/api";
 
 interface ExamDate {
   id: string;
@@ -35,14 +34,19 @@ export function ProgressOverview() {
   const [isLoadingExamDates, setIsLoadingExamDates] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load target score and exam date from API on mount
+  // Load profile (targetScore, examDate) and exam dates list from API; profil egasi ma'lumoti saqlanadi
   useEffect(() => {
-    async function loadUserData() {
+    async function load() {
       try {
         setIsLoadingInitial(true);
-        const user = await authService.getCurrentUser();
+        setIsLoadingExamDates(true);
 
-        // Load target score
+        const [user, datesRes] = await Promise.all([
+          authService.getCurrentUser(),
+          fetch("/api/exams/dates", { method: "GET", credentials: "include" }),
+        ]);
+
+        // Target score va exam date profil dan (PATCH /auth/profile orqali saqlangan)
         if (user.targetScore) {
           setTargetScore(user.targetScore.toString());
           setTempTargetScore(user.targetScore.toString());
@@ -51,81 +55,33 @@ export function ProgressOverview() {
           setTempTargetScore("1580");
         }
 
-        // Load selected exam date (if user has examDateId in profile)
-        if ((user as any).examDateId) {
-          setSelectedExamDateId((user as any).examDateId);
+        const dateStr = user.examDate ? user.examDate.slice(0, 10) : "";
+
+        let datesList: ExamDate[] = [];
+        if (datesRes.ok) {
+          const data = await datesRes.json();
+          datesList = Array.isArray(data) ? data : data.dates || data.data || [];
+        }
+        setAvailableExamDates(datesList);
+
+        // Profil dagi exam date ni select da ko'rsatish (sana bo'yicha match)
+        if (dateStr) {
+          setExamDate(dateStr);
+          const found = datesList.find((d: ExamDate) => d.date === dateStr);
+          if (found) setSelectedExamDateId(found.id);
         }
       } catch (err) {
-        console.error("Failed to load user data:", err);
+        console.error("Failed to load:", err);
         setTargetScore("1580");
         setTempTargetScore("1580");
       } finally {
         setIsLoadingInitial(false);
+        setIsLoadingExamDates(false);
       }
     }
 
-    loadUserData();
+    load();
   }, []);
-
-  // Load available exam dates (default dates until API is ready)
-  useEffect(() => {
-    // Default exam dates - will be replaced with API call later
-    const defaultDates: ExamDate[] = [
-      {
-        id: "1",
-        date: "2026-03-09",
-        label: "March 9, 2026",
-      },
-      {
-        id: "2",
-        date: "2026-05-04",
-        label: "May 4, 2026",
-      },
-    ];
-
-    setAvailableExamDates(defaultDates);
-    setIsLoadingExamDates(false);
-
-    // If user has selected exam date, find and set it
-    if (selectedExamDateId) {
-      const selectedDate = defaultDates.find(
-        (d) => d.id === selectedExamDateId
-      );
-      if (selectedDate) {
-        setExamDate(selectedDate.date);
-      }
-    }
-
-    // TODO: Replace with API call when backend is ready
-    // async function loadExamDates() {
-    //   try {
-    //     setIsLoadingExamDates(true);
-    //     const response = await fetch("/api/exams/dates", {
-    //       method: "GET",
-    //       headers: {
-    //         "Content-Type": "application/json",
-    //       },
-    //       credentials: "include",
-    //     });
-    //     if (response.ok) {
-    //       const data = await response.json();
-    //       const dates = Array.isArray(data) ? data : data.dates || data.data || [];
-    //       setAvailableExamDates(dates);
-    //       if (selectedExamDateId) {
-    //         const selectedDate = dates.find((d: ExamDate) => d.id === selectedExamDateId);
-    //         if (selectedDate) {
-    //           setExamDate(selectedDate.date);
-    //         }
-    //       }
-    //     }
-    //   } catch (err) {
-    //     console.error("Failed to load exam dates:", err);
-    //   } finally {
-    //     setIsLoadingExamDates(false);
-    //   }
-    // }
-    // loadExamDates();
-  }, [selectedExamDateId]);
 
   // Countdown timer effect
   useEffect(() => {
@@ -177,12 +133,12 @@ export function ProgressOverview() {
     setError(null);
 
     try {
-      // Save to API
+      // Save target score and exam date in one request (PATCH /auth/profile — kam request)
       await authService.updateProfile({
         targetScore: scoreValue,
+        examDate: examDate || undefined,
       });
 
-      // Update local state on success
       setTargetScore(tempTargetScore);
       setIsEditing(false);
     } catch (err) {
@@ -209,36 +165,18 @@ export function ProgressOverview() {
       return;
     }
 
+    const selectedDate = availableExamDates.find((d) => d.id === examDateId);
+    if (!selectedDate) return;
+
     try {
       setIsLoading(true);
       setError(null);
 
-      // Save selected exam date locally (will be replaced with API call later)
-      setSelectedExamDateId(examDateId);
-      const selectedDate = availableExamDates.find((d) => d.id === examDateId);
-      if (selectedDate) {
-        setExamDate(selectedDate.date);
-      }
+      // Save exam date via PATCH /auth/profile (ISO 8601)
+      await authService.updateProfile({ examDate: selectedDate.date });
 
-      // TODO: Replace with API call when backend is ready
-      // const response = await fetch("/api/exams/select", {
-      //   method: "POST",
-      //   headers: {
-      //     "Content-Type": "application/json",
-      //   },
-      //   credentials: "include",
-      //   body: JSON.stringify({ examDateId }),
-      // });
-      // if (response.ok) {
-      //   setSelectedExamDateId(examDateId);
-      //   const selectedDate = availableExamDates.find((d) => d.id === examDateId);
-      //   if (selectedDate) {
-      //     setExamDate(selectedDate.date);
-      //   }
-      // } else {
-      //   const errorData = await response.json().catch(() => ({}));
-      //   setError(errorData.message || "Failed to save exam date");
-      // }
+      setSelectedExamDateId(examDateId);
+        setExamDate(selectedDate.date);
     } catch (err) {
       console.error("Failed to save exam date:", err);
       setError("Failed to save exam date. Please try again.");

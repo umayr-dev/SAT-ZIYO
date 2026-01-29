@@ -63,7 +63,17 @@ export interface QuestionInput {
     choiceText: string;
     isCorrect: boolean;
     orderIndex: number;
+    imageUrl?: string;
   }[];
+}
+
+/** Response from upload endpoints */
+export interface UploadImageResponse {
+  url: string;
+  filename?: string;
+  originalName?: string;
+  size?: number;
+  contentType?: string;
 }
 
 class AdminTestService {
@@ -72,7 +82,7 @@ class AdminTestService {
    */
   async createTestTemplate(
     title: string,
-    description?: string
+    description?: string,
   ): Promise<CreateTestTemplateResponse> {
     const response = await fetch("/api/admin/tests/sat-template", {
       method: "POST",
@@ -86,7 +96,7 @@ class AdminTestService {
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       throw new Error(
-        error.message || error.error || "Failed to create SAT test template"
+        error.message || error.error || "Failed to create SAT test template",
       );
     }
 
@@ -112,9 +122,7 @@ class AdminTestService {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(
-        error.message || error.error || "Failed to create test"
-      );
+      throw new Error(error.message || error.error || "Failed to create test");
     }
 
     return response.json();
@@ -131,9 +139,7 @@ class AdminTestService {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(
-        error.message || error.error || "Failed to fetch tests"
-      );
+      throw new Error(error.message || error.error || "Failed to fetch tests");
     }
 
     const data = await response.json();
@@ -151,9 +157,7 @@ class AdminTestService {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(
-        error.message || error.error || "Failed to fetch test"
-      );
+      throw new Error(error.message || error.error || "Failed to fetch test");
     }
 
     return response.json();
@@ -164,7 +168,7 @@ class AdminTestService {
    */
   async updateTest(
     testId: string,
-    data: { title?: string; description?: string; isActive?: boolean }
+    data: { title?: string; description?: string; isActive?: boolean },
   ): Promise<any> {
     const response = await fetch(`/api/admin/tests/${testId}`, {
       method: "PATCH",
@@ -177,9 +181,7 @@ class AdminTestService {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(
-        error.message || error.error || "Failed to update test"
-      );
+      throw new Error(error.message || error.error || "Failed to update test");
     }
 
     return response.json();
@@ -196,10 +198,29 @@ class AdminTestService {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(
-        error.message || error.error || "Failed to delete test"
-      );
+      throw new Error(error.message || error.error || "Failed to delete test");
     }
+  }
+
+  /**
+   * Barcha modullarga savollarni bitta so'rovda yuborish (bulk)
+   * Body: { modules: [ { moduleId: string, questions: QuestionInput[] } ] }
+   */
+  async submitAllQuestions(
+    testId: string,
+    payload: { modules: { moduleId: string; questions: QuestionInput[] }[] },
+  ): Promise<{ success: boolean; totalAdded: number }> {
+    const response = await fetch(`/api/admin/tests/${testId}/questions/bulk`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err?.message || "Bulk add failed");
+    }
+    return response.json();
   }
 
   /**
@@ -207,7 +228,7 @@ class AdminTestService {
    */
   async addQuestionToModule(
     moduleId: string,
-    question: QuestionInput
+    question: QuestionInput,
   ): Promise<any> {
     const response = await fetch(
       `/api/admin/tests/modules/${moduleId}/questions`,
@@ -218,14 +239,12 @@ class AdminTestService {
         },
         credentials: "include",
         body: JSON.stringify(question),
-      }
+      },
     );
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(
-        error.message || error.error || "Failed to add question"
-      );
+      throw new Error(error.message || error.error || "Failed to add question");
     }
 
     return response.json();
@@ -237,7 +256,7 @@ class AdminTestService {
   async updateQuestion(
     moduleId: string,
     questionId: string,
-    question: Partial<QuestionInput>
+    question: Partial<QuestionInput>,
   ): Promise<any> {
     const response = await fetch(
       `/api/admin/tests/modules/${moduleId}/questions/${questionId}`,
@@ -248,13 +267,13 @@ class AdminTestService {
         },
         credentials: "include",
         body: JSON.stringify(question),
-      }
+      },
     );
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       throw new Error(
-        error.message || error.error || "Failed to update question"
+        error.message || error.error || "Failed to update question",
       );
     }
 
@@ -270,15 +289,53 @@ class AdminTestService {
       {
         method: "DELETE",
         credentials: "include",
-      }
+      },
     );
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       throw new Error(
-        error.message || error.error || "Failed to delete question"
+        error.message || error.error || "Failed to delete question",
       );
     }
+  }
+
+  /**
+   * Upload question image (file → backend GCS → url).
+   * Use returned url in question.imageUrl to avoid 413 Payload Too Large.
+   */
+  async uploadQuestionImage(file: File): Promise<UploadImageResponse> {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch("/api/admin/storage/upload/question-image", {
+      method: "POST",
+      credentials: "include",
+      body: form,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.message ?? "Question image upload failed");
+    }
+    return res.json();
+  }
+
+  /**
+   * Upload choice image (file → backend GCS → url).
+   * Use returned url in choices[].imageUrl.
+   */
+  async uploadChoiceImage(file: File): Promise<UploadImageResponse> {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch("/api/admin/storage/upload/choice-image", {
+      method: "POST",
+      credentials: "include",
+      body: form,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.message ?? "Choice image upload failed");
+    }
+    return res.json();
   }
 
   /**
@@ -293,7 +350,7 @@ class AdminTestService {
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       throw new Error(
-        error.message || error.error || "Failed to validate test"
+        error.message || error.error || "Failed to validate test",
       );
     }
 
@@ -302,4 +359,3 @@ class AdminTestService {
 }
 
 export const adminTestService = new AdminTestService();
-

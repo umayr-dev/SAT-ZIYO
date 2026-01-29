@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Card } from "@/src/ui/card";
 import { Button } from "@/src/ui/button";
@@ -11,7 +11,36 @@ import {
   adminTestService,
   QuestionInput,
 } from "@/src/services/admin-test.service";
-import { Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  useAdminTestById,
+  useAdminTestInvalidate,
+} from "@/src/hooks/use-admin-tests";
+import { ChevronDown, ChevronUp } from "lucide-react";
+
+const QUESTIONS_PER_MODULE = { ENGLISH: 27, MATH: 22 } as const;
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+const ACCEPTED_IMAGE_TYPES =
+  "image/jpeg,image/png,image/gif,image/webp,image/svg+xml";
+const TOTAL_SAT_QUESTIONS = 98;
+
+const ENGLISH_DOMAINS = [
+  { value: "", label: "—" },
+  { value: "INFORMATION_AND_IDEAS", label: "Information and Ideas" },
+  { value: "CRAFT_AND_STRUCTURE", label: "Craft and Structure" },
+  { value: "EXPRESSION_OF_IDEAS", label: "Expression of Ideas" },
+  {
+    value: "STANDARD_ENGLISH_CONVENTIONS",
+    label: "Standard English Conventions",
+  },
+];
+
+const MATH_DOMAINS = [
+  { value: "", label: "—" },
+  { value: "ALGEBRA", label: "Algebra" },
+  { value: "ADVANCED_MATH", label: "Advanced Math" },
+  { value: "PROBLEM_SOLVING_DATA", label: "Problem Solving and Data Analysis" },
+  { value: "GEOMETRY_TRIGONOMETRY", label: "Geometry and Trigonometry" },
+];
 
 interface Module {
   moduleId: string;
@@ -19,26 +48,6 @@ interface Module {
   moduleNumber: number;
   difficulty: "EASY" | "HARD";
   questionCount?: number;
-  questions?: Question[];
-}
-
-interface Question {
-  id: string;
-  questionText: string;
-  questionType: "MULTIPLE_CHOICE" | "STUDENT_PRODUCED";
-  orderIndex: number;
-  difficulty: "EASY" | "MEDIUM" | "HARD";
-  passage?: string;
-  imageUrl?: string;
-  contentDomain?: string;
-  explanation?: string;
-  choices?: {
-    id: string;
-    choiceText: string;
-    isCorrect: boolean;
-    orderIndex: number;
-  }[];
-  correctAnswer?: string;
 }
 
 interface TestInfo {
@@ -47,305 +56,329 @@ interface TestInfo {
   modules: Module[];
 }
 
+type VariantKind = "text" | "image";
+
+interface QuestionSlot {
+  questionId?: string;
+  questionText: string;
+  passage: string;
+  imageUrl?: string;
+  questionType?: "MULTIPLE_CHOICE" | "STUDENT_PRODUCED";
+  /** Barcha variantlar bir xil: faqat matn yoki faqat rasm */
+  choicesKind?: VariantKind;
+  choiceA: string;
+  choiceB: string;
+  choiceC: string;
+  choiceD: string;
+  choiceAVariant?: VariantKind;
+  choiceBVariant?: VariantKind;
+  choiceCVariant?: VariantKind;
+  choiceDVariant?: VariantKind;
+  choiceAImageUrl?: string;
+  choiceBImageUrl?: string;
+  choiceCImageUrl?: string;
+  choiceDImageUrl?: string;
+  correct: 0 | 1 | 2 | 3;
+  correctAnswer?: string;
+  difficulty: "EASY" | "MEDIUM" | "HARD";
+  contentDomain: string;
+}
+
+function emptySlot(): QuestionSlot {
+  return {
+    questionText: "",
+    passage: "",
+    imageUrl: "",
+    questionType: "MULTIPLE_CHOICE",
+    choicesKind: "text",
+    choiceA: "",
+    choiceB: "",
+    choiceC: "",
+    choiceD: "",
+    choiceAVariant: "text",
+    choiceBVariant: "text",
+    choiceCVariant: "text",
+    choiceDVariant: "text",
+    correct: 0,
+    correctAnswer: "",
+    difficulty: "EASY",
+    contentDomain: "",
+  };
+}
+
+/** Backend savol obyektini form slot ga aylantiradi (tahrirlashda ishlatiladi) */
+function apiQuestionToSlot(q: {
+  id?: string;
+  questionText?: string;
+  imageUrl?: string;
+  passage?: string;
+  questionType?: string;
+  choices?: Array<{
+    choiceText?: string;
+    imageUrl?: string;
+    isCorrect?: boolean;
+    orderIndex?: number;
+  }>;
+  correctAnswer?: string;
+  difficulty?: string;
+  contentDomain?: string;
+}): QuestionSlot {
+  const choices = q.choices ?? [];
+  const correctIndex = choices.findIndex((c) => c.isCorrect);
+  const correct = (correctIndex >= 0 ? correctIndex : 0) as 0 | 1 | 2 | 3;
+  const c0 = choices[0];
+  const c1 = choices[1];
+  const c2 = choices[2];
+  const c3 = choices[3];
+  const hasImg = (c: { imageUrl?: string } | undefined) =>
+    !!(c?.imageUrl && String(c.imageUrl).trim());
+  const kind: VariantKind =
+    hasImg(c0) || hasImg(c1) || hasImg(c2) || hasImg(c3) ? "image" : "text";
+  return {
+    questionId: q.id,
+    questionText: q.questionText ?? "",
+    passage: q.passage ?? "",
+    imageUrl: (q.imageUrl ?? "").trim() || undefined,
+    questionType:
+      q.questionType === "STUDENT_PRODUCED"
+        ? "STUDENT_PRODUCED"
+        : "MULTIPLE_CHOICE",
+    choicesKind: kind,
+    choiceA: c0?.choiceText ?? "",
+    choiceB: c1?.choiceText ?? "",
+    choiceC: c2?.choiceText ?? "",
+    choiceD: c3?.choiceText ?? "",
+    choiceAVariant: kind,
+    choiceBVariant: kind,
+    choiceCVariant: kind,
+    choiceDVariant: kind,
+    choiceAImageUrl: c0?.imageUrl?.trim() || undefined,
+    choiceBImageUrl: c1?.imageUrl?.trim() || undefined,
+    choiceCImageUrl: c2?.imageUrl?.trim() || undefined,
+    choiceDImageUrl: c3?.imageUrl?.trim() || undefined,
+    correct,
+    correctAnswer: q.correctAnswer ?? "",
+    difficulty:
+      q.difficulty === "MEDIUM" || q.difficulty === "HARD"
+        ? q.difficulty
+        : "EASY",
+    contentDomain: q.contentDomain ?? "",
+  };
+}
+
+function slotToQuestionInput(
+  slot: QuestionSlot,
+  orderIndex: number,
+): QuestionInput {
+  const questionText = (slot.questionText ?? "").trim();
+  const questionImageUrl = (slot.imageUrl ?? "").trim() || undefined;
+  const base = {
+    questionText,
+    questionType: slot.questionType ?? "MULTIPLE_CHOICE",
+    orderIndex,
+    difficulty: slot.difficulty ?? "EASY",
+    passage: (slot.passage ?? "").trim() || undefined,
+    imageUrl: questionImageUrl,
+    contentDomain: (slot.contentDomain ?? "").trim() || undefined,
+  };
+
+  if (slot.questionType === "STUDENT_PRODUCED") {
+    return {
+      ...base,
+      correctAnswer: (slot.correctAnswer ?? "").trim() || undefined,
+    };
+  }
+
+  const letters = ["A", "B", "C", "D"] as const;
+  const choiceTexts = [
+    slot.choiceA ?? "",
+    slot.choiceB ?? "",
+    slot.choiceC ?? "",
+    slot.choiceD ?? "",
+  ];
+  const choiceVariants: VariantKind[] = [
+    slot.choiceAVariant ?? "text",
+    slot.choiceBVariant ?? "text",
+    slot.choiceCVariant ?? "text",
+    slot.choiceDVariant ?? "text",
+  ];
+  const choiceUrls = [
+    slot.choiceAImageUrl,
+    slot.choiceBImageUrl,
+    slot.choiceCImageUrl,
+    slot.choiceDImageUrl,
+  ];
+  const choices = [0, 1, 2, 3].map((c) => {
+    const kind = choiceVariants[c];
+    const text = (choiceTexts[c] ?? "").trim();
+    const url = (choiceUrls[c] ?? "").trim() || undefined;
+    const hasImage = !!url;
+    const choiceText =
+      kind === "image" && hasImage
+        ? text || `Variant ${letters[c]}`
+        : text || letters[c];
+    return {
+      choiceText: choiceText || letters[c],
+      isCorrect: slot.correct === c,
+      orderIndex: c,
+      ...(hasImage ? { imageUrl: url } : {}),
+    };
+  });
+  const withContent = choices.filter(
+    (c, i) => (c.choiceText ?? "").trim() || (choiceUrls[i] ?? "").trim(),
+  );
+  return {
+    ...base,
+    choices:
+      withContent.length >= 2
+        ? withContent
+        : [
+            { choiceText: "A", isCorrect: true, orderIndex: 0 },
+            { choiceText: "B", isCorrect: false, orderIndex: 1 },
+          ],
+  };
+}
+
 export default function TestQuestionsPage() {
   const router = useRouter();
   const params = useParams();
   const testId = params.testId as string;
-  const [mounted, setMounted] = useState(false);
   const [testInfo, setTestInfo] = useState<TestInfo | null>(null);
-  const [selectedModule, setSelectedModule] = useState<Module | null>(null);
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [expandedQuestions, setExpandedQuestions] = useState<Set<string>>(new Set());
-  const [isFormExpanded, setIsFormExpanded] = useState(false);
+  const [selectedModule, setSelectedModule] = useState<Module | null>(null);
+  const [expandedQuestion, setExpandedQuestion] = useState<number | null>(null);
 
-  const [questionText, setQuestionText] = useState("");
-  const [questionType, setQuestionType] = useState<
-    "MULTIPLE_CHOICE" | "STUDENT_PRODUCED"
-  >("MULTIPLE_CHOICE");
-  const [difficulty, setDifficulty] = useState<"EASY" | "MEDIUM" | "HARD">(
-    "EASY"
-  );
-  const [contentDomain, setContentDomain] = useState<string>("");
-  const [passage, setPassage] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
-  const [explanation, setExplanation] = useState("");
-  const [correctAnswer, setCorrectAnswer] = useState("");
-  const [choices, setChoices] = useState<
-    { text: string; isCorrect: boolean }[]
-  >([
-    { text: "", isCorrect: false },
-    { text: "", isCorrect: false },
-    { text: "", isCorrect: false },
-    { text: "", isCorrect: false },
-  ]);
+  const [drafts, setDrafts] = useState<Record<string, QuestionSlot[]>>({});
+  const [savingSlotKey, setSavingSlotKey] = useState<string | null>(null);
 
-  const englishDomains = [
-    { value: "INFORMATION_AND_IDEAS", label: "Information and Ideas" },
-    { value: "CRAFT_AND_STRUCTURE", label: "Craft and Structure" },
-    { value: "EXPRESSION_OF_IDEAS", label: "Expression of Ideas" },
-    {
-      value: "STANDARD_ENGLISH_CONVENTIONS",
-      label: "Standard English Conventions",
-    },
-  ];
-
-  const mathDomains = [
-    { value: "ALGEBRA", label: "Algebra" },
-    { value: "ADVANCED_MATH", label: "Advanced Math" },
-    {
-      value: "PROBLEM_SOLVING_DATA",
-      label: "Problem Solving and Data Analysis",
-    },
-    { value: "GEOMETRY_TRIGONOMETRY", label: "Geometry and Trigonometry" },
-  ];
-
-  const availableDomains =
-    selectedModule?.sectionType === "MATH" ? mathDomains : englishDomains;
+  const {
+    data: test,
+    isLoading: loading,
+    error: queryError,
+    refetch,
+  } = useAdminTestById(testId);
+  const { invalidateTest } = useAdminTestInvalidate();
 
   useEffect(() => {
-    setMounted(true);
-    if (testId) {
-      loadTestInfo();
-    }
-  }, [testId]);
-
-  // Auto-select first module when testInfo loads
-  useEffect(() => {
-    if (testInfo && testInfo.modules && testInfo.modules.length > 0 && !selectedModule) {
-      setSelectedModule(testInfo.modules[0]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [testInfo]);
-
-  async function loadTestInfo() {
-    try {
-      setLoading(true);
-      const test = await adminTestService.getTestById(testId);
-      console.log("[Questions Page] Test loaded:", test);
-      console.log("[Questions Page] Test modules:", test.modules);
-      
-      setTestInfo(test);
-      setError(""); // Clear any previous errors
-
-      // If test has modules, use them directly
-      if (test.modules && test.modules.length > 0) {
-        console.log("[Questions Page] Using test.modules directly");
-        return; // Modules already loaded, exit early
-      }
-
-      // If test has sections, extract modules from sections
-      if (test.sections && Array.isArray(test.sections) && test.sections.length > 0) {
-        console.log("[Questions Page] Extracting modules from sections");
-        const modules: Module[] = [];
-        
-        for (const section of test.sections) {
-          if (section.modules && Array.isArray(section.modules)) {
-            for (const moduleItem of section.modules) {
-              modules.push({
-                moduleId: moduleItem.id || moduleItem.moduleId || `${testId}-${section.sectionType}-${moduleItem.moduleNumber}-${moduleItem.difficulty}`,
-                sectionType: section.sectionType,
-                moduleNumber: moduleItem.moduleNumber,
-                difficulty: moduleItem.difficulty || "EASY",
-                questionCount: moduleItem.questionCount || (section.sectionType === "ENGLISH" ? 27 : 22),
-                questions: moduleItem.questions || [],
-              });
-            }
-          }
-        }
-
-        if (modules.length > 0) {
-          console.log("[Questions Page] Loaded modules from sections:", modules);
-          setTestInfo({ ...test, modules });
-          return;
+    if (!testId || !test) return;
+    let modules: Module[] = [];
+    if (test?.modules?.length) {
+      modules = test.modules.map((m: any) => ({
+        moduleId: m.moduleId || m.id,
+        sectionType: m.sectionType,
+        moduleNumber: m.moduleNumber,
+        difficulty: m.difficulty || "EASY",
+        questionCount: m.questionCount,
+      }));
+    } else if (test?.sections?.length) {
+      for (const s of test.sections) {
+        for (const m of s.modules ?? []) {
+          modules.push({
+            moduleId: m.id || m.moduleId,
+            sectionType: s.sectionType || m.sectionType,
+            moduleNumber: m.moduleNumber,
+            difficulty: m.difficulty || "EASY",
+            questionCount: m.questionCount,
+          });
         }
       }
-
-      // If no modules, try to get from sessionStorage (for template tests)
-      if (!test.modules || test.modules.length === 0) {
-        console.log("[Questions Page] No modules in test, checking sessionStorage");
-        if (typeof window !== "undefined") {
-          const stored = sessionStorage.getItem(
-            `sat-template-modules-${testId}`
-          );
-          if (stored) {
-            try {
-              const templateModules = JSON.parse(stored) as {
-                moduleId: string;
-                sectionType: "ENGLISH" | "MATH";
-                moduleNumber: number;
-                difficulty: "EASY" | "HARD";
-              }[];
-
-              let modules: Module[] = templateModules.map((m) => ({
-                moduleId: m.moduleId,
-                sectionType: m.sectionType,
-                moduleNumber: m.moduleNumber,
-                difficulty: m.difficulty,
-              }));
-
-              // Try to get validation for question counts, but don't fail if it doesn't work
-              try {
-                const validation = await adminTestService.validateTest(testId);
-                modules = modules.map((m) => {
-                  const vm = validation.modules.find(
-                    (v) =>
-                      v.sectionType === m.sectionType &&
-                      v.moduleNumber === m.moduleNumber &&
-                      v.difficulty === m.difficulty
-                  );
-                  return {
-                    ...m,
-                    questionCount: vm?.expectedQuestions,
-                  };
-                });
-              } catch (e) {
-                // Validation failed - this is OK, we can still add questions
-                // Use default question counts based on module type
-                console.warn("Failed to load validation data for modules, using defaults", e);
-                modules = modules.map((m) => {
-                  // Default question counts for SAT
-                  const defaultCount = m.sectionType === "ENGLISH" ? 27 : 22;
-                  return {
-                    ...m,
-                    questionCount: defaultCount,
-                  };
-                });
-              }
-
-              console.log("[Questions Page] Loaded modules from sessionStorage:", modules);
-              setTestInfo({ ...test, modules });
-            } catch (e) {
-              console.error("Failed to parse stored template modules", e);
-            }
-          } else {
-            // No modules in test and no stored modules - show error
-            console.warn("[Questions Page] No modules found in test or sessionStorage");
-            setError("No modules found for this test. Please create modules first or check if the test was created correctly.");
-          }
+    }
+    if (modules.length === 0) {
+      setError("Modullar topilmadi.");
+      return;
+    }
+    setError("");
+    setTestInfo({ id: test.id, title: test.title, modules });
+    setSelectedModule((prev) => prev ?? modules[0]);
+    const next: Record<string, QuestionSlot[]> = {};
+    const moduleSources =
+      test?.modules?.length > 0
+        ? test.modules
+        : (test?.sections ?? []).flatMap((s: any) => s.modules ?? []);
+    for (let idx = 0; idx < modules.length; idx++) {
+      const m = modules[idx];
+      const raw = moduleSources[idx];
+      const questions: any[] = raw?.questions ?? [];
+      const count =
+        m.questionCount ?? QUESTIONS_PER_MODULE[m.sectionType] ?? 27;
+      const slots: QuestionSlot[] = [];
+      for (let i = 0; i < count; i++) {
+        if (questions[i]) {
+          slots.push(apiQuestionToSlot(questions[i]));
+        } else {
+          slots.push(emptySlot());
         }
       }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to load test";
-      setError(errorMessage);
-      console.error("Failed to load test info:", err);
-      // Don't redirect - let user see the error and try again
-    } finally {
-      setLoading(false);
+      next[m.moduleId] = slots;
     }
-  }
+    setDrafts(next);
+  }, [testId, test]);
 
-  function handleAddChoice() {
-    setChoices([...choices, { text: "", isCorrect: false }]);
-  }
-
-  function handleRemoveChoice(index: number) {
-    setChoices(choices.filter((_, i) => i !== index));
-  }
-
-  function handleChoiceChange(
+  const updateSlot = (
+    moduleId: string,
     index: number,
-    field: "text" | "isCorrect",
-    value: string | boolean
-  ) {
-    const newChoices = [...choices];
-    newChoices[index] = { ...newChoices[index], [field]: value };
-    setChoices(newChoices);
-  }
+    patch: Partial<QuestionSlot>,
+  ) => {
+    setDrafts((prev) => {
+      const list = [...(prev[moduleId] ?? [])];
+      list[index] = { ...list[index], ...patch };
+      return { ...prev, [moduleId]: list };
+    });
+  };
 
-  async function handleSubmitQuestion() {
-    if (!selectedModule) {
-      setError("Please select a module first");
-      return;
-    }
-
-    if (!questionText.trim()) {
-      setError("Question text is required");
-      return;
-    }
-
-    if (questionType === "MULTIPLE_CHOICE") {
-      const validChoices = choices.filter((c) => c.text.trim());
-      if (validChoices.length < 2) {
-        setError("At least 2 choices are required");
-        return;
-      }
-      const correctCount = validChoices.filter((c) => c.isCorrect).length;
-      if (correctCount !== 1) {
-        setError("Exactly one choice must be marked as correct");
-        return;
-      }
-    } else {
-      if (!correctAnswer.trim()) {
-        setError("Correct answer is required for grid-in questions");
-        return;
-      }
-    }
-
-    try {
-      setSubmitting(true);
-      setError("");
-      setSuccess("");
-
-      const questionData: QuestionInput = {
-        questionText: questionText.trim(),
-        questionType,
-        orderIndex: 0,
-        difficulty,
-        contentDomain: contentDomain || undefined,
-        passage: passage.trim() || undefined,
-        imageUrl: imageUrl.trim() || undefined,
-        explanation: explanation.trim() || undefined,
-      };
-
-      if (questionType === "MULTIPLE_CHOICE") {
-        questionData.choices = choices
-          .filter((c) => c.text.trim())
-          .map((c, idx) => ({
-            choiceText: c.text.trim(),
-            isCorrect: c.isCorrect,
-            orderIndex: idx,
-          }));
-      } else {
-        questionData.correctAnswer = correctAnswer.trim();
-      }
-
-      await adminTestService.addQuestionToModule(
-        selectedModule.moduleId,
-        questionData
+  const payload = useMemo(() => {
+    if (!testInfo?.modules?.length) return null;
+    const modules: { moduleId: string; questions: QuestionInput[] }[] = [];
+    for (const m of testInfo.modules) {
+      const mid = m.moduleId;
+      const list = drafts[mid] ?? [];
+      const newSlots = list.filter(
+        (slot) =>
+          !slot.questionId && (slot.questionText ?? "").trim().length > 0,
       );
+      const questions = newSlots.map((slot, i) => slotToQuestionInput(slot, i));
+      if (questions.length > 0) modules.push({ moduleId: mid, questions });
+    }
+    return modules.length > 0 ? { modules } : null;
+  }, [testInfo, drafts]);
 
-      setSuccess("Question added successfully!");
-      setQuestionText("");
-      setContentDomain("");
-      setPassage("");
-      setImageUrl("");
-      setExplanation("");
-      setCorrectAnswer("");
-      setChoices([
-        { text: "", isCorrect: false },
-        { text: "", isCorrect: false },
-        { text: "", isCorrect: false },
-        { text: "", isCorrect: false },
-      ]);
+  const totalFilled = useMemo(() => {
+    return Object.values(drafts).reduce(
+      (s, arr) =>
+        s + arr.filter((q) => (q.questionText ?? "").trim().length > 0).length,
+      0,
+    );
+  }, [drafts]);
 
-      await loadTestInfo();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add question");
+  const handleSubmit = async () => {
+    if (!payload?.modules?.length) {
+      setError("Kamida bitta savol matnini kiriting va Yuborish bosing.");
+      return;
+    }
+    setSubmitting(true);
+    setError("");
+    setSuccess("");
+    try {
+      await adminTestService.submitAllQuestions(testId, payload);
+      const totalSent = payload.modules.reduce(
+        (s, m) => s + m.questions.length,
+        0,
+      );
+      setSuccess(
+        totalSent === 1
+          ? "1 ta savol qo'shildi. Test muvaffaqiyatli."
+          : `${totalSent} ta savol qo'shildi. Keyingi safar 98 ta to'ldirib yuborishingiz mumkin.`,
+      );
+      invalidateTest(testId);
+      void refetch();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Saqlash xatosi");
     } finally {
       setSubmitting(false);
     }
-  }
-
-  if (!mounted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loading size="lg" />
-      </div>
-    );
-  }
+  };
 
   if (loading) {
     return (
@@ -355,614 +388,623 @@ export default function TestQuestionsPage() {
     );
   }
 
-  if (error && !testInfo) {
+  if ((queryError || error) && !testInfo) {
     return (
-      <div className="space-y-6">
-        <Card className="p-6">
-          <p className="text-red-700">{error}</p>
-          <Button
-            variant="outline"
-            onClick={() => router.push("/admin/tests")}
-            className="mt-4"
-          >
-            Back to Tests
-          </Button>
-        </Card>
+      <div className="p-6">
+        <p className="text-red-700">
+          {(queryError as Error)?.message ?? error}
+        </p>
+        <Button
+          variant="outline"
+          className="mt-4"
+          onClick={() => router.push("/admin/tests")}
+        >
+          Testlar
+        </Button>
       </div>
     );
   }
 
+  const domains =
+    selectedModule?.sectionType === "MATH" ? MATH_DOMAINS : ENGLISH_DOMAINS;
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">
-          Add Questions: {testInfo?.title}
-        </h2>
-        <p className="text-gray-600">
-          Add questions to modules. Select a module below to start.
-        </p>
+    <div className="space-y-6 pb-24">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900">
+            {testInfo?.title} — SAT savollar
+          </h2>
+          <p className="text-sm text-gray-500 mt-0.5">
+            Modulni bosing, savollarni kiriting. Test qilish uchun bitta savolni
+            to&apos;ldirib &quot;Yuborish&quot; bosing; 98 ta to&apos;ldirgach
+            barchasini bir so&apos;rovda yuborishingiz mumkin.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => router.push("/admin/tests")}
+        >
+          Testlar
+        </Button>
       </div>
 
       {error && (
-        <Card className="p-4 bg-red-50 border-red-200">
-          <p className="text-red-700">{error}</p>
-        </Card>
+        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+          {error}
+        </div>
       )}
-
       {success && (
-        <Card className="p-4 bg-green-50 border-green-200">
-          <p className="text-green-700">{success}</p>
-        </Card>
+        <div className="p-3 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm">
+          {success}
+        </div>
       )}
 
-      {testInfo && testInfo.modules && testInfo.modules.length > 0 && (
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Select Module
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {testInfo.modules.map((module) => (
+      {/* Modul kartalari (eski UI) */}
+      <Card className="p-4 border-gray-200">
+        <h3 className="text-sm font-semibold text-gray-700 mb-3">
+          Modulni tanlang
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {testInfo?.modules?.map((module) => {
+            const mid = module.moduleId;
+            const count =
+              module.questionCount ??
+              QUESTIONS_PER_MODULE[module.sectionType] ??
+              27;
+            const filled = (drafts[mid] ?? []).filter(
+              (q) => (q.questionText ?? "").trim().length > 0,
+            ).length;
+            const isSelected = selectedModule?.moduleId === mid;
+            return (
               <button
-                key={module.moduleId}
-                onClick={() => setSelectedModule(module)}
-                className={`p-4 border-2 rounded-lg text-left transition-all ${
-                  selectedModule?.moduleId === module.moduleId
+                key={mid}
+                type="button"
+                onClick={() => {
+                  setSelectedModule(module);
+                  setExpandedQuestion(null);
+                }}
+                className={`p-4 rounded-lg border-2 text-left transition-all ${
+                  isSelected
                     ? "border-orange-500 bg-orange-50"
-                    : "border-gray-200 hover:border-gray-300"
+                    : "border-gray-200 hover:border-gray-300 bg-white"
                 }`}
               >
-                <div className="font-semibold text-gray-900">
-                  {module.sectionType} - Module {module.moduleNumber}
-                </div>
-                <div className="text-sm text-gray-600 mt-1">
-                  Difficulty: {module.difficulty}
-                </div>
-                {module.questionCount && (
-                  <div className="text-xs text-gray-500 mt-1">
-                    {module.questionCount} questions needed
-                  </div>
-                )}
+                <p className="font-semibold text-gray-900">
+                  {module.sectionType} Module {module.moduleNumber}
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {filled} / {count}
+                </p>
               </button>
-            ))}
-          </div>
-        </Card>
-      )}
+            );
+          })}
+        </div>
+      </Card>
 
+      {/* Tanlangan modul: SAT savollari (questionText, passage, choices, difficulty, contentDomain) */}
       {selectedModule && (
-        <>
-          {/* Existing Questions */}
-          {selectedModule.questions && selectedModule.questions.length > 0 && (
-            <Card className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Existing Questions ({selectedModule.questions.length})
-              </h3>
-              <div className="space-y-2">
-                {selectedModule.questions.map((question) => {
-                  const isExpanded = expandedQuestions.has(question.id);
-                  return (
-                    <Card
-                      key={question.id}
-                      className="p-3 border border-gray-200 hover:border-gray-300 transition-colors"
+        <Card className="p-4 border-gray-200">
+          <h3 className="font-semibold text-gray-900 mb-4">
+            {selectedModule.sectionType} Module {selectedModule.moduleNumber} —
+            savollar (SAT format)
+          </h3>
+          {selectedModule.sectionType === "MATH" && (
+            <div className="mb-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-900">
+              <p className="font-medium mb-1.5">
+                Math qo&apos;shish bo&apos;yicha maslahat:
+              </p>
+              <ul className="list-disc list-inside space-y-0.5 text-xs">
+                <li>
+                  <strong>Arifmetik / Grid-in:</strong> To&apos;g&apos;ri
+                  javobni son yoki kasr yozing:{" "}
+                  <code className="bg-amber-100 px-1 rounded">4</code>,{" "}
+                  <code className="bg-amber-100 px-1 rounded">3/4</code>,{" "}
+                  <code className="bg-amber-100 px-1 rounded">0.75</code>,{" "}
+                  <code className="bg-amber-100 px-1 rounded">-2</code>,{" "}
+                  <code className="bg-amber-100 px-1 rounded">4.5</code> — SAT
+                  grid-in shunday qabul qiladi.
+                </li>
+                <li>
+                  <strong>Rasm URL:</strong> Grafik, figura yoki tenglama rasmi
+                  bo&apos;lsa, URL ni kiriting; savol matnida &quot;yuqoridagi
+                  grafikka qarang&quot; deb yozishingiz mumkin.
+                </li>
+                <li>
+                  <strong>Content domain:</strong> Algebra, Advanced Math,
+                  Problem Solving, Geometry — savol mavzusiga qarab tanlang.
+                </li>
+                <li>
+                  <strong>Variantli (A–D):</strong> Agar javoblar ro&apos;yxat
+                  bo&apos;lsa, A/B/C/D ni to&apos;ldiring va to&apos;g&apos;ri
+                  javobni belgilang.
+                </li>
+              </ul>
+            </div>
+          )}
+          <div className="space-y-2">
+            {Array.from(
+              {
+                length:
+                  selectedModule.questionCount ??
+                  QUESTIONS_PER_MODULE[selectedModule.sectionType] ??
+                  27,
+              },
+              (_, i) => {
+                const mid = selectedModule.moduleId;
+                const slot = (drafts[mid] ?? [])[i] ?? emptySlot();
+                const isExpanded = expandedQuestion === i;
+                return (
+                  <div
+                    key={i}
+                    className="rounded-lg border border-gray-200 bg-gray-50 overflow-hidden"
+                  >
+                    <button
+                      type="button"
+                      className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-100"
+                      onClick={() => setExpandedQuestion(isExpanded ? null : i)}
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs font-medium text-gray-500">
-                              Q{question.orderIndex + 1}
+                      <span className="font-medium text-gray-700">
+                        Savol {i + 1}
+                        {slot.questionId && (
+                          <span className="ml-1 text-xs font-normal text-blue-600">
+                            (mavjud)
+                          </span>
+                        )}
+                      </span>
+                      {(slot.questionText ?? "").trim() ? (
+                        <span className="text-xs text-green-600 truncate max-w-[200px]">
+                          {(slot.questionText ?? "").slice(0, 40)}...
+                          {slot.questionType === "STUDENT_PRODUCED" && (
+                            <span className="ml-1 text-gray-500">
+                              (grid-in)
                             </span>
-                            <span
-                              className={`text-xs px-2 py-0.5 rounded ${
-                                question.difficulty === "EASY"
-                                  ? "bg-green-100 text-green-700"
-                                  : question.difficulty === "MEDIUM"
-                                  ? "bg-yellow-100 text-yellow-700"
-                                  : "bg-red-100 text-red-700"
-                              }`}
-                            >
-                              {question.difficulty}
-                            </span>
-                            <span className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700">
-                              {question.questionType === "MULTIPLE_CHOICE"
-                                ? "MC"
-                                : "Grid-in"}
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">
+                          Bo&apos;sh
+                        </span>
+                      )}
+                      {isExpanded ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      )}
+                    </button>
+                    {isExpanded && (
+                      <div className="p-4 pt-0 space-y-3 bg-white border-t border-gray-100">
+                        <div>
+                          <Label className="text-xs">Savol matni *</Label>
+                          <textarea
+                            placeholder={
+                              selectedModule.sectionType === "MATH"
+                                ? "Masalan: 2x+3=7 bo'lsa x=? yoki grafik/figura haqida savol"
+                                : "SAT savol matni"
+                            }
+                            value={slot.questionText ?? ""}
+                            onChange={(e) =>
+                              updateSlot(mid, i, {
+                                questionText: e.target.value,
+                              })
+                            }
+                            className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md text-sm min-h-[80px]"
+                            rows={3}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">
+                            Savol rasmi (ixtiyoriy) — faqat fayl yuklash
+                          </Label>
+                          <div className="mt-1 flex items-center gap-2 flex-wrap">
+                            <label className="cursor-pointer text-xs text-orange-600 hover:underline font-medium">
+                              Fayl tanlang
+                              <input
+                                type="file"
+                                accept={ACCEPTED_IMAGE_TYPES}
+                                className="hidden"
+                                key={`q-img-${mid}-${i}`}
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+                                  if (file.size > MAX_IMAGE_SIZE) {
+                                    setError("Rasm 5MB dan oshmasin.");
+                                    return;
+                                  }
+                                  setError("");
+                                  try {
+                                    const { url } =
+                                      await adminTestService.uploadQuestionImage(
+                                        file,
+                                      );
+                                    updateSlot(mid, i, { imageUrl: url });
+                                  } catch (err) {
+                                    setError(
+                                      err instanceof Error
+                                        ? err.message
+                                        : "Rasm yuklanmadi",
+                                    );
+                                  }
+                                  e.target.value = "";
+                                }}
+                              />
+                            </label>
+                            <span className="text-xs text-gray-400">
+                              JPEG, PNG, GIF, WebP, SVG — max 5MB
                             </span>
                           </div>
-                          <p className="text-sm text-gray-900 line-clamp-2">
-                            {question.questionText}
-                          </p>
-                          {isExpanded && (
-                            <div className="mt-3 space-y-3 pt-3 border-t border-gray-200">
-                              {question.passage && (
-                                <div>
-                                  <p className="text-xs font-medium text-gray-500 mb-1">
-                                    Passage:
-                                  </p>
-                                  <p className="text-sm text-gray-700 bg-gray-50 p-2 rounded">
-                                    {question.passage}
-                                  </p>
-                                </div>
-                              )}
-                              {question.contentDomain && (
-                                <div>
-                                  <p className="text-xs font-medium text-gray-500">
-                                    Domain: {question.contentDomain}
-                                  </p>
-                                </div>
-                              )}
-                              {question.questionType === "MULTIPLE_CHOICE" &&
-                                question.choices && (
-                                  <div>
-                                    <p className="text-xs font-medium text-gray-500 mb-2">
-                                      Choices:
-                                    </p>
-                                    <div className="space-y-1">
-                                      {question.choices
-                                        .sort((a, b) => a.orderIndex - b.orderIndex)
-                                        .map((choice) => (
-                                          <div
-                                            key={choice.id}
-                                            className={`text-sm p-2 rounded ${
-                                              choice.isCorrect
-                                                ? "bg-green-50 border border-green-200 text-green-900"
-                                                : "bg-gray-50 text-gray-700"
-                                            }`}
-                                          >
-                                            {choice.isCorrect && (
-                                              <span className="text-xs font-medium mr-2">
-                                                ✓
-                                              </span>
-                                            )}
-                                            {choice.choiceText}
-                                          </div>
-                                        ))}
-                                    </div>
-                                  </div>
-                                )}
-                              {question.questionType === "STUDENT_PRODUCED" &&
-                                question.correctAnswer && (
-                                  <div>
-                                    <p className="text-xs font-medium text-gray-500 mb-1">
-                                      Correct Answer:
-                                    </p>
-                                    <p className="text-sm text-gray-900 bg-gray-50 p-2 rounded">
-                                      {question.correctAnswer}
-                                    </p>
-                                  </div>
-                                )}
-                              {question.explanation && (
-                                <div>
-                                  <p className="text-xs font-medium text-gray-500 mb-1">
-                                    Explanation:
-                                  </p>
-                                  <p className="text-sm text-gray-700 bg-blue-50 p-2 rounded">
-                                    {question.explanation}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
+                          {(slot.imageUrl ?? "").trim() && (
+                            <img
+                              src={(slot.imageUrl ?? "").trim()}
+                              alt="Savol rasmi"
+                              className="mt-2 max-h-40 rounded border object-contain"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display =
+                                  "none";
+                              }}
+                            />
                           )}
                         </div>
-                        <div className="ml-4 flex items-center gap-2 flex-shrink-0">
-                          <button
-                            onClick={() => {
-                              setExpandedQuestions((prev) => {
-                                const newSet = new Set(prev);
-                                if (newSet.has(question.id)) {
-                                  newSet.delete(question.id);
-                                } else {
-                                  newSet.add(question.id);
-                                }
-                                return newSet;
-                              });
-                            }}
-                            className="text-gray-400 hover:text-gray-600"
-                          >
-                            {isExpanded ? (
-                              <ChevronUp className="w-5 h-5" />
-                            ) : (
-                              <ChevronDown className="w-5 h-5" />
-                            )}
-                          </button>
-                          <button
-                            onClick={async () => {
-                              if (
-                                !confirm(
-                                  `Are you sure you want to delete question ${question.orderIndex + 1}?`
-                                )
-                              ) {
-                                return;
-                              }
-                              try {
-                                setSubmitting(true);
-                                await adminTestService.deleteQuestion(
-                                  selectedModule.moduleId,
-                                  question.id
-                                );
-                                setSuccess("Question deleted successfully");
-                                await loadTestInfo();
-                              } catch (err) {
-                                setError(
-                                  err instanceof Error
-                                    ? err.message
-                                    : "Failed to delete question"
-                                );
-                              } finally {
-                                setSubmitting(false);
-                              }
-                            }}
-                            className="text-red-400 hover:text-red-600"
-                            disabled={submitting}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                        <div>
+                          <Label className="text-xs">
+                            {selectedModule.sectionType === "MATH"
+                              ? "Qo'shimcha matn / vaziya (ixtiyoriy)"
+                              : "Passage (ixtiyoriy, Reading uchun)"}
+                          </Label>
+                          <textarea
+                            placeholder={
+                              selectedModule.sectionType === "MATH"
+                                ? "Qisqa vaziya yoki formula (Math uchun)"
+                                : "Paragraf matni"
+                            }
+                            value={slot.passage ?? ""}
+                            onChange={(e) =>
+                              updateSlot(mid, i, { passage: e.target.value })
+                            }
+                            className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md text-sm min-h-[60px]"
+                            rows={2}
+                          />
                         </div>
+
+                        <div>
+                          <Label className="text-xs">Savol turi</Label>
+                          <div className="flex gap-4 mt-1">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name={`${mid}-${i}-type`}
+                                checked={
+                                  (slot.questionType ?? "MULTIPLE_CHOICE") ===
+                                  "MULTIPLE_CHOICE"
+                                }
+                                onChange={() =>
+                                  updateSlot(mid, i, {
+                                    questionType: "MULTIPLE_CHOICE",
+                                  })
+                                }
+                              />
+                              <span className="text-sm">
+                                Variantli (A, B, C, D)
+                              </span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name={`${mid}-${i}-type`}
+                                checked={
+                                  (slot.questionType ?? "MULTIPLE_CHOICE") ===
+                                  "STUDENT_PRODUCED"
+                                }
+                                onChange={() =>
+                                  updateSlot(mid, i, {
+                                    questionType: "STUDENT_PRODUCED",
+                                  })
+                                }
+                              />
+                              <span className="text-sm">
+                                Grid-in / yopiq (Math: to&apos;g&apos;ri javob
+                                yoziladi)
+                              </span>
+                            </label>
+                          </div>
+                        </div>
+
+                        {slot.questionType === "STUDENT_PRODUCED" ? (
+                          <div>
+                            <Label className="text-xs">
+                              To&apos;g&apos;ri javob * (son yoki kasr, masalan
+                              4, 3/4, 0.75)
+                            </Label>
+                            <Input
+                              placeholder={
+                                selectedModule.sectionType === "MATH"
+                                  ? "4, 3/4, 0.75, -2, 4.5 — SAT grid-in qabul qiladi"
+                                  : "4 yoki 3/4 yoki 0.75"
+                              }
+                              value={slot.correctAnswer ?? ""}
+                              onChange={(e) =>
+                                updateSlot(mid, i, {
+                                  correctAnswer: e.target.value,
+                                })
+                              }
+                              className="mt-1 text-sm max-w-xs"
+                            />
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <Label className="text-xs">
+                                Barcha variantlar:
+                              </Label>
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  className={`text-xs px-3 py-1.5 rounded ${
+                                    (slot.choicesKind ??
+                                      slot.choiceAVariant ??
+                                      "text") === "text"
+                                      ? "bg-orange-600 text-white"
+                                      : "bg-gray-200 text-gray-700"
+                                  }`}
+                                  onClick={() =>
+                                    updateSlot(mid, i, {
+                                      choicesKind: "text",
+                                      choiceAVariant: "text",
+                                      choiceBVariant: "text",
+                                      choiceCVariant: "text",
+                                      choiceDVariant: "text",
+                                    })
+                                  }
+                                >
+                                  Faqat matn
+                                </button>
+                                <button
+                                  type="button"
+                                  className={`text-xs px-3 py-1.5 rounded ${
+                                    (slot.choicesKind ??
+                                      slot.choiceAVariant ??
+                                      "text") === "image"
+                                      ? "bg-orange-600 text-white"
+                                      : "bg-gray-200 text-gray-700"
+                                  }`}
+                                  onClick={() =>
+                                    updateSlot(mid, i, {
+                                      choicesKind: "image",
+                                      choiceAVariant: "image",
+                                      choiceBVariant: "image",
+                                      choiceCVariant: "image",
+                                      choiceDVariant: "image",
+                                    })
+                                  }
+                                >
+                                  Faqat rasm
+                                </button>
+                              </div>
+                              <span className="text-xs text-gray-500">
+                                (barcha A, B, C, D bir xil turda)
+                              </span>
+                            </div>
+                            {(["A", "B", "C", "D"] as const).map(
+                              (letter, c) => {
+                                const textKey =
+                                  `choice${letter}` as keyof QuestionSlot as
+                                    | "choiceA"
+                                    | "choiceB"
+                                    | "choiceC"
+                                    | "choiceD";
+                                const imageUrlKey =
+                                  `choice${letter}ImageUrl` as keyof QuestionSlot as
+                                    | "choiceAImageUrl"
+                                    | "choiceBImageUrl"
+                                    | "choiceCImageUrl"
+                                    | "choiceDImageUrl";
+                                const kind = (slot.choicesKind ??
+                                  slot.choiceAVariant ??
+                                  "text") as VariantKind;
+                                const textVal = (slot[textKey] ?? "") as string;
+                                const imgUrl = (slot[imageUrlKey] ??
+                                  "") as string;
+                                return (
+                                  <div
+                                    key={`${mid}-${i}-var-${letter}`}
+                                    className="rounded border border-gray-200 p-3 space-y-2 bg-gray-50/50"
+                                  >
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="text-xs font-medium w-5">
+                                        {letter}
+                                      </span>
+                                      <input
+                                        type="radio"
+                                        name={`${mid}-${i}-correct`}
+                                        checked={slot.correct === c}
+                                        onChange={() =>
+                                          updateSlot(mid, i, {
+                                            correct: c as 0 | 1 | 2 | 3,
+                                          })
+                                        }
+                                        title="To'g'ri javob"
+                                        className="ml-auto"
+                                      />
+                                    </div>
+                                    {kind === "text" ? (
+                                      <Input
+                                        placeholder={`Javob ${letter} (matn)`}
+                                        value={textVal}
+                                        onChange={(e) =>
+                                          updateSlot(mid, i, {
+                                            [textKey]: e.target.value,
+                                          })
+                                        }
+                                        className="text-sm"
+                                      />
+                                    ) : (
+                                      <div className="space-y-2">
+                                        <Input
+                                          placeholder={`Label (ixtiyoriy, masalan Graph ${letter})`}
+                                          value={textVal}
+                                          onChange={(e) =>
+                                            updateSlot(mid, i, {
+                                              [textKey]: e.target.value,
+                                            })
+                                          }
+                                          className="text-sm max-w-[200px]"
+                                        />
+                                        <label className="cursor-pointer text-xs text-orange-600 hover:underline">
+                                          Rasm yuklash
+                                          <input
+                                            type="file"
+                                            accept={ACCEPTED_IMAGE_TYPES}
+                                            className="hidden"
+                                            key={`${mid}-${i}-choice-${letter}`}
+                                            onChange={async (e) => {
+                                              const file = e.target.files?.[0];
+                                              if (!file) return;
+                                              if (file.size > MAX_IMAGE_SIZE) {
+                                                setError(
+                                                  "Rasm 5MB dan oshmasin.",
+                                                );
+                                                return;
+                                              }
+                                              setError("");
+                                              try {
+                                                const { url } =
+                                                  await adminTestService.uploadChoiceImage(
+                                                    file,
+                                                  );
+                                                updateSlot(mid, i, {
+                                                  [imageUrlKey]: url,
+                                                });
+                                              } catch (err) {
+                                                setError(
+                                                  err instanceof Error
+                                                    ? err.message
+                                                    : "Rasm yuklanmadi",
+                                                );
+                                              }
+                                              e.target.value = "";
+                                            }}
+                                          />
+                                        </label>
+                                        {imgUrl.trim() && (
+                                          <img
+                                            src={imgUrl}
+                                            alt={`Variant ${letter}`}
+                                            className="max-h-24 rounded border object-contain"
+                                            onError={(ev) => {
+                                              (
+                                                ev.target as HTMLImageElement
+                                              ).style.display = "none";
+                                            }}
+                                          />
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              },
+                            )}
+                          </div>
+                        )}
+
+                        <div className="flex flex-wrap gap-4">
+                          <div>
+                            <Label className="text-xs">Difficulty</Label>
+                            <select
+                              value={slot.difficulty}
+                              onChange={(e) =>
+                                updateSlot(mid, i, {
+                                  difficulty: e.target
+                                    .value as QuestionSlot["difficulty"],
+                                })
+                              }
+                              className="ml-2 px-2 py-1 border border-gray-300 rounded text-sm"
+                            >
+                              <option value="EASY">EASY</option>
+                              <option value="MEDIUM">MEDIUM</option>
+                              <option value="HARD">HARD</option>
+                            </select>
+                          </div>
+                          <div>
+                            <Label className="text-xs">Content domain</Label>
+                            <select
+                              value={slot.contentDomain}
+                              onChange={(e) =>
+                                updateSlot(mid, i, {
+                                  contentDomain: e.target.value,
+                                })
+                              }
+                              className="ml-2 px-2 py-1 border border-gray-300 rounded text-sm min-w-[180px]"
+                            >
+                              {domains.map((d) => (
+                                <option key={d.value} value={d.value}>
+                                  {d.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        {slot.questionId && (
+                          <div className="pt-2 border-t border-gray-100">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={
+                                savingSlotKey === `${mid}-${i}` ||
+                                !(slot.questionText ?? "").trim()
+                              }
+                              onClick={async () => {
+                                if (!slot.questionId) return;
+                                setSavingSlotKey(`${mid}-${i}`);
+                                setError("");
+                                setSuccess("");
+                                try {
+                                  await adminTestService.updateQuestion(
+                                    mid,
+                                    slot.questionId,
+                                    slotToQuestionInput(slot, i),
+                                  );
+                                  setSuccess("Savol tahrirlandi, saqlandi.");
+                                } catch (e) {
+                                  setError(
+                                    e instanceof Error
+                                      ? e.message
+                                      : "Saqlash xatosi",
+                                  );
+                                } finally {
+                                  setSavingSlotKey(null);
+                                }
+                              }}
+                            >
+                              {savingSlotKey === `${mid}-${i}`
+                                ? "Saqlanmoqda..."
+                                : "Tahrirlashni saqlash"}
+                            </Button>
+                          </div>
+                        )}
                       </div>
-                    </Card>
-                  );
-                })}
-              </div>
-            </Card>
-          )}
-
-          {/* Add Question Form */}
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Add Question to: {selectedModule.sectionType} - Module{" "}
-                {selectedModule.moduleNumber} ({selectedModule.difficulty})
-              </h3>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsFormExpanded(!isFormExpanded)}
-              >
-                {isFormExpanded ? (
-                  <>
-                    <ChevronUp className="w-4 h-4 mr-1" />
-                    Collapse
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="w-4 h-4 mr-1" />
-                    Expand
-                  </>
-                )}
-              </Button>
-            </div>
-
-          {isFormExpanded && (
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <Label>Question Type</Label>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    value="MULTIPLE_CHOICE"
-                    checked={questionType === "MULTIPLE_CHOICE"}
-                    onChange={(e) =>
-                      setQuestionType(
-                        e.target.value as
-                          | "MULTIPLE_CHOICE"
-                          | "STUDENT_PRODUCED"
-                      )
-                    }
-                  />
-                  <span>Multiple Choice</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    value="STUDENT_PRODUCED"
-                    checked={questionType === "STUDENT_PRODUCED"}
-                    onChange={(e) =>
-                      setQuestionType(
-                        e.target.value as
-                          | "MULTIPLE_CHOICE"
-                          | "STUDENT_PRODUCED"
-                      )
-                    }
-                  />
-                  <span>Student-Produced (Grid-in)</span>
-                </label>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Difficulty</Label>
-              <div className="flex gap-4">
-                {(["EASY", "MEDIUM", "HARD"] as const).map((diff) => (
-                  <label key={diff} className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      value={diff}
-                      checked={difficulty === diff}
-                      onChange={(e) =>
-                        setDifficulty(
-                          e.target.value as "EASY" | "MEDIUM" | "HARD"
-                        )
-                      }
-                    />
-                    <span>{diff}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="contentDomain">Content Domain (optional)</Label>
-              <select
-                id="contentDomain"
-                value={contentDomain}
-                onChange={(e) => setContentDomain(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                disabled={submitting}
-              >
-                <option value="">Select content domain...</option>
-                {availableDomains.map((domain) => (
-                  <option key={domain.value} value={domain.value}>
-                    {domain.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="passage">Passage (optional)</Label>
-              <textarea
-                id="passage"
-                value={passage}
-                onChange={(e) => setPassage(e.target.value)}
-                placeholder="Reading passage text..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                rows={4}
-                disabled={submitting}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="imageUrl">Image URL (optional)</Label>
-              <Input
-                id="imageUrl"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                placeholder="https://example.com/image.png"
-                disabled={submitting}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="questionText">Question Text *</Label>
-              <textarea
-                id="questionText"
-                value={questionText}
-                onChange={(e) => setQuestionText(e.target.value)}
-                placeholder="Enter the question..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                rows={3}
-                required
-                disabled={submitting}
-              />
-            </div>
-          </div>
-          )}
-
-          {/* Collapsed view - show only essential fields */}
-          {!isFormExpanded && (
-            <div className="space-y-4 pt-4 border-t border-gray-200">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Question Type</Label>
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        value="MULTIPLE_CHOICE"
-                        checked={questionType === "MULTIPLE_CHOICE"}
-                        onChange={(e) =>
-                          setQuestionType(
-                            e.target.value as
-                              | "MULTIPLE_CHOICE"
-                              | "STUDENT_PRODUCED"
-                          )
-                        }
-                      />
-                      <span className="text-sm">Multiple Choice</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        value="STUDENT_PRODUCED"
-                        checked={questionType === "STUDENT_PRODUCED"}
-                        onChange={(e) =>
-                          setQuestionType(
-                            e.target.value as
-                              | "MULTIPLE_CHOICE"
-                              | "STUDENT_PRODUCED"
-                          )
-                        }
-                      />
-                      <span className="text-sm">Grid-in</span>
-                    </label>
+                    )}
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Difficulty</Label>
-                  <div className="flex gap-4">
-                    {(["EASY", "MEDIUM", "HARD"] as const).map((diff) => (
-                      <label key={diff} className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          value={diff}
-                          checked={difficulty === diff}
-                          onChange={(e) =>
-                            setDifficulty(
-                              e.target.value as "EASY" | "MEDIUM" | "HARD"
-                            )
-                          }
-                        />
-                        <span className="text-sm">{diff}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="questionTextCollapsed">Question Text *</Label>
-                <textarea
-                  id="questionTextCollapsed"
-                  value={questionText}
-                  onChange={(e) => setQuestionText(e.target.value)}
-                  placeholder="Enter the question..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  rows={3}
-                  required
-                  disabled={submitting}
-                />
-              </div>
-
-              {questionType === "MULTIPLE_CHOICE" && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm">Choices *</Label>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleAddChoice}
-                      disabled={submitting}
-                    >
-                      <Plus className="w-3 h-3 mr-1" />
-                      Add
-                    </Button>
-                  </div>
-                  {choices.map((choice, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <Input
-                        value={choice.text}
-                        onChange={(e) =>
-                          handleChoiceChange(index, "text", e.target.value)
-                        }
-                        placeholder={`Choice ${String.fromCharCode(65 + index)}`}
-                        disabled={submitting}
-                        className="flex-1"
-                      />
-                      <label className="flex items-center gap-1 whitespace-nowrap">
-                        <input
-                          type="checkbox"
-                          checked={choice.isCorrect}
-                          onChange={(e) =>
-                            handleChoiceChange(
-                              index,
-                              "isCorrect",
-                              e.target.checked
-                            )
-                          }
-                          disabled={submitting}
-                          className="w-4 h-4"
-                        />
-                        <span className="text-xs">Correct</span>
-                      </label>
-                      {choices.length > 2 && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleRemoveChoice(index)}
-                          disabled={submitting}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {questionType === "STUDENT_PRODUCED" && (
-                <div className="space-y-2">
-                  <Label htmlFor="correctAnswerCollapsed">Correct Answer *</Label>
-                  <Input
-                    id="correctAnswerCollapsed"
-                    value={correctAnswer}
-                    onChange={(e) => setCorrectAnswer(e.target.value)}
-                    placeholder="e.g., 4, 3/4, 0.75"
-                    required
-                    disabled={submitting}
-                  />
-                </div>
-              )}
-
-              <div className="flex gap-4 pt-2">
-                <Button onClick={handleSubmitQuestion} disabled={submitting} className="flex-1">
-                  {submitting ? "Adding..." : "Add Question"}
-                </Button>
-              </div>
-            </div>
-          )}
-        </Card>
-        </>
-      )}
-
-      {testInfo && (!testInfo.modules || testInfo.modules.length === 0) && (
-        <Card className="p-6 bg-yellow-50 border-yellow-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                No Modules Found
-              </h3>
-              <p className="text-gray-600">
-                This test doesn&apos;t have any modules. Please check if the test was created correctly.
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              onClick={() => router.push("/admin/tests")}
-            >
-              Back to Tests
-            </Button>
+                );
+              },
+            )}
           </div>
         </Card>
       )}
 
-      {testInfo && testInfo.modules && testInfo.modules.length > 0 && (
-        <Card className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">
-              Test Validation
-            </h3>
-            <Button
-              variant="outline"
-              onClick={async () => {
-                try {
-                  const validation = await adminTestService.validateTest(
-                    testId
-                  );
-                  if (validation.isValid) {
-                    setSuccess("Test is complete and ready for students!");
-                  } else {
-                    setError(
-                      `Test incomplete: ${validation.issues.join(", ")}`
-                    );
-                  }
-                } catch (err) {
-                  setError(
-                    err instanceof Error
-                      ? err.message
-                      : "Failed to validate test"
-                  );
-                }
-              }}
-            >
-              Validate Test
-            </Button>
-          </div>
-        </Card>
-      )}
+      <div className="sticky bottom-4 flex justify-center">
+        <Button
+          onClick={handleSubmit}
+          disabled={submitting || !(payload?.modules?.length ?? 0)}
+          className="bg-orange-600 hover:bg-orange-700 px-8"
+        >
+          {submitting
+            ? "Qo'shilmoqda..."
+            : `Yuborish (${totalFilled}/${TOTAL_SAT_QUESTIONS})`}
+        </Button>
+      </div>
     </div>
   );
 }
-
-

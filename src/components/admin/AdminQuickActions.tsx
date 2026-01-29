@@ -45,6 +45,15 @@ export default function AdminQuickActions() {
           </p>
         </button>
         <button
+          onClick={() => router.push("/admin/exam-dates")}
+          className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left"
+        >
+          <p className="font-medium text-gray-900">Exam Dates</p>
+          <p className="text-sm text-gray-500 mt-1">
+            Add exam dates for dashboard select
+          </p>
+        </button>
+        <button
           onClick={() => router.push("/admin/settings")}
           className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left"
         >

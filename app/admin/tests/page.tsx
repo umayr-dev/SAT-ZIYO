@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/src/ui/card";
 import { Button } from "@/src/ui/button";
 import { Loading } from "@/src/ui/loading";
 import { adminTestService } from "@/src/services/admin-test.service";
 import { TestEditModal } from "@/src/components/admin/TestEditModal";
+import {
+  useAdminTests,
+  useAdminTestInvalidate,
+} from "@/src/hooks/use-admin-tests";
 import {
   Edit,
   Plus,
@@ -29,54 +33,41 @@ interface Test {
 
 export default function TestsPage() {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
-  const [tests, setTests] = useState<Test[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: tests = [],
+    isLoading: loading,
+    error: queryError,
+  } = useAdminTests();
+  const { invalidateList } = useAdminTestInvalidate();
   const [error, setError] = useState("");
   const [selectedTest, setSelectedTest] = useState<Test | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [expandedTestId, setExpandedTestId] = useState<string | null>(null);
 
-  useEffect(() => {
-    setMounted(true);
-    void loadTests();
-  }, []);
-
-  async function loadTests() {
-    try {
-      setLoading(true);
-      setError("");
-      const data = await adminTestService.getAllTests();
-      setTests(data as Test[]);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to fetch tests"
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
+  const displayError = queryError ? (queryError as Error).message : error;
 
   async function handleUpdateTest(
     testId: string,
-    updates: Partial<Test>
+    updates: Partial<Test>,
   ): Promise<void> {
     await adminTestService.updateTest(testId, updates);
-    await loadTests();
+    await invalidateList();
   }
 
   async function handleDeleteTest(testId: string): Promise<void> {
-    if (!confirm("Are you sure you want to delete this test? This action cannot be undone.")) {
+    if (
+      !confirm(
+        "Are you sure you want to delete this test? This action cannot be undone.",
+      )
+    ) {
       return;
     }
     try {
       setError("");
       await adminTestService.deleteTest(testId);
-      await loadTests();
+      await invalidateList();
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to delete test"
-      );
+      setError(err instanceof Error ? err.message : "Failed to delete test");
     }
   }
 
@@ -95,14 +86,6 @@ export default function TestsPage() {
   const toggleExpand = (testId: string) => {
     setExpandedTestId(expandedTestId === testId ? null : testId);
   };
-
-  if (!mounted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loading size="lg" />
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -127,7 +110,7 @@ export default function TestsPage() {
         <div className="flex items-center justify-center h-64">
           <Loading size="lg" />
         </div>
-      ) : tests.length === 0 ? (
+      ) : (tests as Test[]).length === 0 ? (
         <Card className="p-8 text-center">
           <p className="text-gray-600 mb-4">No tests found</p>
           <Button onClick={() => router.push("/admin/tests/create")}>
@@ -136,7 +119,7 @@ export default function TestsPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {tests.map((test) => {
+          {(tests as Test[]).map((test) => {
             const isExpanded = expandedTestId === test.id;
             return (
               <Card
@@ -212,7 +195,9 @@ export default function TestsPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => router.push(`/admin/tests/${test.id}/validate`)}
+                        onClick={() =>
+                          router.push(`/admin/tests/${test.id}/validate`)
+                        }
                         className="flex items-center justify-center gap-1 relative group"
                         title="Validate test structure - checks if all modules have required questions and test is ready for students"
                       >
@@ -245,15 +230,11 @@ export default function TestsPage() {
                     <div className="pt-3 border-t border-gray-200 space-y-2 text-xs text-gray-600">
                       <div className="flex items-center justify-between">
                         <span>Created:</span>
-                        <span>
-                          {new Date(test.createdAt).toLocaleString()}
-                        </span>
+                        <span>{new Date(test.createdAt).toLocaleString()}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span>Updated:</span>
-                        <span>
-                          {new Date(test.updatedAt).toLocaleString()}
-                        </span>
+                        <span>{new Date(test.updatedAt).toLocaleString()}</span>
                       </div>
                       <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
                         <div className="flex items-start gap-2">
@@ -264,19 +245,28 @@ export default function TestsPage() {
                             </p>
                             <div className="text-xs text-blue-800 space-y-1">
                               <p>
-                                <strong>Maqsad:</strong> Test to&apos;liq va studentlar uchun tayyor ekanligini tekshirish
+                                <strong>Maqsad:</strong> Test to&apos;liq va
+                                studentlar uchun tayyor ekanligini tekshirish
                               </p>
                               <p>
                                 <strong>Nima tekshiradi:</strong>
                               </p>
                               <ul className="list-disc list-inside ml-2 space-y-0.5">
-                                <li>Har bir modulda kerakli miqdordagi savollar bor-yo&apos;qligi</li>
-                                <li>Test strukturasining to&apos;g&apos;riligi</li>
+                                <li>
+                                  Har bir modulda kerakli miqdordagi savollar
+                                  bor-yo&apos;qligi
+                                </li>
+                                <li>
+                                  Test strukturasining to&apos;g&apos;riligi
+                                </li>
                                 <li>Barcha modullar to&apos;liq ekanligi</li>
                                 <li>Test studentlar uchun tayyor ekanligi</li>
                               </ul>
                               <p className="mt-2">
-                                <strong>Natija:</strong> Agar barcha modullar to&apos;liq bo&apos;lsa, test &quot;Ready for Students&quot; deb belgilanadi va studentlar uni ishlay olishadi.
+                                <strong>Natija:</strong> Agar barcha modullar
+                                to&apos;liq bo&apos;lsa, test &quot;Ready for
+                                Students&quot; deb belgilanadi va studentlar uni
+                                ishlay olishadi.
                               </p>
                             </div>
                           </div>

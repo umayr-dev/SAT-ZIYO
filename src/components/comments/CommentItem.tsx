@@ -5,13 +5,29 @@ import { practiceService } from "@/src/services/practice.service";
 import { CommentForm } from "./CommentForm";
 import { ReplyThread } from "./ReplyThread";
 import { Button } from "@/src/ui/button";
-import { MoreVertical, Edit2, Trash2, Reply, Flag } from "lucide-react";
+import {
+  MoreVertical,
+  Edit2,
+  Trash2,
+  Reply,
+  Flag,
+  AlertCircle,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/src/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/src/ui/dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/src/ui/alert";
 import { useCurrentUser } from "@/src/hooks/use-auth";
 // Simple date formatting function
 const formatDistanceToNow = (date: Date): string => {
@@ -56,25 +72,25 @@ export function CommentItem({
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(comment.content);
   const [submitting, setSubmitting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
   const { data: currentUser } = useCurrentUser();
 
   const isOwner = currentUser?.id === comment.user.id;
+  const isAdminOrOwner =
+    currentUser?.role === "ADMIN" || currentUser?.role === "OWNER";
+  const canDelete = isOwner || isAdminOrOwner;
 
   const handleDelete = async () => {
-    if (
-      !confirm(
-        "Are you sure you want to delete this comment? All replies will also be deleted.",
-      )
-    ) {
-      return;
-    }
-
     try {
+      setDeleteError(null);
       await practiceService.deleteComment(comment.id);
       onDeleted(comment.id);
+      setShowDeleteDialog(false);
     } catch (err) {
       console.error("Failed to delete comment:", err);
-      alert("Failed to delete comment. Please try again.");
+      setDeleteError("Failed to delete comment. Please try again.");
     }
   };
 
@@ -88,9 +104,10 @@ export function CommentItem({
       await practiceService.editComment(comment.id, editContent.trim());
       onUpdated(comment.id, editContent.trim());
       setIsEditing(false);
+      setEditError(null);
     } catch (err) {
       console.error("Failed to edit comment:", err);
-      alert("Failed to edit comment. Please try again.");
+      setEditError("Failed to edit comment. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -158,7 +175,7 @@ export function CommentItem({
           {/* Actions */}
           {!isEditing && (
             <div className="flex items-center gap-4 mt-2">
-              {isOwner && (
+              {canDelete && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button className="text-xs text-gray-600 hover:text-gray-900">
@@ -166,12 +183,14 @@ export function CommentItem({
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => setIsEditing(true)}>
-                      <Edit2 className="h-4 w-4 mr-2" />
-                      Edit
-                    </DropdownMenuItem>
+                    {isOwner && (
+                      <DropdownMenuItem onClick={() => setIsEditing(true)}>
+                        <Edit2 className="h-4 w-4 mr-2" />
+                        Edit
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem
-                      onClick={handleDelete}
+                      onClick={() => setShowDeleteDialog(true)}
                       className="text-red-600"
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
@@ -189,6 +208,44 @@ export function CommentItem({
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Comment</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this comment? All replies will
+              also be deleted. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{deleteError}</AlertDescription>
+            </Alert>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDeleteDialog(false);
+                setDeleteError(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={submitting}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

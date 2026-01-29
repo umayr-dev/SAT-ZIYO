@@ -86,8 +86,8 @@ export function SettingsPageClient() {
   const handleSaveName = async () => {
     if (!user) return;
     try {
-      await authService.updateProfile({ name: tempName });
-      setUser({ ...user, name: tempName });
+      const updatedUser = await authService.updateProfile({ name: tempName });
+      setUser(updatedUser);
       setIsEditingName(false);
     } catch (error) {
       console.error("Failed to update name:", error);
@@ -95,14 +95,10 @@ export function SettingsPageClient() {
   };
 
   const handleSaveEmail = async () => {
+    // Email PATCH /auth/profile orqali yangilanmaydi; faqat profil sahifasida ko‘rsatiladi
     if (!user) return;
-    try {
-      await authService.updateProfile({ email: tempEmail });
-      setUser({ ...user, email: tempEmail });
       setIsEditingEmail(false);
-    } catch (error) {
-      console.error("Failed to update email:", error);
-    }
+    setTempEmail(user.email || "");
   };
 
   if (isLoading) {

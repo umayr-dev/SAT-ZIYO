@@ -147,30 +147,42 @@ export const authService = {
   },
 
   /**
-   * Update user profile
-   * Updates user profile information using cookie-based authentication
+   * Update user profile (PATCH /auth/profile)
+   * name (2-100), currentPassword/newPassword (8-50), targetScore (400-1600), examDate (ISO 8601)
    */
   async updateProfile(data: {
-    email?: string;
     name?: string;
+    currentPassword?: string;
+    newPassword?: string;
     targetScore?: number;
+    examDate?: string;
   }): Promise<UserProfile> {
-    // Use our Next.js API route which handles cookie-based auth
     const response = await fetch("/api/auth/profile", {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
       },
-      credentials: "include", // Important: include cookies
+      credentials: "include",
       body: JSON.stringify(data),
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || "Failed to update profile");
+      const text = await response.text();
+      let message = "Failed to update profile";
+      try {
+        const error = JSON.parse(text);
+        message = error.message || message;
+      } catch {
+        // response was HTML or non-JSON (e.g. 404 page)
+      }
+      throw new Error(message);
     }
 
-    return response.json();
+    const updatedUser = await response.json();
+    // Bitta manba: cache ni yangilash, name/targetScore/examDate keyingi getCurrentUser da keladi
+    const { userCacheManager } = await import("@/src/lib/user-cache");
+    userCacheManager.set(updatedUser);
+    return updatedUser;
   },
 
   /**
