@@ -74,6 +74,11 @@ const nextConfig = {
   // Suppress _document warnings (App Router doesn't use it)
   experimental: {
     optimizePackageImports: ["lucide-react", "@tanstack/react-query"],
+    // Base64 rasmlar bilan POST uchun body limit (413 yechimi)
+    serverActions: {
+      bodySizeLimit: "50mb",
+    },
+    proxyClientMaxBodySize: "50mb",
   },
 
   // CSS reload fix - prevent CSS from being lost during hot reload

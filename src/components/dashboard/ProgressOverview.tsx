@@ -60,7 +60,9 @@ export function ProgressOverview() {
         let datesList: ExamDate[] = [];
         if (datesRes.ok) {
           const data = await datesRes.json();
-          datesList = Array.isArray(data) ? data : data.dates || data.data || [];
+          datesList = Array.isArray(data)
+            ? data
+            : data.dates || data.data || [];
         }
         setAvailableExamDates(datesList);
 
@@ -103,7 +105,7 @@ export function ProgressOverview() {
       const diff = target.getTime() - now.getTime();
       const days = Math.floor(diff / (1000 * 60 * 60 * 24));
       const hours = Math.floor(
-        (diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
+        (diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
       );
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((diff % (1000 * 60)) / 1000);
@@ -145,7 +147,7 @@ export function ProgressOverview() {
       setError(
         err instanceof Error
           ? err.message
-          : "Failed to save target score. Please try again."
+          : "Failed to save target score. Please try again.",
       );
     } finally {
       setIsLoading(false);
@@ -176,7 +178,7 @@ export function ProgressOverview() {
       await authService.updateProfile({ examDate: selectedDate.date });
 
       setSelectedExamDateId(examDateId);
-        setExamDate(selectedDate.date);
+      setExamDate(selectedDate.date);
     } catch (err) {
       console.error("Failed to save exam date:", err);
       setError("Failed to save exam date. Please try again.");
@@ -198,7 +200,9 @@ export function ProgressOverview() {
               <CardTitle className="text-xl font-bold text-gray-900">
                 Exam Countdown
               </CardTitle>
-              <p className="text-sm text-gray-600 mt-0.5">Time until your SAT test</p>
+              <p className="text-sm text-gray-600 mt-0.5">
+                Time until your SAT test
+              </p>
             </div>
           </div>
         </CardHeader>
@@ -361,7 +365,9 @@ export function ProgressOverview() {
           ) : (
             <div className="space-y-4">
               <div className="space-y-2">
-                <p className="text-sm font-semibold text-gray-900">Current Target</p>
+                <p className="text-sm font-semibold text-gray-900">
+                  Current Target
+                </p>
                 <Input
                   type="number"
                   min="400"

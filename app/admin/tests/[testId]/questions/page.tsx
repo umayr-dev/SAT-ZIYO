@@ -166,19 +166,25 @@ function apiQuestionToSlot(q: {
   };
 }
 
+/** Rasmlar base64 (data:...) bo‘lsa backend GCS ga yuklaydi (IMAGE_UPLOAD_API.md Method 1) */
 function slotToQuestionInput(
   slot: QuestionSlot,
   orderIndex: number,
 ): QuestionInput {
   const questionText = (slot.questionText ?? "").trim();
-  const questionImageUrl = (slot.imageUrl ?? "").trim() || undefined;
+  const questionImage = (slot.imageUrl ?? "").trim() || undefined;
+  const isBase64 = questionImage?.startsWith("data:");
   const base = {
     questionText,
     questionType: slot.questionType ?? "MULTIPLE_CHOICE",
     orderIndex,
     difficulty: slot.difficulty ?? "EASY",
     passage: (slot.passage ?? "").trim() || undefined,
-    imageUrl: questionImageUrl,
+    ...(isBase64
+      ? { imageBase64: questionImage }
+      : questionImage
+        ? { imageUrl: questionImage }
+        : {}),
     contentDomain: (slot.contentDomain ?? "").trim() || undefined,
   };
 
@@ -217,11 +223,80 @@ function slotToQuestionInput(
       kind === "image" && hasImage
         ? text || `Variant ${letters[c]}`
         : text || letters[c];
+    const isChoiceBase64 = url?.startsWith("data:");
     return {
       choiceText: choiceText || letters[c],
       isCorrect: slot.correct === c,
       orderIndex: c,
-      ...(hasImage ? { imageUrl: url } : {}),
+      ...(hasImage
+        ? isChoiceBase64
+          ? { imageBase64: url }
+          : { imageUrl: url }
+        : {}),
+    };
+  });
+  const withContent = choices.filter(
+    (c, i) => (c.choiceText ?? "").trim() || (choiceUrls[i] ?? "").trim(),
+  );
+  return {
+    ...base,
+    choices:
+      withContent.length >= 2
+        ? withContent
+        : [
+            { choiceText: "A", isCorrect: true, orderIndex: 0 },
+            { choiceText: "B", isCorrect: false, orderIndex: 1 },
+          ],
+  };
+}
+
+/** PATCH uchun: base64 yuborilmaydi (413 yechimi), faqat mavjud URL va matn */
+function slotToQuestionInputForUpdate(
+  slot: QuestionSlot,
+  orderIndex: number,
+): QuestionInput {
+  const questionText = (slot.questionText ?? "").trim();
+  const questionImage = (slot.imageUrl ?? "").trim() || undefined;
+  const isHttpUrl = questionImage && !questionImage.startsWith("data:");
+  const base = {
+    questionText,
+    questionType: slot.questionType ?? "MULTIPLE_CHOICE",
+    orderIndex,
+    difficulty: slot.difficulty ?? "EASY",
+    passage: (slot.passage ?? "").trim() || undefined,
+    ...(isHttpUrl ? { imageUrl: questionImage } : {}),
+    contentDomain: (slot.contentDomain ?? "").trim() || undefined,
+  };
+
+  if (slot.questionType === "STUDENT_PRODUCED") {
+    return {
+      ...base,
+      correctAnswer: (slot.correctAnswer ?? "").trim() || undefined,
+    };
+  }
+
+  const letters = ["A", "B", "C", "D"] as const;
+  const choiceTexts = [
+    slot.choiceA ?? "",
+    slot.choiceB ?? "",
+    slot.choiceC ?? "",
+    slot.choiceD ?? "",
+  ];
+  const choiceUrls = [
+    slot.choiceAImageUrl,
+    slot.choiceBImageUrl,
+    slot.choiceCImageUrl,
+    slot.choiceDImageUrl,
+  ];
+  const choices = [0, 1, 2, 3].map((c) => {
+    const text = (choiceTexts[c] ?? "").trim();
+    const url = (choiceUrls[c] ?? "").trim() || undefined;
+    const isHttp = url && !url.startsWith("data:");
+    return {
+      choiceText: text || letters[c],
+      isCorrect: slot.correct === c,
+      orderIndex: c,
+      ...(isHttp ? { imageUrl: url } : {}),
     };
   });
   const withContent = choices.filter(
@@ -352,6 +427,11 @@ export default function TestQuestionsPage() {
     );
   }, [drafts]);
 
+  const [submitProgress, setSubmitProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
+
   const handleSubmit = async () => {
     if (!payload?.modules?.length) {
       setError("Kamida bitta savol matnini kiriting va Yuborish bosing.");
@@ -360,23 +440,44 @@ export default function TestQuestionsPage() {
     setSubmitting(true);
     setError("");
     setSuccess("");
+    setSubmitProgress(null);
+    const totalToSend = payload.modules.reduce(
+      (s, m) => s + m.questions.length,
+      0,
+    );
+    let sent = 0;
     try {
-      await adminTestService.submitAllQuestions(testId, payload);
-      const totalSent = payload.modules.reduce(
-        (s, m) => s + m.questions.length,
-        0,
-      );
+      for (const mod of payload.modules) {
+        const { moduleId, questions } = mod;
+        for (let i = 0; i < questions.length; i++) {
+          setSubmitProgress({ current: sent + 1, total: totalToSend });
+          const q = {
+            ...questions[i],
+            orderIndex: questions[i].orderIndex ?? i,
+          };
+          await adminTestService.addQuestionToModule(moduleId, q);
+          sent++;
+          if (sent < totalToSend) await new Promise((r) => setTimeout(r, 600));
+        }
+      }
       setSuccess(
-        totalSent === 1
-          ? "1 ta savol qo'shildi. Test muvaffaqiyatli."
-          : `${totalSent} ta savol qo'shildi. Keyingi safar 98 ta to'ldirib yuborishingiz mumkin.`,
+        sent === 1
+          ? "1 ta savol qo'shildi. Rasm backend (GCS) da saqlanadi — barcha qurilmalarda ko'rinadi."
+          : `${sent} ta savol qo'shildi. Rasmlar backend da saqlanadi — barcha qurilmalarda ko'rinadi.`,
       );
       invalidateTest(testId);
       void refetch();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Saqlash xatosi");
+      setError(
+        sent > 0
+          ? `${sent} ta saqlandi. Keyingi savol xato: ${e instanceof Error ? e.message : "Saqlash xatosi"}`
+          : e instanceof Error
+            ? e.message
+            : "Saqlash xatosi",
+      );
     } finally {
       setSubmitting(false);
+      setSubmitProgress(null);
     }
   };
 
@@ -416,9 +517,10 @@ export default function TestQuestionsPage() {
             {testInfo?.title} — SAT savollar
           </h2>
           <p className="text-sm text-gray-500 mt-0.5">
-            Modulni bosing, savollarni kiriting. Test qilish uchun bitta savolni
-            to&apos;ldirib &quot;Yuborish&quot; bosing; 98 ta to&apos;ldirgach
-            barchasini bir so&apos;rovda yuborishingiz mumkin.
+            Savollarni to&apos;ldiring va pastdagi &quot;Yuborish&quot;
+            tugmasini bosing. Tahrirlash uchun mavjud savolda &quot;Tahrirlashni
+            saqlash&quot;. Rasmlar backend (GCS) da saqlanadi — barcha
+            qurilmalarda ko&apos;rinadi.
           </p>
         </div>
         <Button
@@ -605,7 +707,7 @@ export default function TestQuestionsPage() {
                                 accept={ACCEPTED_IMAGE_TYPES}
                                 className="hidden"
                                 key={`q-img-${mid}-${i}`}
-                                onChange={async (e) => {
+                                onChange={(e) => {
                                   const file = e.target.files?.[0];
                                   if (!file) return;
                                   if (file.size > MAX_IMAGE_SIZE) {
@@ -613,19 +715,13 @@ export default function TestQuestionsPage() {
                                     return;
                                   }
                                   setError("");
-                                  try {
-                                    const { url } =
-                                      await adminTestService.uploadQuestionImage(
-                                        file,
-                                      );
-                                    updateSlot(mid, i, { imageUrl: url });
-                                  } catch (err) {
-                                    setError(
-                                      err instanceof Error
-                                        ? err.message
-                                        : "Rasm yuklanmadi",
-                                    );
-                                  }
+                                  const reader = new FileReader();
+                                  reader.onload = () => {
+                                    const dataUrl = reader.result as string;
+                                    if (dataUrl)
+                                      updateSlot(mid, i, { imageUrl: dataUrl });
+                                  };
+                                  reader.readAsDataURL(file);
                                   e.target.value = "";
                                 }}
                               />
@@ -857,7 +953,7 @@ export default function TestQuestionsPage() {
                                             accept={ACCEPTED_IMAGE_TYPES}
                                             className="hidden"
                                             key={`${mid}-${i}-choice-${letter}`}
-                                            onChange={async (e) => {
+                                            onChange={(e) => {
                                               const file = e.target.files?.[0];
                                               if (!file) return;
                                               if (file.size > MAX_IMAGE_SIZE) {
@@ -867,21 +963,16 @@ export default function TestQuestionsPage() {
                                                 return;
                                               }
                                               setError("");
-                                              try {
-                                                const { url } =
-                                                  await adminTestService.uploadChoiceImage(
-                                                    file,
-                                                  );
-                                                updateSlot(mid, i, {
-                                                  [imageUrlKey]: url,
-                                                });
-                                              } catch (err) {
-                                                setError(
-                                                  err instanceof Error
-                                                    ? err.message
-                                                    : "Rasm yuklanmadi",
-                                                );
-                                              }
+                                              const reader = new FileReader();
+                                              reader.onload = () => {
+                                                const dataUrl =
+                                                  reader.result as string;
+                                                if (dataUrl)
+                                                  updateSlot(mid, i, {
+                                                    [imageUrlKey]: dataUrl,
+                                                  });
+                                              };
+                                              reader.readAsDataURL(file);
                                               e.target.value = "";
                                             }}
                                           />
@@ -964,7 +1055,7 @@ export default function TestQuestionsPage() {
                                   await adminTestService.updateQuestion(
                                     mid,
                                     slot.questionId,
-                                    slotToQuestionInput(slot, i),
+                                    slotToQuestionInputForUpdate(slot, i),
                                   );
                                   setSuccess("Savol tahrirlandi, saqlandi.");
                                 } catch (e) {
@@ -1001,7 +1092,9 @@ export default function TestQuestionsPage() {
           className="bg-orange-600 hover:bg-orange-700 px-8"
         >
           {submitting
-            ? "Qo'shilmoqda..."
+            ? submitProgress
+              ? `Yuborilmoqda (${submitProgress.current}/${submitProgress.total})...`
+              : "Qo'shilmoqda..."
             : `Yuborish (${totalFilled}/${TOTAL_SAT_QUESTIONS})`}
         </Button>
       </div>

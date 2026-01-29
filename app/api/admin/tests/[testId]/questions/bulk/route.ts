@@ -54,7 +54,24 @@ export async function POST(
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
+    let body: { modules?: Array<{ moduleId?: string; questions?: unknown[] }> };
+    try {
+      body = await request.json();
+    } catch (parseErr) {
+      const msg =
+        parseErr instanceof Error ? parseErr.message : String(parseErr);
+      return NextResponse.json(
+        {
+          message:
+            msg.includes("body") ||
+            msg.includes("size") ||
+            msg.includes("Payload")
+              ? "Body juda katta (413). Savollarni sahifa endi har biri alohida yuboradi — rasmlar backend da saqlanadi, barcha qurilmalarda ko'rinadi."
+              : "Invalid JSON body",
+        },
+        { status: 400 },
+      );
+    }
     const modules = body?.modules;
     if (!Array.isArray(modules) || modules.length === 0) {
       return NextResponse.json(

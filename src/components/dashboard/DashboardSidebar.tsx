@@ -32,7 +32,12 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
-  { label: "Home", icon: <Home className="h-5 w-5" />, href: "/dashboard", enabled: true },
+  {
+    label: "Home",
+    icon: <Home className="h-5 w-5" />,
+    href: "/dashboard",
+    enabled: true,
+  },
   {
     label: "Practice",
     icon: <BookOpen className="h-5 w-5" />,
@@ -107,14 +112,16 @@ export function DashboardSidebar() {
           "bg-white border-r border-gray-200 h-screen fixed left-0 top-0 flex flex-col overflow-hidden transition-all duration-300 z-40 shadow-sm",
           isCollapsed ? "w-20" : "w-72",
           "lg:translate-x-0",
-          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          isMobileMenuOpen
+            ? "translate-x-0"
+            : "-translate-x-full lg:translate-x-0",
         )}
       >
         {/* Logo Section */}
         <div
           className={cn(
             "border-b border-gray-100 flex-shrink-0 relative bg-white",
-            isCollapsed ? "p-4 pb-3" : "p-6 pr-16"
+            isCollapsed ? "p-4 pb-3" : "p-6 pr-16",
           )}
         >
           {!isCollapsed && (
@@ -211,7 +218,7 @@ export function DashboardSidebar() {
                             : "justify-between px-4 py-3",
                           isActive
                             ? "bg-gray-900 text-white shadow-md"
-                            : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                            : "text-gray-700 hover:bg-gray-50 hover:text-gray-900",
                         )}
                         title={isCollapsed ? item.label : undefined}
                       >
@@ -221,7 +228,7 @@ export function DashboardSidebar() {
                               "transition-colors duration-200",
                               isActive
                                 ? "text-white"
-                                : "text-gray-500 group-hover:text-gray-900"
+                                : "text-gray-500 group-hover:text-gray-900",
                             )}
                           >
                             {item.icon}
@@ -235,8 +242,8 @@ export function DashboardSidebar() {
                               item.badgeColor === "emerald"
                                 ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                                 : item.badgeColor === "blue"
-                                ? "bg-blue-50 text-blue-700 border border-blue-200"
-                                : "bg-amber-50 text-amber-700 border border-amber-200"
+                                  ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                  : "bg-amber-50 text-amber-700 border border-amber-200",
                             )}
                           >
                             {item.badge}
@@ -249,8 +256,8 @@ export function DashboardSidebar() {
                               item.badgeColor === "emerald"
                                 ? "bg-emerald-500"
                                 : item.badgeColor === "blue"
-                                ? "bg-blue-500"
-                                : "bg-amber-500"
+                                  ? "bg-blue-500"
+                                  : "bg-amber-500",
                             )}
                           />
                         )}
@@ -262,15 +269,19 @@ export function DashboardSidebar() {
                           isCollapsed
                             ? "justify-center px-2 py-3"
                             : "justify-between px-4 py-3",
-                          "text-gray-400"
+                          "text-gray-400",
                         )}
-                        title={isCollapsed ? `${item.label} - Coming Soon` : undefined}
+                        title={
+                          isCollapsed
+                            ? `${item.label} - Coming Soon`
+                            : undefined
+                        }
                       >
                         <div className="flex items-center gap-3 relative z-10">
-                          <div className="text-gray-400">
-                            {item.icon}
-                          </div>
-                          {!isCollapsed && <span className="text-gray-400">{item.label}</span>}
+                          <div className="text-gray-400">{item.icon}</div>
+                          {!isCollapsed && (
+                            <span className="text-gray-400">{item.label}</span>
+                          )}
                         </div>
                         {!isCollapsed && item.badge && (
                           <span
@@ -279,8 +290,8 @@ export function DashboardSidebar() {
                               item.badgeColor === "emerald"
                                 ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                                 : item.badgeColor === "blue"
-                                ? "bg-blue-50 text-blue-700 border border-blue-200"
-                                : "bg-amber-50 text-amber-700 border border-amber-200"
+                                  ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                  : "bg-amber-50 text-amber-700 border border-amber-200",
                             )}
                           >
                             {item.badge}
@@ -293,8 +304,8 @@ export function DashboardSidebar() {
                               item.badgeColor === "emerald"
                                 ? "bg-emerald-500"
                                 : item.badgeColor === "blue"
-                                ? "bg-blue-500"
-                                : "bg-amber-500"
+                                  ? "bg-blue-500"
+                                  : "bg-amber-500",
                             )}
                           />
                         )}
@@ -375,7 +386,7 @@ export function DashboardSidebar() {
                             : "gap-3 px-4 py-3",
                           isActive
                             ? "bg-gray-900 text-white shadow-md"
-                            : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                            : "text-gray-700 hover:bg-gray-50 hover:text-gray-900",
                         )}
                         title={isCollapsed ? item.label : undefined}
                       >
@@ -384,7 +395,7 @@ export function DashboardSidebar() {
                             "transition-colors duration-200",
                             isActive
                               ? "text-white"
-                              : "text-gray-500 group-hover:text-gray-900"
+                              : "text-gray-500 group-hover:text-gray-900",
                           )}
                         >
                           {item.icon}
@@ -398,14 +409,18 @@ export function DashboardSidebar() {
                           isCollapsed
                             ? "justify-center px-2 py-3"
                             : "gap-3 px-4 py-3",
-                          "text-gray-400"
+                          "text-gray-400",
                         )}
-                        title={isCollapsed ? `${item.label} - Coming Soon` : undefined}
+                        title={
+                          isCollapsed
+                            ? `${item.label} - Coming Soon`
+                            : undefined
+                        }
                       >
-                        <div className="text-gray-400">
-                          {item.icon}
-                        </div>
-                        {!isCollapsed && <span className="text-gray-400">{item.label}</span>}
+                        <div className="text-gray-400">{item.icon}</div>
+                        {!isCollapsed && (
+                          <span className="text-gray-400">{item.label}</span>
+                        )}
                       </div>
                     )}
                     {/* Tooltip for disabled items */}
@@ -437,7 +452,7 @@ export function DashboardSidebar() {
       <div
         className={cn(
           "hidden lg:block transition-all duration-300",
-          isCollapsed ? "w-20" : "w-72"
+          isCollapsed ? "w-20" : "w-72",
         )}
       />
     </>

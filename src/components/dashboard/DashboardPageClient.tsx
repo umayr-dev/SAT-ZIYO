@@ -5,7 +5,13 @@ import { DashboardHeader } from "@/src/components/dashboard/DashboardHeader";
 import { ProgressOverview } from "@/src/components/dashboard/ProgressOverview";
 import { authService } from "@/src/services/auth.service";
 import type { UserProfile } from "@/src/types";
-import { Target, TrendingUp, BarChart3, BookOpen, ArrowRight } from "lucide-react";
+import {
+  Target,
+  TrendingUp,
+  BarChart3,
+  BookOpen,
+  ArrowRight,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/src/ui/card";
 import Link from "next/link";
 
@@ -25,13 +31,15 @@ function DashboardContent() {
     {
       word: "Ambiguous",
       definition: "Having more than one possible meaning; unclear or uncertain",
-      example: "The politician's statement was ambiguous and could be interpreted in different ways.",
+      example:
+        "The politician's statement was ambiguous and could be interpreted in different ways.",
       difficulty: "medium",
     },
     {
       word: "Eloquent",
       definition: "Fluent or persuasive in speaking or writing",
-      example: "The speaker delivered an eloquent speech that moved the entire audience.",
+      example:
+        "The speaker delivered an eloquent speech that moved the entire audience.",
       difficulty: "hard",
     },
   ];
@@ -131,7 +139,7 @@ function DashboardContent() {
                         </h3>
                         <span
                           className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${getDifficultyColor(
-                            vocab.difficulty
+                            vocab.difficulty,
                           )}`}
                         >
                           {vocab.difficulty.charAt(0).toUpperCase() +
@@ -163,7 +171,9 @@ function DashboardContent() {
         <div className="lg:col-span-1">
           <Card className="border border-gray-200 shadow-sm bg-white rounded-2xl h-full">
             <CardContent className="p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-5">Your Stats</h3>
+              <h3 className="text-lg font-bold text-gray-900 mb-5">
+                Your Stats
+              </h3>
               <div className="space-y-4">
                 <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                   <div className="flex items-center justify-between mb-2">

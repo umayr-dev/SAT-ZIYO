@@ -55,6 +55,8 @@ export interface QuestionInput {
   orderIndex: number;
   difficulty: "EASY" | "MEDIUM" | "HARD";
   passage?: string;
+  /** Backend GCS ga yuklash uchun: data:image/png;base64,... (IMAGE_UPLOAD_API.md Method 1) */
+  imageBase64?: string;
   imageUrl?: string;
   contentDomain?: string;
   correctAnswer?: string; // For STUDENT_PRODUCED
@@ -63,6 +65,8 @@ export interface QuestionInput {
     choiceText: string;
     isCorrect: boolean;
     orderIndex: number;
+    /** Backend GCS ga yuklash uchun: data:image/png;base64,... */
+    imageBase64?: string;
     imageUrl?: string;
   }[];
 }
