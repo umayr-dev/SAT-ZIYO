@@ -86,9 +86,11 @@ export async function POST(
       if (!moduleId || !Array.isArray(questions)) continue;
       for (let i = 0; i < questions.length; i++) {
         const q = questions[i];
+        const qObj =
+          typeof q === "object" && q !== null ? (q as Record<string, unknown>) : {};
         const payload = {
-          ...q,
-          orderIndex: q.orderIndex ?? i,
+          ...qObj,
+          orderIndex: (qObj.orderIndex as number) ?? i,
         };
         const url = `${API_CONFIG.baseURL}/tests/modules/${moduleId}/questions`;
         const res = await postQuestionWithRetry(url, token, payload);

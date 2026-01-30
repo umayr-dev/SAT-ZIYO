@@ -78,7 +78,6 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: "50mb",
     },
-    proxyClientMaxBodySize: "50mb",
   },
 
   // CSS reload fix - prevent CSS from being lost during hot reload

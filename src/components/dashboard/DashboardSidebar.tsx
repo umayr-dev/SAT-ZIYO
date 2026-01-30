@@ -206,13 +206,13 @@ export function DashboardSidebar() {
                 const isActive = pathname === item.href;
                 const isEnabled = item.enabled !== false;
                 return (
-                  <div key={item.href} className="relative group/item">
+                  <div key={item.href} className="relative group/item [&>*]:after:!content-none [&>*]:after:!hidden">
                     {isEnabled ? (
                       <Link
                         href={item.href}
                         onClick={() => setIsMobileMenuOpen(false)}
                         className={cn(
-                          "flex items-center rounded-xl text-sm font-medium transition-all duration-200 group relative",
+                          "flex items-center rounded-xl text-sm font-medium transition-all duration-200 group relative border-r-0 after:content-none after:!hidden",
                           isCollapsed
                             ? "justify-center px-2 py-3"
                             : "justify-between px-4 py-3",
@@ -265,7 +265,7 @@ export function DashboardSidebar() {
                     ) : (
                       <div
                         className={cn(
-                          "flex items-center rounded-xl text-sm font-medium transition-all duration-200 relative group/disabled",
+                          "flex items-center rounded-xl text-sm font-medium transition-all duration-200 relative group/disabled border-r-0 after:content-none after:!hidden",
                           isCollapsed
                             ? "justify-center px-2 py-3"
                             : "justify-between px-4 py-3",
@@ -311,54 +311,48 @@ export function DashboardSidebar() {
                         )}
                       </div>
                     )}
-                    {/* Tooltip for disabled items */}
-                    {!isEnabled && !isCollapsed && (
-                      <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 z-50 opacity-0 group-hover/item:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                        <div className="bg-gray-800 text-white text-xs px-3 py-2 rounded-lg shadow-lg">
-                          Coming soon
-                          <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-800"></div>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 );
               })}
             </nav>
           </div>
 
-          {/* Daily Streak Card */}
+          {/* Daily Streak Card — gray, inactive */}
           {!isCollapsed && (
             <div className="px-4 pb-4">
-              <Card className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 overflow-hidden relative shadow-sm">
+              <Card className="bg-gray-100 border border-gray-200 overflow-hidden relative">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2 mb-3">
-                    <div className="p-2 bg-gray-900 rounded-lg">
+                    <div className="p-2 bg-gray-400 rounded-lg">
                       <Zap className="h-4 w-4 text-white" />
                     </div>
-                    <span className="text-sm font-semibold text-gray-900">
+                    <span className="text-sm font-semibold text-gray-500">
                       Daily Streak
                     </span>
-                    <span className="ml-auto text-xs px-2 py-1 bg-emerald-50 text-emerald-700 rounded-full font-medium border border-emerald-200">
-                      ACTIVE
+                    <span className="ml-auto text-xs px-2 py-1 bg-gray-200 text-gray-500 rounded-full font-medium border border-gray-300">
+                      Inactive
                     </span>
                   </div>
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-2xl font-bold text-gray-900">1</span>
+                    <span className="text-2xl font-bold text-gray-400">0</span>
                     <ChevronRight className="h-4 w-4 text-gray-400" />
-                    <span className="text-2xl font-bold text-gray-900">3</span>
+                    <span className="text-2xl font-bold text-gray-400">0</span>
                   </div>
-                  <div className="text-xs text-gray-600">
-                    Active today ✓ 2 to go
+                  <div className="text-xs text-gray-500">
+                    Not active yet
                   </div>
                 </CardContent>
               </Card>
             </div>
           )}
 
-          {/* Upgrade Button */}
+          {/* Upgrade Button — gray, inactive */}
           {!isCollapsed && (
             <div className="px-4 pb-4">
-              <Button className="w-full bg-gray-900 hover:bg-gray-800 text-white font-semibold shadow-md hover:shadow-lg transition-all duration-200 rounded-xl">
+              <Button
+                disabled
+                className="w-full bg-gray-300 text-gray-500 font-semibold rounded-xl cursor-not-allowed hover:bg-gray-300 hover:shadow-none"
+              >
                 Upgrade to Pro
               </Button>
             </div>
@@ -374,13 +368,13 @@ export function DashboardSidebar() {
                 const isActive = pathname === item.href;
                 const isEnabled = item.enabled !== false;
                 return (
-                  <div key={item.href} className="relative group/item">
+                  <div key={item.href} className="relative group/item [&>*]:after:!content-none [&>*]:after:!hidden">
                     {isEnabled ? (
                       <Link
                         href={item.href}
                         onClick={() => setIsMobileMenuOpen(false)}
                         className={cn(
-                          "flex items-center rounded-xl text-sm font-medium transition-all duration-200 group relative",
+                          "flex items-center rounded-xl text-sm font-medium transition-all duration-200 group relative border-r-0 after:content-none after:!hidden",
                           isCollapsed
                             ? "justify-center px-2 py-3"
                             : "gap-3 px-4 py-3",
@@ -405,31 +399,18 @@ export function DashboardSidebar() {
                     ) : (
                       <div
                         className={cn(
-                          "flex items-center rounded-xl text-sm font-medium transition-all duration-200 relative group/disabled",
+                          "flex items-center rounded-xl text-sm font-medium transition-all duration-200 relative group/disabled border-r-0 after:content-none after:!hidden",
                           isCollapsed
                             ? "justify-center px-2 py-3"
                             : "gap-3 px-4 py-3",
                           "text-gray-400",
                         )}
-                        title={
-                          isCollapsed
-                            ? `${item.label} - Coming Soon`
-                            : undefined
-                        }
+                        title={isCollapsed ? item.label : undefined}
                       >
                         <div className="text-gray-400">{item.icon}</div>
                         {!isCollapsed && (
                           <span className="text-gray-400">{item.label}</span>
                         )}
-                      </div>
-                    )}
-                    {/* Tooltip for disabled items */}
-                    {!isEnabled && !isCollapsed && (
-                      <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 z-50 opacity-0 group-hover/disabled:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                        <div className="bg-gray-800 text-white text-xs px-3 py-2 rounded-lg shadow-lg">
-                          Coming soon
-                          <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-800"></div>
-                        </div>
                       </div>
                     )}
                   </div>
