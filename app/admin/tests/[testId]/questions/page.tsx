@@ -250,21 +250,25 @@ function slotToQuestionInput(
   };
 }
 
-/** PATCH uchun: base64 yuborilmaydi (413 yechimi), faqat mavjud URL va matn */
+/** PATCH uchun ham: yangi rasm base64, mavjud rasm imageUrl (IMAGE_UPLOAD_API.md) */
 function slotToQuestionInputForUpdate(
   slot: QuestionSlot,
   orderIndex: number,
 ): QuestionInput {
   const questionText = (slot.questionText ?? "").trim();
   const questionImage = (slot.imageUrl ?? "").trim() || undefined;
-  const isHttpUrl = questionImage && !questionImage.startsWith("data:");
+  const isBase64 = questionImage?.startsWith("data:");
   const base = {
     questionText,
     questionType: slot.questionType ?? "MULTIPLE_CHOICE",
     orderIndex,
     difficulty: slot.difficulty ?? "EASY",
     passage: (slot.passage ?? "").trim() || undefined,
-    ...(isHttpUrl ? { imageUrl: questionImage } : {}),
+    ...(questionImage
+      ? isBase64
+        ? { imageBase64: questionImage }
+        : { imageUrl: questionImage }
+      : {}),
     contentDomain: (slot.contentDomain ?? "").trim() || undefined,
   };
 
@@ -291,12 +295,16 @@ function slotToQuestionInputForUpdate(
   const choices = [0, 1, 2, 3].map((c) => {
     const text = (choiceTexts[c] ?? "").trim();
     const url = (choiceUrls[c] ?? "").trim() || undefined;
-    const isHttp = url && !url.startsWith("data:");
+    const choiceIsBase64 = url?.startsWith("data:");
     return {
       choiceText: text || letters[c],
       isCorrect: slot.correct === c,
       orderIndex: c,
-      ...(isHttp ? { imageUrl: url } : {}),
+      ...(url
+        ? choiceIsBase64
+          ? { imageBase64: url }
+          : { imageUrl: url }
+        : {}),
     };
   });
   const withContent = choices.filter(
@@ -468,12 +476,18 @@ export default function TestQuestionsPage() {
       invalidateTest(testId);
       void refetch();
     } catch (e) {
+      const msg = e instanceof Error ? e.message : "Saqlash xatosi";
+      const isStorage500 =
+        msg.includes("upload image to storage") ||
+        msg.includes("500") ||
+        msg.includes("Failed to upload");
+      const hint = isStorage500
+        ? " Backend (GCS) sozlamalarini va loglarni tekshiring — api.satziyo.uz."
+        : "";
       setError(
         sent > 0
-          ? `${sent} ta saqlandi. Keyingi savol xato: ${e instanceof Error ? e.message : "Saqlash xatosi"}`
-          : e instanceof Error
-            ? e.message
-            : "Saqlash xatosi",
+          ? `${sent} ta saqlandi. Keyingi savol xato: ${msg}${hint}`
+          : `${msg}${hint}`,
       );
     } finally {
       setSubmitting(false);
@@ -1059,11 +1073,18 @@ export default function TestQuestionsPage() {
                                   );
                                   setSuccess("Savol tahrirlandi, saqlandi.");
                                 } catch (e) {
-                                  setError(
+                                  const msg =
                                     e instanceof Error
                                       ? e.message
-                                      : "Saqlash xatosi",
-                                  );
+                                      : "Saqlash xatosi";
+                                  const isStorage500 =
+                                    msg.includes("upload image to storage") ||
+                                    msg.includes("500") ||
+                                    msg.includes("Failed to upload");
+                                  const hint = isStorage500
+                                    ? " Backend (GCS) sozlamalarini tekshiring."
+                                    : "";
+                                  setError(`${msg}${hint}`);
                                 } finally {
                                   setSavingSlotKey(null);
                                 }

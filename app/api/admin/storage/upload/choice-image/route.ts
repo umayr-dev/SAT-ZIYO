@@ -35,20 +35,52 @@ export async function POST(request: NextRequest) {
     backendForm.append("file", file);
 
     const backendUrl = `${API_CONFIG.baseURL}/storage/upload/choice-image`;
-    const response = await fetch(backendUrl, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      body: backendForm,
-    });
+    let response: Response;
+    try {
+      response = await fetch(backendUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: backendForm,
+      });
+    } catch (fetchErr) {
+      const errMsg =
+        fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+      console.error("[choice-image] Backend fetch failed:", errMsg);
+      return NextResponse.json(
+        {
+          message: `Backend unreachable (${backendUrl}). ${errMsg}. Check backend and storage/upload/choice-image.`,
+        },
+        { status: 502 },
+      );
+    }
 
-    const data = await response.json().catch(() => ({}));
+    const text = await response.text();
+    const data = (() => {
+      try {
+        return text ? JSON.parse(text) : {};
+      } catch {
+        return {};
+      }
+    })();
 
     if (!response.ok) {
-      const msg = data?.message ?? data?.error ?? "Choice image upload failed";
-      console.error("[choice-image] Backend:", response.status, data);
-      return NextResponse.json({ message: msg }, { status: response.status });
+      const msg =
+        data?.message ??
+        data?.error ??
+        (response.status === 500
+          ? "Backend 500: server error (e.g. GCS config). Check backend logs."
+          : "Choice image upload failed");
+      console.error(
+        "[choice-image] Backend:",
+        response.status,
+        text.slice(0, 500),
+      );
+      return NextResponse.json(
+        { message: msg, ...(data?.details && { details: data.details }) },
+        { status: response.status },
+      );
     }
 
     return NextResponse.json(data);
@@ -56,7 +88,8 @@ export async function POST(request: NextRequest) {
     console.error("[choice-image] Error:", error);
     return NextResponse.json(
       {
-        message: error instanceof Error ? error.message : "Upload failed",
+        message:
+          error instanceof Error ? error.message : "Choice image upload failed",
       },
       { status: 500 },
     );

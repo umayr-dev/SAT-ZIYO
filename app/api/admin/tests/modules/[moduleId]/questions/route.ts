@@ -43,29 +43,49 @@ export async function POST(
     }
 
     const backendUrl = `${API_CONFIG.baseURL}/tests/modules/${moduleId}/questions`;
-    const response = await fetch(backendUrl, {
-      method: "POST",
-      headers: {
-        Authorization: token ? `Bearer ${token}` : "",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
+    let response: Response;
+    try {
+      response = await fetch(backendUrl, {
+        method: "POST",
+        headers: {
+          Authorization: token ? `Bearer ${token}` : "",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+    } catch (fetchErr) {
+      const errMsg =
+        fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+      console.error("[POST question] Backend fetch failed:", errMsg);
+      return NextResponse.json(
+        {
+          message: `Backend unreachable. ${errMsg}. Check backend is running.`,
+        },
+        { status: 502 },
+      );
+    }
 
-    const data = await response.json().catch(() => ({}));
+    const text = await response.text();
+    const data = (() => {
+      try {
+        return text ? JSON.parse(text) : {};
+      } catch {
+        return {};
+      }
+    })();
 
     if (!response.ok) {
       const msg =
         data?.message ??
         data?.error ??
         (response.status === 500
-          ? "Backend xato (500). Backend loglarini tekshiring."
+          ? "Backend 500: server error. Check backend logs (e.g. DB, GCS, validation)."
           : "Failed to add question");
       if (response.status === 413) {
         return NextResponse.json(
           {
             message:
-              "Payload juda katta (413). Rasmni kichikroq qiling yoki backend body limitini oshiring.",
+              "Payload juda katta (413). Rasmni kichikroq qiling yoki imageUrl ishlating (upload first).",
           },
           { status: 413 },
         );
@@ -74,9 +94,12 @@ export async function POST(
         "[POST question] Backend not ok:",
         response.status,
         backendUrl,
-        data,
+        text.slice(0, 500),
       );
-      return NextResponse.json({ message: msg }, { status: response.status });
+      return NextResponse.json(
+        { message: msg, ...(data?.details && { details: data.details }) },
+        { status: response.status },
+      );
     }
 
     return NextResponse.json(data);
