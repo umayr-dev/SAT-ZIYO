@@ -141,7 +141,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Try backend first; on error or 5xx fall back to local file
+  // Backend real response (when request was made)
+  let backendStatus: number | null = null;
+  let backendBody: string | object | null = null;
+
   try {
     const backendRes = await fetch(`${API_CONFIG.baseURL}/exams/dates`, {
       method: "POST",
@@ -149,16 +152,23 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({ date: dateStr, label }),
     });
 
+    backendStatus = backendRes.status;
+    const text = await backendRes.text();
+    try {
+      backendBody = text ? JSON.parse(text) : null;
+    } catch {
+      backendBody = text;
+    }
+
     if (backendRes.ok) {
-      const data = await backendRes.json().catch(() => null);
+      const data = backendBody;
       const normalized = normalizeDates(Array.isArray(data) ? data : data ? [data] : []);
       const item = normalized[0] || { id: dateStr, date: dateStr, label };
       return NextResponse.json(item);
     }
-    const errText = await backendRes.text();
-    console.warn("[Admin exam-dates] Backend POST failed:", backendRes.status, errText);
+    console.warn("[Admin exam-dates] Backend POST failed:", backendStatus, backendBody);
   } catch (err) {
-    console.warn("[Admin exam-dates] Backend unreachable, using local fallback:", err);
+    console.warn("[Admin exam-dates] Backend unreachable:", err);
   }
 
   // Fallback: save to local file
@@ -181,11 +191,10 @@ export async function POST(request: NextRequest) {
     console.error("[Admin exam-dates] Local save error:", err);
     return NextResponse.json(
       {
-        message:
-          "Asosiy saytda (production) exam date faqat backend (api.satziyo.uz) orqali saqlanadi. " +
-          "Backend 500 qaytaryapti yoki ulanish yo‘q; lokal fayl esa productionda yozilmaydi (serverless). " +
-          "Backendni tekshiring yoki keyinroq urinib ko‘ring.",
-        error: err instanceof Error ? err.message : String(err),
+        backendResponse: backendStatus != null
+          ? { status: backendStatus, body: backendBody }
+          : null,
+        localSaveError: err instanceof Error ? err.message : String(err),
       },
       { status: 500 }
     );
