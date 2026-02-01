@@ -30,7 +30,8 @@ export const API_ENDPOINTS = {
     detail: (id: string) => `/users/${id}`,
   },
   exams: {
-    dates: "/exams/dates",
+    /** Backend: ro'yxat GET, qo'shish POST. To'g'ri yo'l backend API da qanday ekanligiga qarab o'zgartiring. */
+    dates: "/exam-dates",
     select: "/exams/select",
   },
   scoring: {

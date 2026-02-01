@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { API_CONFIG } from "@/src/config/api";
+import { API_CONFIG, API_ENDPOINTS } from "@/src/config/api";
 import { promises as fs } from "fs";
 import path from "path";
 
@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
   let backendBody: string | object | null = null;
 
   try {
-    const backendRes = await fetch(`${API_CONFIG.baseURL}/exams/dates`, {
+    const backendRes = await fetch(`${API_CONFIG.baseURL}${API_ENDPOINTS.exams.dates}`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ date: dateStr, label }),

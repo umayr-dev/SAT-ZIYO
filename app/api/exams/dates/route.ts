@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { API_CONFIG } from "@/src/config/api";
+import { API_CONFIG, API_ENDPOINTS } from "@/src/config/api";
 import { promises as fs } from "fs";
 import path from "path";
 
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     }
 
     let fromBackend: { id: string; date: string; label: string }[] = [];
-    const backendRes = await fetch(`${API_CONFIG.baseURL}/exams/dates`, {
+    const backendRes = await fetch(`${API_CONFIG.baseURL}${API_ENDPOINTS.exams.dates}`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
