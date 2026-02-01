@@ -181,7 +181,10 @@ export async function POST(request: NextRequest) {
     console.error("[Admin exam-dates] Local save error:", err);
     return NextResponse.json(
       {
-        message: "Serverda saqlashda xato. Backend (satziyo.uz) 500 qaytaryapti; lokal saqlash ham muvaffaqiyatsiz.",
+        message:
+          "Asosiy saytda (production) exam date faqat backend (api.satziyo.uz) orqali saqlanadi. " +
+          "Backend 500 qaytaryapti yoki ulanish yo‘q; lokal fayl esa productionda yozilmaydi (serverless). " +
+          "Backendni tekshiring yoki keyinroq urinib ko‘ring.",
         error: err instanceof Error ? err.message : String(err),
       },
       { status: 500 }

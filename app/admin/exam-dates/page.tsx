@@ -22,10 +22,8 @@ export default function AdminExamDatesPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [newDate, setNewDate] = useState("");
-  const [newLabel, setNewLabel] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDate, setEditDate] = useState("");
-  const [editLabel, setEditLabel] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   async function fetchDates() {
@@ -51,24 +49,10 @@ export default function AdminExamDatesPage() {
     fetchDates();
   }, []);
 
-  /** Parse DD/MM/YYYY or YYYY-MM-DD to YYYY-MM-DD */
-  function normalizeDateInput(raw: string): string | null {
-    const s = raw.trim();
-    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-    const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-    if (dmy) {
-      const [, d, m, y] = dmy;
-      const dd = d!.padStart(2, "0");
-      const mm = m!.padStart(2, "0");
-      return `${y}-${mm}-${dd}`;
-    }
-    return null;
-  }
-
   async function handleAdd() {
-    const dateStr = normalizeDateInput(newDate);
-    if (!dateStr) {
-      setError("Sana YYYY-MM-DD yoki DD/MM/YYYY ko‘rinishida kiriting (masalan: 2026-03-14 yoki 14/03/2026)");
+    const dateStr = newDate.trim().slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      setError("Sana tanlang yoki YYYY-MM-DD ko‘rinishida kiriting.");
       return;
     }
     setSaving(true);
@@ -79,16 +63,12 @@ export default function AdminExamDatesPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          date: dateStr,
-          label: newLabel.trim() || dateStr,
-        }),
+        body: JSON.stringify({ date: dateStr, label: dateStr }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to add");
       setSuccess("Exam date qo‘shildi.");
       setNewDate("");
-      setNewLabel("");
       await fetchDates();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to add");
@@ -100,21 +80,19 @@ export default function AdminExamDatesPage() {
   function startEdit(d: ExamDateItem) {
     setEditingId(d.id);
     setEditDate(d.date);
-    setEditLabel(d.label || "");
     setError("");
   }
 
   function cancelEdit() {
     setEditingId(null);
     setEditDate("");
-    setEditLabel("");
   }
 
   async function handleSaveEdit() {
     if (!editingId) return;
-    const dateStr = normalizeDateInput(editDate);
-    if (!dateStr) {
-      setError("Sana YYYY-MM-DD yoki DD/MM/YYYY ko‘rinishida kiriting.");
+    const dateStr = editDate.trim().slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      setError("Sana tanlang yoki YYYY-MM-DD ko‘rinishida kiriting.");
       return;
     }
     setSaving(true);
@@ -125,17 +103,13 @@ export default function AdminExamDatesPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          date: dateStr,
-          label: editLabel.trim() || dateStr,
-        }),
+        body: JSON.stringify({ date: dateStr, label: dateStr }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Tahrirlash muvaffaqiyatsiz");
       setSuccess("Sana yangilandi.");
       setEditingId(null);
       setEditDate("");
-      setEditLabel("");
       await fetchDates();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Tahrirlash muvaffaqiyatsiz");
@@ -198,30 +172,18 @@ export default function AdminExamDatesPage() {
         </h3>
         <div className="flex flex-wrap gap-4 items-end">
           <div className="space-y-2">
-            <Label htmlFor="newDate">Sana (YYYY-MM-DD yoki DD/MM/YYYY)</Label>
+            <Label htmlFor="newDate">Sana</Label>
             <Input
               id="newDate"
-              type="text"
+              type="date"
               value={newDate}
               onChange={(e) => setNewDate(e.target.value)}
-              placeholder="14/03/2026 yoki 2026-03-14"
               disabled={saving}
-              className="w-48"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="newLabel">Label (optional)</Label>
-            <Input
-              id="newLabel"
-              value={newLabel}
-              onChange={(e) => setNewLabel(e.target.value)}
-              placeholder="e.g. June 15, 2026"
-              disabled={saving}
-              className="w-48"
+              className="w-44"
             />
           </div>
           <Button onClick={handleAdd} disabled={saving}>
-            {saving ? "Adding..." : "Add"}
+            {saving ? "Qo‘shilmoqda…" : "Qo‘shish"}
           </Button>
         </div>
       </Card>
@@ -243,17 +205,9 @@ export default function AdminExamDatesPage() {
                   <>
                     <div className="flex flex-wrap items-center gap-2">
                       <Input
-                        type="text"
+                        type="date"
                         value={editDate}
                         onChange={(e) => setEditDate(e.target.value)}
-                        placeholder="2026-03-14"
-                        className="w-36"
-                      />
-                      <Input
-                        type="text"
-                        value={editLabel}
-                        onChange={(e) => setEditLabel(e.target.value)}
-                        placeholder="Label"
                         className="w-40"
                       />
                     </div>
