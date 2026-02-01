@@ -141,34 +141,51 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Try backend first
-  const backendRes = await fetch(`${API_CONFIG.baseURL}/exams/dates`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ date: dateStr, label }),
-  });
+  // Try backend first; on error or 5xx fall back to local file
+  try {
+    const backendRes = await fetch(`${API_CONFIG.baseURL}/exams/dates`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ date: dateStr, label }),
+    });
 
-  if (backendRes.ok) {
-    const data = await backendRes.json();
-    const normalized = normalizeDates(Array.isArray(data) ? data : [data]);
-    const item = normalized[0] || { id: dateStr, date: dateStr, label };
-    return NextResponse.json(item);
+    if (backendRes.ok) {
+      const data = await backendRes.json().catch(() => null);
+      const normalized = normalizeDates(Array.isArray(data) ? data : data ? [data] : []);
+      const item = normalized[0] || { id: dateStr, date: dateStr, label };
+      return NextResponse.json(item);
+    }
+    const errText = await backendRes.text();
+    console.warn("[Admin exam-dates] Backend POST failed:", backendRes.status, errText);
+  } catch (err) {
+    console.warn("[Admin exam-dates] Backend unreachable, using local fallback:", err);
   }
 
   // Fallback: save to local file
-  const { dates: stored } = await getStoredData();
-  if (stored.some((d) => d.date === dateStr)) {
+  try {
+    const { dates: stored } = await getStoredData();
+    if (stored.some((d) => d.date === dateStr)) {
+      return NextResponse.json(
+        { message: "This date already exists" },
+        { status: 409 }
+      );
+    }
+
+    const newItem: ExamDateItem = { id: dateStr, date: dateStr, label };
+    stored.push(newItem);
+    stored.sort((a, b) => a.date.localeCompare(b.date));
+    await saveStoredDates(stored);
+
+    return NextResponse.json(newItem);
+  } catch (err) {
+    console.error("[Admin exam-dates] Local save error:", err);
     return NextResponse.json(
-      { message: "This date already exists" },
-      { status: 409 }
+      {
+        message: "Serverda saqlashda xato. Backend (satziyo.uz) 500 qaytaryapti; lokal saqlash ham muvaffaqiyatsiz.",
+        error: err instanceof Error ? err.message : String(err),
+      },
+      { status: 500 }
     );
   }
-
-  const newItem: ExamDateItem = { id: dateStr, date: dateStr, label };
-  stored.push(newItem);
-  stored.sort((a, b) => a.date.localeCompare(b.date));
-  await saveStoredDates(stored);
-
-  return NextResponse.json(newItem);
 }
 
