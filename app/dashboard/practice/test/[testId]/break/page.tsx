@@ -16,7 +16,9 @@ export default function BreakPage() {
   const [breakStatus, setBreakStatus] = useState<BreakStatusResponse | null>(null);
   const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [continuing, setContinuing] = useState(false);
   const [error, setError] = useState("");
+  const [continueError, setContinueError] = useState("");
 
   // Load break status
   useEffect(() => {
@@ -59,11 +61,22 @@ export default function BreakPage() {
   }
 
   async function handleContinueTest() {
+    setError("");
+    setContinuing(true);
     try {
-      // Navigate to test - break will be handled by backend
+      await practiceService.endBreak(attemptId);
       router.push(`/dashboard/practice/test/${attemptId}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to continue test");
+      const msg = err instanceof Error ? err.message : "Failed to continue test";
+      if (msg.includes("404") || msg.includes("skip-break") || msg.includes("end-break")) {
+        setError(
+          "Tanaffusni erta tugatish hozircha serverda qo‘llab-quvvatlanmaydi. Taymer tugaguncha kuting yoki sahifani yangilab ko‘ring."
+        );
+      } else {
+        setError(msg);
+      }
+    } finally {
+      setContinuing(false);
     }
   }
 
@@ -140,10 +153,13 @@ export default function BreakPage() {
           >
             Exit to Dashboard
           </Button>
-          <Button onClick={handleContinueTest}>
-            Continue Test Early
+          <Button onClick={handleContinueTest} disabled={continuing}>
+            {continuing ? "Davom etilmoqda…" : "Davom etaverish"}
           </Button>
         </div>
+        {continueError && (
+          <p className="mt-4 text-sm text-red-600 text-center">{continueError}</p>
+        )}
       </Card>
     </div>
   );

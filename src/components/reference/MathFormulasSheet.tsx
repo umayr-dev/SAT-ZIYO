@@ -45,12 +45,41 @@ export function MathFormulasSheet({ open, onOpenChange }: MathFormulasSheetProps
     }
   }, [open]);
 
+  const normalizeFormulas = (raw: unknown): Record<string, Formula[]> => {
+    if (Array.isArray(raw)) {
+      const byCategory: Record<string, Formula[]> = {};
+      for (const item of raw) {
+        if (item && typeof item === "object" && "id" in item) {
+          const cat = (item as Formula & { category?: string }).category ?? "Formulas";
+          if (!byCategory[cat]) byCategory[cat] = [];
+          byCategory[cat].push(item as Formula);
+        }
+      }
+      return byCategory;
+    }
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+      const out: Record<string, Formula[]> = {};
+      for (const key of Object.keys(raw)) {
+        const val = (raw as Record<string, unknown>)[key];
+        if (Array.isArray(val)) {
+          out[key] = val as Formula[];
+        } else if (val && typeof val === "object" && !Array.isArray(val)) {
+          out[key] = [val as Formula];
+        } else {
+          out[key] = [];
+        }
+      }
+      return out;
+    }
+    return {};
+  };
+
   const loadFormulas = async () => {
     try {
       setLoading(true);
       setError(null);
       const data = await practiceService.getMathFormulas();
-      setFormulas(data);
+      setFormulas(normalizeFormulas(data));
     } catch (err) {
       console.error("Failed to load math formulas:", err);
       setError("Failed to load formulas");
@@ -66,7 +95,7 @@ export function MathFormulasSheet({ open, onOpenChange }: MathFormulasSheetProps
     }
   };
 
-  const categories = Object.keys(formulas);
+  const categories = Object.keys(formulas).filter((c) => Array.isArray(formulas[c]) && formulas[c].length > 0);
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>

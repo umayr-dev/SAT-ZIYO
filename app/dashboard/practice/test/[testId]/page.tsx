@@ -21,7 +21,6 @@ import {
 import { TestTimer } from "@/src/components/practice/TestTimer";
 import { QuestionDisplay } from "@/src/components/practice/QuestionDisplay";
 import { QuestionNavigator } from "@/src/components/practice/QuestionNavigator";
-import { MathFormulasSheet } from "@/src/components/reference/MathFormulasSheet";
 import {
   Calculator,
   ChevronLeft,
@@ -37,7 +36,6 @@ import {
   StickyNote,
   Edit,
   MoreVertical,
-  BookOpen,
 } from "lucide-react";
 import { useCurrentUser } from "@/src/hooks/use-auth";
 import { debounce } from "@/src/utils/request-queue";
@@ -72,7 +70,6 @@ export default function TestTakingPage() {
   const [showFullscreenWarning, setShowFullscreenWarning] = useState(false);
   const [countdown, setCountdown] = useState(10);
   const [showCalculator, setShowCalculator] = useState(false);
-  const [showMathFormulas, setShowMathFormulas] = useState(false);
   const [showNavigator, setShowNavigator] = useState(false);
   const [isMarkupEnabled, setIsMarkupEnabled] = useState(false);
   const [isTimerHidden, setIsTimerHidden] = useState(false);
@@ -1159,15 +1156,7 @@ export default function TestTakingPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50 px-4 md:px-5">
-      {/* Math Reference Formulas Dialog */}
-      {testState && testState.currentSection.type === "MATH" && (
-        <MathFormulasSheet
-          open={showMathFormulas}
-          onOpenChange={setShowMathFormulas}
-        />
-      )}
-
+    <div className="flex min-h-screen w-full bg-gray-50 px-[20px]">
       {/* Desmos Calculator Panel (Math only, non-blocking, draggable) */}
       {showCalculator && testState.currentSection.type === "MATH" && (
         <div className="pointer-events-none fixed inset-0 z-40">
@@ -1348,87 +1337,70 @@ export default function TestTakingPage() {
                 </div>
               )}
 
-              {/* Right side buttons */}
-              <div className="flex items-center gap-4 pr-4">
+              {/* Right side buttons - one row */}
+              <div className="flex items-center gap-2 flex-nowrap pr-4 shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowNotesModal(true)}
-                  className="relative p-2 rounded-lg transition-all duration-200 bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  className="flex items-center gap-1.5 p-2 rounded-lg transition-colors duration-200 bg-gray-100 text-gray-600 hover:bg-gray-200 text-xs whitespace-nowrap"
                   title="Open Notes"
                 >
-                  <StickyNote className="w-5 h-5" />
+                  <StickyNote className="w-5 h-5 shrink-0" />
+                  <span className="hidden sm:inline">Notes</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsMarkupEnabled((prev) => !prev)}
-                  className={`flex flex-col items-center justify-center text-xs focus:outline-none rounded-md px-2 py-1 transition-colors duration-200 ${
+                  className={`flex items-center gap-1.5 p-2 rounded-lg transition-colors duration-200 text-xs whitespace-nowrap ${
                     isMarkupEnabled
                       ? "text-blue-600 bg-gray-100"
-                      : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
+                      : "text-gray-700 hover:text-blue-600 hover:bg-gray-100 bg-gray-100 hover:bg-gray-200"
                   }`}
                   aria-label="Highlights and Notes"
                 >
-                  <Edit className="w-5 h-5 mb-1" />
-                  Highlights & Notes
+                  <Edit className="w-5 h-5 shrink-0" />
+                  <span className="hidden sm:inline">Highlights</span>
                 </button>
+                {testState.currentSection.type === "MATH" && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCalculator((prev) => !prev)}
+                    className={`flex items-center gap-1.5 p-2 rounded-lg transition-colors duration-200 text-xs whitespace-nowrap ${
+                      showCalculator
+                        ? "text-blue-600 bg-gray-100"
+                        : "text-gray-700 hover:text-blue-600 hover:bg-gray-100 bg-gray-100 hover:bg-gray-200"
+                    }`}
+                    aria-label="Calculator"
+                    title="Calculator"
+                  >
+                    <Calculator className="w-5 h-5 shrink-0" />
+                    <span className="hidden sm:inline">Calculator</span>
+                  </button>
+                )}
                 <div className="relative">
-                  {testState.currentSection.type === "MATH" && (
-                    <>
+                  <button
+                    type="button"
+                    onClick={() => setShowMoreMenu((prev) => !prev)}
+                    className="flex items-center gap-1.5 p-2 rounded-lg text-gray-700 hover:text-blue-600 hover:bg-gray-100 text-xs whitespace-nowrap bg-gray-100"
+                    aria-label="More options"
+                  >
+                    <MoreVertical className="w-5 h-5 shrink-0" />
+                    <span className="hidden sm:inline">More</span>
+                  </button>
+                  {showMoreMenu && (
+                    <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[150px]">
                       <button
                         type="button"
-                        onClick={() => setShowMathFormulas((prev) => !prev)}
-                        className={`flex flex-col items-center justify-center text-xs focus:outline-none rounded-md px-2 py-1 transition-colors duration-200 ${
-                          showMathFormulas
-                            ? "text-blue-600 bg-gray-100"
-                            : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
-                        }`}
-                        aria-label="Math Reference Formulas"
-                        title="Math Reference Formulas"
+                        onClick={() => {
+                          setShowMoreMenu(false);
+                          handleSaveAndExit();
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg"
                       >
-                        <BookOpen className="w-5 h-5 mb-1" />
-                        Formulas
+                        Save and Exit
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowCalculator((prev) => !prev)}
-                        className={`flex flex-col items-center justify-center text-xs focus:outline-none rounded-md px-2 py-1 transition-colors duration-200 ${
-                        showCalculator
-                          ? "text-blue-600 bg-gray-100"
-                          : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
-                      }`}
-                      aria-label="Calculator"
-                      title="Calculator"
-                    >
-                      <Calculator className="w-5 h-5 mb-1" />
-                      Calculator
-                    </button>
-                    </>
+                    </div>
                   )}
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setShowMoreMenu((prev) => !prev)}
-                      className="flex flex-col items-center justify-center text-xs text-gray-700 hover:text-blue-600 focus:outline-none"
-                      aria-label="More options"
-                    >
-                      <MoreVertical className="w-5 h-5 mb-1" />
-                      More
-                    </button>
-                    {showMoreMenu && (
-                      <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[150px]">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowMoreMenu(false);
-                            handleSaveAndExit();
-                          }}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg"
-                        >
-                          Save and Exit
-                        </button>
-                      </div>
-                    )}
-                  </div>
                 </div>
               </div>
             </div>

@@ -75,33 +75,23 @@ export async function GET(
       );
     }
 
-    const data = await response.json().catch(() => ({
-      answers: [],
-      answeredCount: 0,
-    }));
-
-    // Ensure data has required structure
-    if (!data.answers || !Array.isArray(data.answers)) {
-      console.warn("[Answers API] Invalid response structure:", data);
+    const raw = await response.json().catch(() => null);
+    if (raw == null) {
       return NextResponse.json(
-        {
-          answers: [],
-          // Only include totalQuestions if it's actually in the response
-          ...(data.totalQuestions !== undefined && { totalQuestions: data.totalQuestions }),
-          answeredCount: data.answeredCount || 0,
-        },
+        { answers: [], answeredCount: 0 },
         { status: 200 }
       );
     }
-    
-    // Log totalQuestions for debugging
-    if (data.totalQuestions !== undefined) {
-      console.log("[Answers API] totalQuestions from backend:", data.totalQuestions);
-    } else {
-      console.warn("[Answers API] Backend response missing totalQuestions field");
-    }
 
-    return NextResponse.json(data, { status: 200 });
+    // Backend may return { answers: [...] } or the array directly
+    const answers = Array.isArray(raw) ? raw : (raw.answers ?? []);
+    const normalized = {
+      answers: Array.isArray(answers) ? answers : [],
+      answeredCount: Array.isArray(answers) ? answers.length : 0,
+      ...(raw.totalQuestions !== undefined && { totalQuestions: raw.totalQuestions }),
+    };
+
+    return NextResponse.json(normalized, { status: 200 });
   } catch (error) {
     console.error("Practice answers GET error:", error);
     return NextResponse.json(

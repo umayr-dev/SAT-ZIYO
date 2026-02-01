@@ -6,7 +6,7 @@ import { Card } from "@/src/ui/card";
 import { Button } from "@/src/ui/button";
 import { Input } from "@/src/ui/input";
 import { Label } from "@/src/ui/label";
-import { Calendar } from "lucide-react";
+import { Calendar, Pencil, Trash2 } from "lucide-react";
 
 interface ExamDateItem {
   id: string;
@@ -23,6 +23,10 @@ export default function AdminExamDatesPage() {
   const [success, setSuccess] = useState("");
   const [newDate, setNewDate] = useState("");
   const [newLabel, setNewLabel] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDate, setEditDate] = useState("");
+  const [editLabel, setEditLabel] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   async function fetchDates() {
     try {
@@ -47,10 +51,24 @@ export default function AdminExamDatesPage() {
     fetchDates();
   }, []);
 
+  /** Parse DD/MM/YYYY or YYYY-MM-DD to YYYY-MM-DD */
+  function normalizeDateInput(raw: string): string | null {
+    const s = raw.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if (dmy) {
+      const [, d, m, y] = dmy;
+      const dd = d!.padStart(2, "0");
+      const mm = m!.padStart(2, "0");
+      return `${y}-${mm}-${dd}`;
+    }
+    return null;
+  }
+
   async function handleAdd() {
-    const dateStr = newDate.trim().slice(0, 10);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-      setError("Enter date as YYYY-MM-DD");
+    const dateStr = normalizeDateInput(newDate);
+    if (!dateStr) {
+      setError("Sana YYYY-MM-DD yoki DD/MM/YYYY ko‘rinishida kiriting (masalan: 2026-03-14 yoki 14/03/2026)");
       return;
     }
     setSaving(true);
@@ -68,7 +86,7 @@ export default function AdminExamDatesPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to add");
-      setSuccess("Exam date added. It will appear in dashboard select.");
+      setSuccess("Exam date qo‘shildi.");
       setNewDate("");
       setNewLabel("");
       await fetchDates();
@@ -76,6 +94,75 @@ export default function AdminExamDatesPage() {
       setError(e instanceof Error ? e.message : "Failed to add");
     } finally {
       setSaving(false);
+    }
+  }
+
+  function startEdit(d: ExamDateItem) {
+    setEditingId(d.id);
+    setEditDate(d.date);
+    setEditLabel(d.label || "");
+    setError("");
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditDate("");
+    setEditLabel("");
+  }
+
+  async function handleSaveEdit() {
+    if (!editingId) return;
+    const dateStr = normalizeDateInput(editDate);
+    if (!dateStr) {
+      setError("Sana YYYY-MM-DD yoki DD/MM/YYYY ko‘rinishida kiriting.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      const res = await fetch(`/api/admin/exam-dates/${encodeURIComponent(editingId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          date: dateStr,
+          label: editLabel.trim() || dateStr,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Tahrirlash muvaffaqiyatsiz");
+      setSuccess("Sana yangilandi.");
+      setEditingId(null);
+      setEditDate("");
+      setEditLabel("");
+      await fetchDates();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Tahrirlash muvaffaqiyatsiz");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(d: ExamDateItem) {
+    if (!confirm(`"${d.label || d.date}" sanasini o‘chirishni xohlaysizmi?`)) return;
+    setDeletingId(d.id);
+    setError("");
+    try {
+      const res = await fetch(`/api/admin/exam-dates/${encodeURIComponent(d.id)}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "O‘chirish muvaffaqiyatsiz");
+      }
+      setSuccess("Sana o‘chirildi.");
+      await fetchDates();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "O‘chirish muvaffaqiyatsiz");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -111,14 +198,15 @@ export default function AdminExamDatesPage() {
         </h3>
         <div className="flex flex-wrap gap-4 items-end">
           <div className="space-y-2">
-            <Label htmlFor="newDate">Date (YYYY-MM-DD)</Label>
+            <Label htmlFor="newDate">Sana (YYYY-MM-DD yoki DD/MM/YYYY)</Label>
             <Input
               id="newDate"
-              type="date"
+              type="text"
               value={newDate}
               onChange={(e) => setNewDate(e.target.value)}
+              placeholder="14/03/2026 yoki 2026-03-14"
               disabled={saving}
-              className="w-44"
+              className="w-48"
             />
           </div>
           <div className="space-y-2">
@@ -149,10 +237,64 @@ export default function AdminExamDatesPage() {
             {dates.map((d) => (
               <li
                 key={d.id}
-                className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
+                className="flex flex-wrap items-center justify-between gap-2 py-3 border-b border-gray-100 last:border-0"
               >
-                <span className="font-medium text-gray-900">{d.date}</span>
-                <span className="text-gray-600">{d.label || d.date}</span>
+                {editingId === d.id ? (
+                  <>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Input
+                        type="text"
+                        value={editDate}
+                        onChange={(e) => setEditDate(e.target.value)}
+                        placeholder="2026-03-14"
+                        className="w-36"
+                      />
+                      <Input
+                        type="text"
+                        value={editLabel}
+                        onChange={(e) => setEditLabel(e.target.value)}
+                        placeholder="Label"
+                        className="w-40"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={handleSaveEdit} disabled={saving}>
+                        {saving ? "..." : "Saqlash"}
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={cancelEdit} disabled={saving}>
+                        Bekor
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-4">
+                      <span className="font-medium text-gray-900">{d.date}</span>
+                      <span className="text-gray-600">{d.label || d.date}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => startEdit(d)}
+                        disabled={saving || deletingId !== null}
+                      >
+                        <Pencil className="h-4 w-4 mr-1" />
+                        Tahrir
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDelete(d)}
+                        disabled={saving || deletingId !== null}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        {deletingId === d.id ? "..." : "O‘chirish"}
+                      </Button>
+                    </div>
+                  </>
+                )}
               </li>
             ))}
           </ul>

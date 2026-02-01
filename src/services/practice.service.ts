@@ -400,6 +400,17 @@ class PracticeService {
   }
 
   /**
+   * Skip break early (tanaffusni erta tugatish).
+   * Backend: POST /practice/attempts/:attemptId/skip-break
+   */
+  async endBreak(attemptId: string): Promise<void> {
+    return apiClient<void>(`/api/practice/attempts/${attemptId}/skip-break`, {
+      method: "POST",
+      requireAuth: true,
+    });
+  }
+
+  /**
    * Abandon attempt
    */
   async abandonAttempt(attemptId: string): Promise<void> {

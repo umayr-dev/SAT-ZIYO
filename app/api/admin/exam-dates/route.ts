@@ -18,20 +18,41 @@ export interface ExamDateItem {
   label: string;
 }
 
-async function getStoredDates(): Promise<ExamDateItem[]> {
+interface StoredData {
+  dates: ExamDateItem[];
+  deletedIds: string[];
+}
+
+async function getStoredData(): Promise<StoredData> {
   try {
     const raw = await fs.readFile(DATA_FILE, "utf-8");
     const data = JSON.parse(raw);
-    return Array.isArray(data) ? data : data.dates || [];
+    if (Array.isArray(data)) {
+      return { dates: data, deletedIds: [] };
+    }
+    return {
+      dates: data.dates || [],
+      deletedIds: Array.isArray(data.deletedIds) ? data.deletedIds : [],
+    };
   } catch {
-    return [];
+    return { dates: [], deletedIds: [] };
   }
 }
 
+async function getStoredDates(): Promise<ExamDateItem[]> {
+  const { dates } = await getStoredData();
+  return dates;
+}
+
 async function saveStoredDates(items: ExamDateItem[]): Promise<void> {
+  const current = await getStoredData();
+  await saveStoredData({ dates: items, deletedIds: current.deletedIds });
+}
+
+async function saveStoredData(data: StoredData): Promise<void> {
   const dir = path.dirname(DATA_FILE);
   await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(DATA_FILE, JSON.stringify(items, null, 2), "utf-8");
+  await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2), "utf-8");
 }
 
 function getToken(request: NextRequest): string | undefined {
@@ -76,9 +97,11 @@ export async function GET(request: NextRequest) {
       fromBackend = normalizeDates(data);
     }
 
-    const fromFile = await getStoredDates();
+    const { dates: fromFile, deletedIds } = await getStoredData();
     const byDate = new Map<string, ExamDateItem>();
-    fromBackend.forEach((d) => byDate.set(d.date, d));
+    fromBackend.forEach((d) => {
+      if (!deletedIds.includes(d.id)) byDate.set(d.date, d);
+    });
     fromFile.forEach((d) => byDate.set(d.date, d));
     const merged = Array.from(byDate.values()).sort(
       (a, b) => a.date.localeCompare(b.date)
@@ -87,7 +110,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(merged);
   } catch (error) {
     console.error("Admin exam dates GET error:", error);
-    const fromFile = await getStoredDates().catch(() => []);
+    const { dates: fromFile } = await getStoredData().catch(() => ({ dates: [], deletedIds: [] }));
     return NextResponse.json(fromFile);
   }
 }
@@ -133,7 +156,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Fallback: save to local file
-  const stored = await getStoredDates();
+  const { dates: stored } = await getStoredData();
   if (stored.some((d) => d.date === dateStr)) {
     return NextResponse.json(
       { message: "This date already exists" },

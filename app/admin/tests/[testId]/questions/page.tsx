@@ -524,25 +524,23 @@ export default function TestQuestionsPage() {
     selectedModule?.sectionType === "MATH" ? MATH_DOMAINS : ENGLISH_DOMAINS;
 
   return (
-    <div className="space-y-6 pb-24">
-      <div className="flex items-start justify-between gap-4">
+    <div className="space-y-5 pb-24">
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">
-            {testInfo?.title} — SAT savollar
+          <h2 className="text-lg font-bold text-gray-900">
+            {testInfo?.title}
           </h2>
           <p className="text-sm text-gray-500 mt-0.5">
-            Savollarni to&apos;ldiring va pastdagi &quot;Yuborish&quot;
-            tugmasini bosing. Tahrirlash uchun mavjud savolda &quot;Tahrirlashni
-            saqlash&quot;. Rasmlar backend (GCS) da saqlanadi — barcha
-            qurilmalarda ko&apos;rinadi.
+            Modulni tanlang, savollarni to‘ldiring va pastda <strong>Yuborish</strong> bosing.
           </p>
         </div>
         <Button
           variant="outline"
           size="sm"
           onClick={() => router.push("/admin/tests")}
+          className="gap-1.5"
         >
-          Testlar
+          ← Testlar
         </Button>
       </div>
 
@@ -557,11 +555,8 @@ export default function TestQuestionsPage() {
         </div>
       )}
 
-      {/* Modul kartalari (eski UI) */}
-      <Card className="p-4 border-gray-200">
-        <h3 className="text-sm font-semibold text-gray-700 mb-3">
-          Modulni tanlang
-        </h3>
+      <Card className="p-4 rounded-xl border-gray-200 shadow-sm">
+        <p className="text-sm font-medium text-gray-700 mb-3">Modul</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {testInfo?.modules?.map((module) => {
             const mid = module.moduleId;
@@ -581,14 +576,14 @@ export default function TestQuestionsPage() {
                   setSelectedModule(module);
                   setExpandedQuestion(null);
                 }}
-                className={`p-4 rounded-lg border-2 text-left transition-all ${
+                className={`p-3 rounded-xl border-2 text-left transition-all ${
                   isSelected
-                    ? "border-orange-500 bg-orange-50"
-                    : "border-gray-200 hover:border-gray-300 bg-white"
+                    ? "border-orange-500 bg-orange-50 text-orange-900"
+                    : "border-gray-200 hover:border-gray-300 bg-white text-gray-800"
                 }`}
               >
-                <p className="font-semibold text-gray-900">
-                  {module.sectionType} Module {module.moduleNumber}
+                <p className="font-semibold text-sm">
+                  {module.sectionType} {module.moduleNumber}
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">
                   {filled} / {count}
@@ -599,44 +594,17 @@ export default function TestQuestionsPage() {
         </div>
       </Card>
 
-      {/* Tanlangan modul: SAT savollari (questionText, passage, choices, difficulty, contentDomain) */}
       {selectedModule && (
-        <Card className="p-4 border-gray-200">
-          <h3 className="font-semibold text-gray-900 mb-4">
-            {selectedModule.sectionType} Module {selectedModule.moduleNumber} —
-            savollar (SAT format)
-          </h3>
+        <Card className="p-4 rounded-xl border-gray-200 shadow-sm">
+          <div className="flex items-center justify-between gap-2 mb-4">
+            <h3 className="font-semibold text-gray-900">
+              {selectedModule.sectionType} Module {selectedModule.moduleNumber} — savollar
+            </h3>
+          </div>
           {selectedModule.sectionType === "MATH" && (
-            <div className="mb-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-900">
-              <p className="font-medium mb-1.5">
-                Math qo&apos;shish bo&apos;yicha maslahat:
-              </p>
-              <ul className="list-disc list-inside space-y-0.5 text-xs">
-                <li>
-                  <strong>Arifmetik / Grid-in:</strong> To&apos;g&apos;ri
-                  javobni son yoki kasr yozing:{" "}
-                  <code className="bg-amber-100 px-1 rounded">4</code>,{" "}
-                  <code className="bg-amber-100 px-1 rounded">3/4</code>,{" "}
-                  <code className="bg-amber-100 px-1 rounded">0.75</code>,{" "}
-                  <code className="bg-amber-100 px-1 rounded">-2</code>,{" "}
-                  <code className="bg-amber-100 px-1 rounded">4.5</code> — SAT
-                  grid-in shunday qabul qiladi.
-                </li>
-                <li>
-                  <strong>Rasm URL:</strong> Grafik, figura yoki tenglama rasmi
-                  bo&apos;lsa, URL ni kiriting; savol matnida &quot;yuqoridagi
-                  grafikka qarang&quot; deb yozishingiz mumkin.
-                </li>
-                <li>
-                  <strong>Content domain:</strong> Algebra, Advanced Math,
-                  Problem Solving, Geometry — savol mavzusiga qarab tanlang.
-                </li>
-                <li>
-                  <strong>Variantli (A–D):</strong> Agar javoblar ro&apos;yxat
-                  bo&apos;lsa, A/B/C/D ni to&apos;ldiring va to&apos;g&apos;ri
-                  javobni belgilang.
-                </li>
-              </ul>
+            <div className="mb-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900">
+              <p className="font-medium mb-1">Math:</p>
+              <p>Grid-in uchun to‘g‘ri javobni son/kasr yozing (mas: 4, 3/4, 0.75). Variantli bo‘lsa A–D to‘ldiring va to‘g‘ri javobni belgilang.</p>
             </div>
           )}
           <div className="space-y-2">
@@ -654,50 +622,46 @@ export default function TestQuestionsPage() {
                 return (
                   <div
                     key={i}
-                    className="rounded-lg border border-gray-200 bg-gray-50 overflow-hidden"
+                    className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm"
                   >
                     <button
                       type="button"
-                      className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-100"
+                      className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 transition-colors"
                       onClick={() => setExpandedQuestion(isExpanded ? null : i)}
                     >
-                      <span className="font-medium text-gray-700">
-                        Savol {i + 1}
+                      <span className="font-medium text-gray-800">
+                        {i + 1}.
                         {slot.questionId && (
                           <span className="ml-1 text-xs font-normal text-blue-600">
-                            (mavjud)
+                            (saqlangan)
                           </span>
                         )}
                       </span>
                       {(slot.questionText ?? "").trim() ? (
-                        <span className="text-xs text-green-600 truncate max-w-[200px]">
-                          {(slot.questionText ?? "").slice(0, 40)}...
+                        <span className="text-xs text-gray-600 truncate max-w-[220px]">
+                          {(slot.questionText ?? "").slice(0, 45)}…
                           {slot.questionType === "STUDENT_PRODUCED" && (
-                            <span className="ml-1 text-gray-500">
-                              (grid-in)
-                            </span>
+                            <span className="ml-1 text-gray-400">(grid-in)</span>
                           )}
                         </span>
                       ) : (
-                        <span className="text-xs text-gray-400">
-                          Bo&apos;sh
-                        </span>
+                        <span className="text-xs text-gray-400">Bo‘sh</span>
                       )}
                       {isExpanded ? (
-                        <ChevronUp className="w-4 h-4" />
+                        <ChevronUp className="w-4 h-4 text-gray-500" />
                       ) : (
-                        <ChevronDown className="w-4 h-4" />
+                        <ChevronDown className="w-4 h-4 text-gray-500" />
                       )}
                     </button>
                     {isExpanded && (
                       <div className="p-4 pt-0 space-y-3 bg-white border-t border-gray-100">
                         <div>
-                          <Label className="text-xs">Savol matni *</Label>
+                          <Label className="text-xs font-medium text-gray-700">Savol matni *</Label>
                           <textarea
                             placeholder={
                               selectedModule.sectionType === "MATH"
-                                ? "Masalan: 2x+3=7 bo'lsa x=? yoki grafik/figura haqida savol"
-                                : "SAT savol matni"
+                                ? "Savol matni (mas: 2x+3=7 bo‘lsa x=?)"
+                                : "Savol matnini yozing"
                             }
                             value={slot.questionText ?? ""}
                             onChange={(e) =>
@@ -710,12 +674,10 @@ export default function TestQuestionsPage() {
                           />
                         </div>
                         <div>
-                          <Label className="text-xs">
-                            Savol rasmi (ixtiyoriy) — faqat fayl yuklash
-                          </Label>
+                          <Label className="text-xs font-medium text-gray-700">Savol rasmi (ixtiyoriy)</Label>
                           <div className="mt-1 flex items-center gap-2 flex-wrap">
                             <label className="cursor-pointer text-xs text-orange-600 hover:underline font-medium">
-                              Fayl tanlang
+                              Rasm tanlang
                               <input
                                 type="file"
                                 accept={ACCEPTED_IMAGE_TYPES}
@@ -1091,8 +1053,8 @@ export default function TestQuestionsPage() {
                               }}
                             >
                               {savingSlotKey === `${mid}-${i}`
-                                ? "Saqlanmoqda..."
-                                : "Tahrirlashni saqlash"}
+                                ? "Saqlanmoqda…"
+                                : "Saqlash"}
                             </Button>
                           </div>
                         )}
