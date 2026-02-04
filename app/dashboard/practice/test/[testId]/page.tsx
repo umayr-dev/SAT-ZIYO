@@ -136,7 +136,8 @@ export default function TestTakingPage() {
   const loadAnswersTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastAnswersLoadRef = useRef<number>(0);
   const ANSWERS_CACHE_DURATION = 15000; // 15 sec – kam so‘rov uchun
-  const preloadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Browser setTimeout returns number; track that here
+  const preloadTimeoutRef = useRef<number | null>(null);
 
   // localStorage key for answers
   const getStorageKey = useCallback(
@@ -482,8 +483,8 @@ export default function TestTakingPage() {
       if (loadAnswersTimeoutRef.current) {
         clearTimeout(loadAnswersTimeoutRef.current);
       }
-      if (preloadTimeoutRef.current) {
-        clearTimeout(preloadTimeoutRef.current);
+      if (preloadTimeoutRef.current !== null) {
+        window.clearTimeout(preloadTimeoutRef.current);
       }
     };
   }, []);
@@ -620,7 +621,9 @@ export default function TestTakingPage() {
       const nextIndex = currentIndex + 1;
       if (nextIndex >= totalQuestions) return;
       if (getQuestionFromLocal(nextIndex)) return; // allaqachon bor
-      if (preloadTimeoutRef.current) clearTimeout(preloadTimeoutRef.current);
+      if (preloadTimeoutRef.current !== null) {
+        window.clearTimeout(preloadTimeoutRef.current);
+      }
       preloadTimeoutRef.current = window.setTimeout(() => {
         preloadTimeoutRef.current = null;
         practiceService
