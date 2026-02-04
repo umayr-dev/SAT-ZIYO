@@ -49,7 +49,9 @@ export default function TestTakingPage() {
 
   const [testState, setTestState] = useState<StartTestResponse | null>(null);
   // Local cache for all questions in current module
-  const [questionsCache, setQuestionsCache] = useState<Map<number, Question>>(new Map());
+  const [questionsCache, setQuestionsCache] = useState<Map<number, Question>>(
+    new Map()
+  );
   const [answeredQuestions, setAnsweredQuestions] = useState<Set<number>>(
     new Set()
   );
@@ -65,7 +67,9 @@ export default function TestTakingPage() {
   const [error, setError] = useState("");
   const [totalQuestions, setTotalQuestions] = useState<number | null>(null);
   // Pending answers to submit in background
-  const [pendingAnswers, setPendingAnswers] = useState<Map<number, { questionId: string; choiceId?: string; textAnswer?: string }>>(new Map());
+  const [pendingAnswers, setPendingAnswers] = useState<
+    Map<number, { questionId: string; choiceId?: string; textAnswer?: string }>
+  >(new Map());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showFullscreenWarning, setShowFullscreenWarning] = useState(false);
   const [countdown, setCountdown] = useState(10);
@@ -73,41 +77,53 @@ export default function TestTakingPage() {
   const [showNavigator, setShowNavigator] = useState(false);
   const [isMarkupEnabled, setIsMarkupEnabled] = useState(false);
   const [isTimerHidden, setIsTimerHidden] = useState(false);
-  const [remainingTimeSeconds, setRemainingTimeSeconds] = useState<number | null>(null);
+  const [remainingTimeSeconds, setRemainingTimeSeconds] = useState<
+    number | null
+  >(null);
   const [isEliminationMode, setIsEliminationMode] = useState(false);
-  const [eliminatedChoices, setEliminatedChoices] = useState<Set<string>>(new Set());
-  const [questionNotes, setQuestionNotes] = useState<Map<number, string>>(new Map());
+  const [eliminatedChoices, setEliminatedChoices] = useState<Set<string>>(
+    new Set()
+  );
+  const [questionNotes, setQuestionNotes] = useState<Map<number, string>>(
+    new Map()
+  );
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [newNoteText, setNewNoteText] = useState("");
-  
+
   // localStorage key for notes
-  const getNotesStorageKey = useCallback(() => `test_notes_${attemptId}`, [attemptId]);
-  
+  const getNotesStorageKey = useCallback(
+    () => `test_notes_${attemptId}`,
+    [attemptId]
+  );
+
   // Save notes to localStorage
-  const saveNotesToStorage = useCallback((notes: Map<number, string>) => {
-    if (typeof window === "undefined") return;
-    try {
-      const notesObj: Record<string, string> = {};
-      notes.forEach((value, key) => {
-        notesObj[key.toString()] = value;
-      });
-      localStorage.setItem(getNotesStorageKey(), JSON.stringify(notesObj));
-    } catch (err) {
-      console.error("Failed to save notes to localStorage:", err);
-    }
-  }, [getNotesStorageKey]);
-  
+  const saveNotesToStorage = useCallback(
+    (notes: Map<number, string>) => {
+      if (typeof window === "undefined") return;
+      try {
+        const notesObj: Record<string, string> = {};
+        notes.forEach((value, key) => {
+          notesObj[key.toString()] = value;
+        });
+        localStorage.setItem(getNotesStorageKey(), JSON.stringify(notesObj));
+      } catch (err) {
+        console.error("Failed to save notes to localStorage:", err);
+      }
+    },
+    [getNotesStorageKey]
+  );
+
   // Add new note
   const handleAddNote = useCallback(() => {
     if (!newNoteText.trim() || !testState) return;
-    
+
     const currentIndex = testState.currentQuestionIndex;
     const newNotes = new Map(questionNotes);
     const existingNote = newNotes.get(currentIndex) || "";
-    const updatedNote = existingNote 
+    const updatedNote = existingNote
       ? `${existingNote}\n\n${newNoteText.trim()}`
       : newNoteText.trim();
-    
+
     newNotes.set(currentIndex, updatedNote);
     setQuestionNotes(newNotes);
     saveNotesToStorage(newNotes);
@@ -119,33 +135,98 @@ export default function TestTakingPage() {
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const loadAnswersTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastAnswersLoadRef = useRef<number>(0);
-  const ANSWERS_CACHE_DURATION = 3000; // 3 seconds cache
+  const ANSWERS_CACHE_DURATION = 15000; // 15 sec – kam so‘rov uchun
   const preloadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // localStorage key for answers
-  const getStorageKey = useCallback(() => `test_answers_${attemptId}`, [attemptId]);
-  
+  const getStorageKey = useCallback(
+    () => `test_answers_${attemptId}`,
+    [attemptId]
+  );
+
+  // sessionStorage: savollarni backenddan olgach saqlash (tez o‘tish uchun)
+  const getQuestionsStorageKey = useCallback(
+    () => `test_questions_${attemptId}`,
+    [attemptId]
+  );
+
+  const saveQuestionToLocal = useCallback(
+    (index: number, question: Question) => {
+      setQuestionsCache((prev) => {
+        const next = new Map(prev);
+        next.set(index, question);
+        return next;
+      });
+      if (typeof window === "undefined") return;
+      try {
+        const key = getQuestionsStorageKey();
+        const raw = sessionStorage.getItem(key);
+        const data: Record<string, Question> = raw ? JSON.parse(raw) : {};
+        data[String(index)] = question;
+        sessionStorage.setItem(key, JSON.stringify(data));
+      } catch (e) {
+        console.warn("saveQuestionToLocal:", e);
+      }
+    },
+    [getQuestionsStorageKey]
+  );
+
+  const getQuestionFromLocal = useCallback(
+    (index: number): Question | null => {
+      const fromCache = questionsCache.get(index);
+      if (fromCache) return fromCache;
+      if (typeof window === "undefined") return null;
+      try {
+        const raw = sessionStorage.getItem(getQuestionsStorageKey());
+        if (!raw) return null;
+        const data: Record<string, Question> = JSON.parse(raw);
+        const q = data[String(index)];
+        if (q) {
+          setQuestionsCache((prev) => {
+            const next = new Map(prev);
+            next.set(index, q);
+            return next;
+          });
+          return q;
+        }
+      } catch (e) {
+        console.warn("getQuestionFromLocal:", e);
+      }
+      return null;
+    },
+    [getQuestionsStorageKey, questionsCache]
+  );
+
   // localStorage key for highlights
-  const getHighlightsStorageKey = useCallback(() => `test_highlights_${attemptId}`, [attemptId]);
-  
+  const getHighlightsStorageKey = useCallback(
+    () => `test_highlights_${attemptId}`,
+    [attemptId]
+  );
+
   // Get all highlights from localStorage (grouped by questionId)
-  const getAllHighlightsFromStorage = useCallback((): Map<string, Array<{
-    startOffset: number;
-    endOffset: number;
-    color: "YELLOW" | "GREEN" | "BLUE" | "PINK" | "ORANGE";
-    note?: string | null;
-  }>> => {
+  const getAllHighlightsFromStorage = useCallback((): Map<
+    string,
+    Array<{
+      startOffset: number;
+      endOffset: number;
+      color: "YELLOW" | "GREEN" | "BLUE" | "PINK" | "ORANGE";
+      note?: string | null;
+    }>
+  > => {
     if (typeof window === "undefined") return new Map();
     try {
       const stored = localStorage.getItem(getHighlightsStorageKey());
       if (!stored) return new Map();
       const highlights = JSON.parse(stored);
-      const map = new Map<string, Array<{
-        startOffset: number;
-        endOffset: number;
-        color: "YELLOW" | "GREEN" | "BLUE" | "PINK" | "ORANGE";
-        note?: string | null;
-      }>>();
+      const map = new Map<
+        string,
+        Array<{
+          startOffset: number;
+          endOffset: number;
+          color: "YELLOW" | "GREEN" | "BLUE" | "PINK" | "ORANGE";
+          note?: string | null;
+        }>
+      >();
       Object.keys(highlights).forEach((questionId) => {
         map.set(questionId, highlights[questionId]);
       });
@@ -155,36 +236,44 @@ export default function TestTakingPage() {
       return new Map();
     }
   }, [getHighlightsStorageKey]);
-  
+
   // Save highlights to localStorage (grouped by questionId)
-  const saveHighlightsToStorage = useCallback((questionId: string, highlights: Array<{
-    startOffset: number;
-    endOffset: number;
-    color: "YELLOW" | "GREEN" | "BLUE" | "PINK" | "ORANGE";
-    note?: string | null;
-  }>) => {
-    if (typeof window === "undefined") return;
-    try {
-      const key = getHighlightsStorageKey();
-      const stored = localStorage.getItem(key);
-      const allHighlights = stored ? JSON.parse(stored) : {};
-      allHighlights[questionId] = highlights;
-      localStorage.setItem(key, JSON.stringify(allHighlights));
-    } catch (err) {
-      console.error("Failed to save highlights to localStorage:", err);
-    }
-  }, [getHighlightsStorageKey]);
-  
+  const saveHighlightsToStorage = useCallback(
+    (
+      questionId: string,
+      highlights: Array<{
+        startOffset: number;
+        endOffset: number;
+        color: "YELLOW" | "GREEN" | "BLUE" | "PINK" | "ORANGE";
+        note?: string | null;
+      }>
+    ) => {
+      if (typeof window === "undefined") return;
+      try {
+        const key = getHighlightsStorageKey();
+        const stored = localStorage.getItem(key);
+        const allHighlights = stored ? JSON.parse(stored) : {};
+        allHighlights[questionId] = highlights;
+        localStorage.setItem(key, JSON.stringify(allHighlights));
+      } catch (err) {
+        console.error("Failed to save highlights to localStorage:", err);
+      }
+    },
+    [getHighlightsStorageKey]
+  );
+
   // Submit all highlights to backend (batch)
   const submitAllHighlights = useCallback(async () => {
     const allHighlights = getAllHighlightsFromStorage();
-    
+
     if (allHighlights.size === 0) {
       console.log("[Test Page] No highlights to submit");
       return;
     }
 
-    console.log(`[Test Page] Submitting ${allHighlights.size} question highlights to server...`);
+    console.log(
+      `[Test Page] Submitting ${allHighlights.size} question highlights to server...`
+    );
 
     const submitPromises: Promise<void>[] = [];
     let delay = 0;
@@ -193,16 +282,23 @@ export default function TestTakingPage() {
 
     for (const [questionId, highlights] of highlightsArray) {
       if (highlights.length === 0) continue; // Skip empty highlights
-      
+
       submitPromises.push(
         (async () => {
           await new Promise((resolve) => setTimeout(resolve, delay));
           delay += 50; // 50ms delay between requests
 
           try {
-            await practiceService.saveHighlights(attemptId, questionId, highlights);
+            await practiceService.saveHighlights(
+              attemptId,
+              questionId,
+              highlights
+            );
           } catch (err) {
-            console.error(`Failed to submit highlights for question ${questionId}:`, err);
+            console.error(
+              `Failed to submit highlights for question ${questionId}:`,
+              err
+            );
           }
         })()
       );
@@ -235,30 +331,60 @@ export default function TestTakingPage() {
   }, [attemptId, getStorageKey]);
 
   // Save answer to localStorage
-  const saveAnswerToStorage = useCallback((questionIndex: number, answer: { questionId: string; choiceId?: string; textAnswer?: string; markedForReview?: boolean; eliminatedChoices?: string[] }) => {
-    if (typeof window === "undefined") return;
-    
-    try {
-      const key = getStorageKey();
-      const stored = localStorage.getItem(key);
-      const answers = stored ? JSON.parse(stored) : {};
-      answers[questionIndex] = answer;
-      localStorage.setItem(key, JSON.stringify(answers));
-    } catch (err) {
-      console.error("Failed to save answer to localStorage:", err);
-    }
-  }, [getStorageKey]);
+  const saveAnswerToStorage = useCallback(
+    (
+      questionIndex: number,
+      answer: {
+        questionId: string;
+        choiceId?: string;
+        textAnswer?: string;
+        markedForReview?: boolean;
+        eliminatedChoices?: string[];
+      }
+    ) => {
+      if (typeof window === "undefined") return;
+
+      try {
+        const key = getStorageKey();
+        const stored = localStorage.getItem(key);
+        const answers = stored ? JSON.parse(stored) : {};
+        answers[questionIndex] = answer;
+        localStorage.setItem(key, JSON.stringify(answers));
+      } catch (err) {
+        console.error("Failed to save answer to localStorage:", err);
+      }
+    },
+    [getStorageKey]
+  );
 
   // Get all answers from localStorage
-  const getAllAnswersFromStorage = useCallback((): Map<number, { questionId: string; choiceId?: string; textAnswer?: string; markedForReview?: boolean; eliminatedChoices?: string[] }> => {
+  const getAllAnswersFromStorage = useCallback((): Map<
+    number,
+    {
+      questionId: string;
+      choiceId?: string;
+      textAnswer?: string;
+      markedForReview?: boolean;
+      eliminatedChoices?: string[];
+    }
+  > => {
     if (typeof window === "undefined") return new Map();
-    
+
     try {
       const stored = localStorage.getItem(getStorageKey());
       if (!stored) return new Map();
-      
+
       const answers = JSON.parse(stored);
-      const map = new Map<number, { questionId: string; choiceId?: string; textAnswer?: string; markedForReview?: boolean; eliminatedChoices?: string[] }>();
+      const map = new Map<
+        number,
+        {
+          questionId: string;
+          choiceId?: string;
+          textAnswer?: string;
+          markedForReview?: boolean;
+          eliminatedChoices?: string[];
+        }
+      >();
       Object.keys(answers).forEach((key) => {
         map.set(parseInt(key), answers[key]);
       });
@@ -268,6 +394,87 @@ export default function TestTakingPage() {
       return new Map();
     }
   }, [getStorageKey]);
+
+  // Restore saved answer for a question index when navigating (back/next/jump)
+  const applySavedAnswerForIndex = useCallback(
+    (index: number) => {
+      const savedAnswer = getAllAnswersFromStorage().get(index);
+      if (savedAnswer) {
+        setCurrentAnswer({
+          choiceId: savedAnswer.choiceId,
+          textAnswer: savedAnswer.textAnswer,
+        });
+        if (
+          savedAnswer.eliminatedChoices &&
+          savedAnswer.eliminatedChoices.length > 0
+        ) {
+          setEliminatedChoices(new Set(savedAnswer.eliminatedChoices));
+        } else {
+          setEliminatedChoices(new Set());
+        }
+        if (savedAnswer.markedForReview) {
+          setFlaggedQuestions((prev) => {
+            const next = new Set(prev);
+            next.add(index);
+            return next;
+          });
+        } else {
+          setFlaggedQuestions((prev) => {
+            const next = new Set(prev);
+            next.delete(index);
+            return next;
+          });
+        }
+      } else {
+        setCurrentAnswer({});
+        setEliminatedChoices(new Set());
+      }
+    },
+    [getAllAnswersFromStorage]
+  );
+
+  // Persist current question answer to localStorage whenever user changes selection/text/flag/eliminations
+  // So all questions' answers are saved; user can go to any question and see/edit their answer before finishing
+  const isFlaggedCurrent = testState?.question
+    ? flaggedQuestions.has(testState.currentQuestionIndex)
+    : false;
+  useEffect(() => {
+    if (!testState?.question) return;
+    const idx = testState.currentQuestionIndex;
+    const questionId = testState.question.id;
+    const answerData = {
+      questionId,
+      choiceId: currentAnswer.choiceId,
+      textAnswer: currentAnswer.textAnswer,
+      markedForReview: isFlaggedCurrent,
+      eliminatedChoices: Array.from(eliminatedChoices),
+    };
+    saveAnswerToStorage(idx, answerData);
+    setPendingAnswers((prev) => {
+      const next = new Map(prev);
+      next.set(idx, answerData);
+      return next;
+    });
+    if (
+      currentAnswer.choiceId != null ||
+      (currentAnswer.textAnswer != null &&
+        currentAnswer.textAnswer.trim() !== "")
+    ) {
+      setAnsweredQuestions((prev) => {
+        const next = new Set(prev);
+        next.add(idx);
+        return next;
+      });
+    }
+  }, [
+    testState?.currentQuestionIndex,
+    testState?.question,
+    currentAnswer.choiceId,
+    currentAnswer.textAnswer,
+    isFlaggedCurrent,
+    eliminatedChoices,
+    saveAnswerToStorage,
+  ]);
 
   // Clear localStorage on unmount (only if test is completed)
   useEffect(() => {
@@ -334,7 +541,6 @@ export default function TestTakingPage() {
       }
     }
   }, [startCountdown]);
-
 
   async function handleEnterFullscreen() {
     try {
@@ -408,55 +614,77 @@ export default function TestTakingPage() {
     };
   }, [startCountdown]);
 
-  // DISABLED: Preloading removed to prevent rate limiting
-  // Questions will be loaded on-demand when user navigates
-  const preloadNextQuestions = useCallback(async (currentIndex: number, totalQuestions: number) => {
-    // Preloading disabled to avoid 429 errors
-    // Questions will be fetched when user actually navigates to them
-    return;
-  }, []);
+  // Keyingi savolni oldindan yuklash (silliq o‘tish) – 1.5 s dan keyin, faqat 1 ta
+  const preloadNextQuestions = useCallback(
+    (currentIndex: number, totalQuestions: number) => {
+      const nextIndex = currentIndex + 1;
+      if (nextIndex >= totalQuestions) return;
+      if (getQuestionFromLocal(nextIndex)) return; // allaqachon bor
+      if (preloadTimeoutRef.current) clearTimeout(preloadTimeoutRef.current);
+      preloadTimeoutRef.current = window.setTimeout(() => {
+        preloadTimeoutRef.current = null;
+        practiceService
+          .nextQuestion(attemptId)
+          .then((nextState) => {
+            if (nextState?.question)
+              saveQuestionToLocal(nextIndex, nextState.question);
+            return practiceService.previousQuestion(attemptId);
+          })
+          .catch(() => {});
+      }, 1500);
+    },
+    [attemptId, getQuestionFromLocal, saveQuestionToLocal]
+  );
 
   async function loadTestState() {
     try {
       setLoading(true);
       setError(""); // Clear previous errors
       const state = await practiceService.getCurrentQuestion(attemptId);
-      
+
       // Validate state structure
       if (!state) {
         setError("Invalid test state received from server");
         return;
       }
-      
+
       // Check if test requires break or is completed
       if ((state as any).requiresBreak) {
         router.push(`/dashboard/practice/test/${attemptId}/break`);
         return;
       }
-      
+
       if ((state as any).requiresFinish) {
         router.push(`/dashboard/practice/test/${attemptId}/finish`);
         return;
       }
-      
+
       if (!state.question) {
         console.error("[Test Page] No question in state:", state);
-        setError("No current question available. The test may have been completed or abandoned.");
+        setError(
+          "No current question available. The test may have been completed or abandoned."
+        );
         return;
       }
-      
+
       setTestState(state);
       setEliminatedChoices(new Set()); // Clear eliminations when loading new question
-      
+      saveQuestionToLocal(state.currentQuestionIndex, state.question);
+
       // Load saved answer for current question from localStorage
-      const savedAnswer = getAllAnswersFromStorage().get(state.currentQuestionIndex);
+      const savedAnswer = getAllAnswersFromStorage().get(
+        state.currentQuestionIndex
+      );
       if (savedAnswer) {
         setCurrentAnswer({
           choiceId: savedAnswer.choiceId,
           textAnswer: savedAnswer.textAnswer,
         });
         // Restore eliminated choices if any
-        if (savedAnswer.eliminatedChoices && savedAnswer.eliminatedChoices.length > 0) {
+        if (
+          savedAnswer.eliminatedChoices &&
+          savedAnswer.eliminatedChoices.length > 0
+        ) {
           setEliminatedChoices(new Set(savedAnswer.eliminatedChoices));
         }
         // Restore flagged status if any
@@ -470,34 +698,47 @@ export default function TestTakingPage() {
       } else {
         setCurrentAnswer({});
       }
-      
+
       // Set totalQuestions from current module if available
       if (state?.currentModule?.totalQuestions) {
-        console.log("[Test Page] Setting totalQuestions from currentModule:", state.currentModule.totalQuestions);
+        console.log(
+          "[Test Page] Setting totalQuestions from currentModule:",
+          state.currentModule.totalQuestions
+        );
         setTotalQuestions(state.currentModule.totalQuestions);
-        
+
         // Preload next 3 questions in background
-        preloadNextQuestions(state.currentQuestionIndex, state.currentModule.totalQuestions);
+        preloadNextQuestions(
+          state.currentQuestionIndex,
+          state.currentModule.totalQuestions
+        );
       } else {
-        console.warn("[Test Page] No totalQuestions in currentModule:", state.currentModule);
+        console.warn(
+          "[Test Page] No totalQuestions in currentModule:",
+          state.currentModule
+        );
       }
-      
+
       // Initialize timer if module duration is available
       if (state?.currentModule?.duration && remainingTimeSeconds === null) {
         const durationSeconds = state.currentModule.duration * 60; // Convert minutes to seconds
         setRemainingTimeSeconds(durationSeconds);
       }
-      
-      // Load answered questions only once on initial load (force)
-      loadAnsweredQuestions(state, true).catch(console.error);
+
+      // Answered questions: localStorage dan (API so‘rovsiz – kam so‘rov)
+      const stored = getAllAnswersFromStorage();
+      setAnsweredQuestions(new Set(stored.keys()));
     } catch (err) {
       console.error("[Test Page] Failed to load test state:", err);
-      const errorMessage = err instanceof Error ? err.message : "Failed to load test";
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to load test";
       setError(errorMessage);
-      
+
       // If it's a 404 or 401, provide more specific error
       if (err instanceof Error && err.message.includes("404")) {
-        setError("Test attempt not found. It may have been deleted or expired.");
+        setError(
+          "Test attempt not found. It may have been deleted or expired."
+        );
       } else if (err instanceof Error && err.message.includes("401")) {
         setError("Unauthorized. Please log in again.");
       }
@@ -506,11 +747,16 @@ export default function TestTakingPage() {
     }
   }
 
-  async function loadAnsweredQuestions(currentState?: StartTestResponse, force = false) {
+  async function loadAnsweredQuestions(
+    currentState?: StartTestResponse,
+    force = false
+  ) {
     // Throttle: don't load if called within cache duration
     const now = Date.now();
     if (!force && now - lastAnswersLoadRef.current < ANSWERS_CACHE_DURATION) {
-      console.log("[Test Page] Skipping loadAnsweredQuestions - too soon after last load");
+      console.log(
+        "[Test Page] Skipping loadAnsweredQuestions - too soon after last load"
+      );
       return;
     }
 
@@ -522,36 +768,34 @@ export default function TestTakingPage() {
       if (!answers || !Array.isArray(answers.answers)) {
         setAnsweredQuestions(new Set());
         // Use totalQuestions from answers, then currentState, then testState, then currentModule
-        const total = 
-          answers?.totalQuestions ?? 
-          state?.currentModule?.totalQuestions ?? 
-          testState?.currentModule?.totalQuestions ?? 
+        const total =
+          answers?.totalQuestions ??
+          state?.currentModule?.totalQuestions ??
+          testState?.currentModule?.totalQuestions ??
           0;
         setTotalQuestions(total);
         return;
       }
 
       const answeredSet = new Set(
-        answers.answers
-          .filter((a) => a.answered)
-          .map((a) => a.questionIndex)
+        answers.answers.filter((a) => a.answered).map((a) => a.questionIndex)
       );
       setAnsweredQuestions(answeredSet);
-      
+
       // Use totalQuestions from API response, with fallback to current module
-      const total = 
-        answers.totalQuestions ?? 
-        state?.currentModule?.totalQuestions ?? 
-        testState?.currentModule?.totalQuestions ?? 
+      const total =
+        answers.totalQuestions ??
+        state?.currentModule?.totalQuestions ??
+        testState?.currentModule?.totalQuestions ??
         0;
-      
+
       console.log("[Test Page] Setting totalQuestions from answers:", {
         fromAnswers: answers.totalQuestions,
         fromState: state?.currentModule?.totalQuestions,
         fromTestState: testState?.currentModule?.totalQuestions,
         final: total,
       });
-      
+
       setTotalQuestions(total);
     } catch (err) {
       console.error("Failed to load answered questions:", err);
@@ -582,7 +826,7 @@ export default function TestTakingPage() {
 
     const currentIndex = testState.currentQuestionIndex;
     const questionId = testState.question.id;
-    
+
     const answerData = {
       questionId,
       choiceId: currentAnswer.choiceId,
@@ -607,68 +851,51 @@ export default function TestTakingPage() {
       next.add(currentIndex);
       return next;
     });
-    
-    setCurrentAnswer({});
-    
+
+    // Do not clear currentAnswer – selection stays visible; when navigating we load from storage
     // NO SERVER REQUEST - answers will be submitted when test finishes
-  }, [testState, currentAnswer, saveAnswerToStorage, flaggedQuestions, eliminatedChoices]);
+  }, [
+    testState,
+    currentAnswer,
+    saveAnswerToStorage,
+    flaggedQuestions,
+    eliminatedChoices,
+  ]);
 
   async function handleNext() {
     if (!testState?.question) return;
 
     try {
       setSubmitting(true);
-      
+
       // Save current answer (no server request)
       handleAnswer();
-      
+
       // Clear markup when moving to next question
       setIsMarkupEnabled(false);
-      
+
       const currentIndex = testState.currentQuestionIndex;
       const nextIndex = currentIndex + 1;
-      
-      // Check if next question is in cache
-      const cachedQuestion = questionsCache.get(nextIndex);
-      
-      if (cachedQuestion && testState.currentModule) {
-        // Use cached question - instant navigation!
+
+      const localQuestion = getQuestionFromLocal(nextIndex);
+      if (localQuestion && testState.currentModule) {
         setTestState({
           ...testState,
           currentQuestionIndex: nextIndex,
-          question: cachedQuestion,
+          question: localQuestion,
         });
-        setCurrentAnswer({});
-        setEliminatedChoices(new Set());
+        applySavedAnswerForIndex(nextIndex);
         setSubmitting(false);
-        
-        // Preload next 3 questions in background
-        if (totalQuestions) {
-          preloadNextQuestions(nextIndex, totalQuestions);
-        }
+        if (totalQuestions) preloadNextQuestions(nextIndex, totalQuestions);
         return;
       }
-      
-      // If not in cache, fetch from server
+
       const nextState = await practiceService.nextQuestion(attemptId);
       setTestState(nextState);
-      
-      // Add to cache
-      if (nextState.question) {
-        setQuestionsCache((prev) => {
-          const next = new Map(prev);
-          next.set(nextIndex, nextState.question);
-          return next;
-        });
-      }
-      
-      setCurrentAnswer({});
-      setEliminatedChoices(new Set());
-      
-      // Preload next 3 questions in background
-      if (totalQuestions) {
-        preloadNextQuestions(nextIndex, totalQuestions);
-      }
+      if (nextState.question)
+        saveQuestionToLocal(nextIndex, nextState.question);
+      applySavedAnswerForIndex(nextIndex);
+      if (totalQuestions) preloadNextQuestions(nextIndex, totalQuestions);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to go to next question"
@@ -683,47 +910,33 @@ export default function TestTakingPage() {
 
     try {
       setSubmitting(true);
-      
+
       // Save current answer (no server request)
       handleAnswer();
-      
+
       // Clear markup when moving to previous question
       setIsMarkupEnabled(false);
-      
+
       const currentIndex = testState.currentQuestionIndex;
       const prevIndex = currentIndex - 1;
-      
-      // Check if previous question is in cache
-      const cachedQuestion = questionsCache.get(prevIndex);
-      
-      if (cachedQuestion && testState.currentModule) {
-        // Use cached question - instant navigation!
+
+      const localQuestion = getQuestionFromLocal(prevIndex);
+      if (localQuestion && testState.currentModule) {
         setTestState({
           ...testState,
           currentQuestionIndex: prevIndex,
-          question: cachedQuestion,
+          question: localQuestion,
         });
-        setCurrentAnswer({});
-        setEliminatedChoices(new Set());
+        applySavedAnswerForIndex(prevIndex);
         setSubmitting(false);
         return;
       }
-      
-      // If not in cache, fetch from server
+
       const prevState = await practiceService.previousQuestion(attemptId);
       setTestState(prevState);
-      
-      // Add to cache
-      if (prevState.question) {
-        setQuestionsCache((prev) => {
-          const next = new Map(prev);
-          next.set(prevIndex, prevState.question);
-          return next;
-        });
-      }
-      
-      setCurrentAnswer({});
-      setEliminatedChoices(new Set());
+      if (prevState.question)
+        saveQuestionToLocal(prevIndex, prevState.question);
+      applySavedAnswerForIndex(prevIndex);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to go to previous question"
@@ -738,54 +951,31 @@ export default function TestTakingPage() {
 
     try {
       setSubmitting(true);
-      
+
       // Save current answer (no server request)
       handleAnswer();
-      
+
       // Clear markup when jumping to another question
       setIsMarkupEnabled(false);
-      
-      // Check if question is in cache
-      const cachedQuestion = questionsCache.get(index);
-      
-      if (cachedQuestion && testState.currentModule) {
-        // Use cached question - instant navigation!
+
+      const localQuestion = getQuestionFromLocal(index);
+      if (localQuestion && testState.currentModule) {
         setTestState({
           ...testState,
           currentQuestionIndex: index,
-          question: cachedQuestion,
+          question: localQuestion,
         });
-        setCurrentAnswer({});
-        setEliminatedChoices(new Set());
+        applySavedAnswerForIndex(index);
         setSubmitting(false);
-        
-        // Preload next 3 questions in background
-        if (totalQuestions) {
-          preloadNextQuestions(index, totalQuestions);
-        }
+        if (totalQuestions) preloadNextQuestions(index, totalQuestions);
         return;
       }
-      
-      // If not in cache, fetch from server
+
       const state = await practiceService.jumpToQuestion(attemptId, index);
       setTestState(state);
-      
-      // Add to cache
-      if (state.question) {
-        setQuestionsCache((prev) => {
-          const next = new Map(prev);
-          next.set(index, state.question);
-          return next;
-        });
-      }
-      
-      setCurrentAnswer({});
-      setEliminatedChoices(new Set());
-      
-      // Preload next 3 questions in background
-      if (totalQuestions) {
-        preloadNextQuestions(index, totalQuestions);
-      }
+      if (state.question) saveQuestionToLocal(index, state.question);
+      applySavedAnswerForIndex(index);
+      if (totalQuestions) preloadNextQuestions(index, totalQuestions);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to go to selected question"
@@ -823,13 +1013,10 @@ export default function TestTakingPage() {
       setSubmitting(true);
       // Save current answer before finishing
       handleAnswer();
-      
+
       // Submit all pending answers and highlights to server before finishing section
-      await Promise.all([
-        submitAllPendingAnswers(),
-        submitAllHighlights(),
-      ]);
-      
+      await Promise.all([submitAllPendingAnswers(), submitAllHighlights()]);
+
       const result = await practiceService.finishModule(attemptId);
 
       switch (result.nextStep) {
@@ -840,21 +1027,30 @@ export default function TestTakingPage() {
         case "NEW_SECTION": {
           const nextState = await practiceService.getCurrentQuestion(attemptId);
           setTestState(nextState);
-          setCurrentAnswer({});
-          
-          // Clear cache for new module
+          if (nextState?.question)
+            saveQuestionToLocal(
+              nextState.currentQuestionIndex,
+              nextState.question
+            );
+          applySavedAnswerForIndex(nextState.currentQuestionIndex);
+
+          // Clear memory cache for new module (sessionStorage da saqlanganlar qoladi)
           setQuestionsCache(new Map());
-          
+
           // Update totalQuestions from new module
           if (nextState?.currentModule?.totalQuestions) {
             setTotalQuestions(nextState.currentModule.totalQuestions);
-            
+
             // Preload next 3 questions for new module
-            preloadNextQuestions(nextState.currentQuestionIndex, nextState.currentModule.totalQuestions);
+            preloadNextQuestions(
+              nextState.currentQuestionIndex,
+              nextState.currentModule.totalQuestions
+            );
           }
-          
-          // Force reload answered questions when module changes
-          await loadAnsweredQuestions(nextState, true);
+
+          // Answered questions: localStorage dan (API so‘rovsiz)
+          const stored = getAllAnswersFromStorage();
+          setAnsweredQuestions(new Set(stored.keys()));
           break;
         }
         case "SUBMIT_TEST":
@@ -864,9 +1060,7 @@ export default function TestTakingPage() {
           break;
       }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to finish section"
-      );
+      setError(err instanceof Error ? err.message : "Failed to finish section");
     } finally {
       setSubmitting(false);
     }
@@ -875,43 +1069,54 @@ export default function TestTakingPage() {
   // Submit all pending answers from localStorage to server (PRODUCTION-READY: Batch submission)
   const submitAllPendingAnswers = useCallback(async () => {
     const allAnswers = getAllAnswersFromStorage();
-    
+
     if (allAnswers.size === 0) {
       console.log("[Test Page] No answers to submit");
       return;
     }
 
-    console.log(`[Test Page] Submitting ${allAnswers.size} answers to server (batch mode)...`);
+    console.log(
+      `[Test Page] Submitting ${allAnswers.size} answers to server (batch mode)...`
+    );
 
     // Convert Map to Array to avoid iterator issues
     const answersArray = Array.from(allAnswers.entries());
-    
+
     // Filter out invalid answers before submission
     const validAnswers = answersArray
       .map(([questionIndex, answer]) => {
         // Get question from cache to check type
         const question = questionsCache.get(questionIndex);
-        
+
         if (!question) {
           // If question not in cache, include it (will be validated on server)
           return { questionIndex, answer };
         }
-        
+
         // Validate: MULTIPLE_CHOICE requires choiceId
         if (question.questionType === "MULTIPLE_CHOICE" && !answer.choiceId) {
-          console.warn(`[Test Page] Skipping question ${questionIndex}: MULTIPLE_CHOICE requires choiceId`);
+          console.warn(
+            `[Test Page] Skipping question ${questionIndex}: MULTIPLE_CHOICE requires choiceId`
+          );
           return null;
         }
-        
+
         // Validate: STUDENT_PRODUCED requires textAnswer
-        if (question.questionType === "STUDENT_PRODUCED" && !answer.textAnswer) {
-          console.warn(`[Test Page] Skipping question ${questionIndex}: STUDENT_PRODUCED requires textAnswer`);
+        if (
+          question.questionType === "STUDENT_PRODUCED" &&
+          !answer.textAnswer
+        ) {
+          console.warn(
+            `[Test Page] Skipping question ${questionIndex}: STUDENT_PRODUCED requires textAnswer`
+          );
           return null;
         }
-        
+
         return { questionIndex, answer };
       })
-      .filter((item): item is { questionIndex: number; answer: any } => item !== null);
+      .filter(
+        (item): item is { questionIndex: number; answer: any } => item !== null
+      );
 
     if (validAnswers.length === 0) {
       console.log("[Test Page] No valid answers to submit");
@@ -935,34 +1140,44 @@ export default function TestTakingPage() {
 
       for (let i = 0; i < batchAnswers.length; i += BATCH_SIZE) {
         const batch = batchAnswers.slice(i, i + BATCH_SIZE);
-        
+
         try {
-          const result = await practiceService.submitAnswersBatch(attemptId, batch);
+          const result = await practiceService.submitAnswersBatch(
+            attemptId,
+            batch
+          );
           successCount += result.processed;
           failCount += result.failed;
-          
+
           // Small delay between batches to avoid rate limiting
           if (i + BATCH_SIZE < batchAnswers.length) {
             await new Promise((resolve) => setTimeout(resolve, 300));
           }
         } catch (err) {
-          console.error(`[Test Page] Batch submission failed for batch ${i / BATCH_SIZE + 1}:`, err);
+          console.error(
+            `[Test Page] Batch submission failed for batch ${
+              i / BATCH_SIZE + 1
+            }:`,
+            err
+          );
           failCount += batch.length;
         }
       }
 
-      console.log(`[Test Page] Batch submission complete: ${successCount} succeeded, ${failCount} failed`);
+      console.log(
+        `[Test Page] Batch submission complete: ${successCount} succeeded, ${failCount} failed`
+      );
     } catch (err) {
       console.error("[Test Page] Batch submission error:", err);
       // Fallback: individual submission (should rarely happen)
       console.warn("[Test Page] Falling back to individual submission...");
-      
+
       let successCount = 0;
       let failCount = 0;
-      
+
       for (let i = 0; i < validAnswers.length; i++) {
         const { questionIndex, answer } = validAnswers[i];
-        
+
         try {
           await practiceService.submitAnswer(
             attemptId,
@@ -973,22 +1188,30 @@ export default function TestTakingPage() {
             answer.eliminatedChoices
           );
           successCount++;
-          
+
           // Delay between requests
           if (i < validAnswers.length - 1) {
             await new Promise((resolve) => setTimeout(resolve, 200));
           }
         } catch (err) {
-          console.error(`Failed to submit answer for question ${questionIndex}:`, err);
+          console.error(
+            `Failed to submit answer for question ${questionIndex}:`,
+            err
+          );
           failCount++;
         }
       }
-      
-      console.log(`[Test Page] Fallback submission complete: ${successCount} succeeded, ${failCount} failed`);
+
+      console.log(
+        `[Test Page] Fallback submission complete: ${successCount} succeeded, ${failCount} failed`
+      );
     }
   }, [attemptId, getAllAnswersFromStorage, questionsCache]);
 
-  function handleAnswerChange(answer: { choiceId?: string; textAnswer?: string }) {
+  function handleAnswerChange(answer: {
+    choiceId?: string;
+    textAnswer?: string;
+  }) {
     setCurrentAnswer(answer);
   }
 
@@ -1006,13 +1229,10 @@ export default function TestTakingPage() {
         setSubmitting(true);
         // Save current answer before finishing
         handleAnswer();
-        
+
         // Submit all pending answers and highlights
-        await Promise.all([
-          submitAllPendingAnswers(),
-          submitAllHighlights(),
-        ]);
-        
+        await Promise.all([submitAllPendingAnswers(), submitAllHighlights()]);
+
         // Submit test
         await practiceService.submitTest(attemptId);
         router.push(`/dashboard/practice/test/${attemptId}/finish`);
@@ -1023,16 +1243,20 @@ export default function TestTakingPage() {
         setSubmitting(false);
       }
     }
-  }, [testState, attemptId, router, submitAllPendingAnswers, submitAllHighlights, handleAnswer]);
+  }, [
+    testState,
+    attemptId,
+    router,
+    submitAllPendingAnswers,
+    submitAllHighlights,
+    handleAnswer,
+  ]);
 
   // Handle save and exit
   const handleSaveAndExit = useCallback(async () => {
     try {
       // Submit all pending answers and highlights before exiting
-      await Promise.all([
-        submitAllPendingAnswers(),
-        submitAllHighlights(),
-      ]);
+      await Promise.all([submitAllPendingAnswers(), submitAllHighlights()]);
 
       // Navigate to practice page
       router.push("/dashboard/practice");
@@ -1080,13 +1304,13 @@ export default function TestTakingPage() {
   // Close more menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (showMoreMenu && !(event.target as Element).closest('.relative')) {
+      if (showMoreMenu && !(event.target as Element).closest(".relative")) {
         setShowMoreMenu(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [showMoreMenu]);
 
@@ -1104,7 +1328,9 @@ export default function TestTakingPage() {
         <Card className="p-8 max-w-md w-full">
           <div className="text-center">
             <h2 className="text-2xl font-bold mb-4 text-red-600">Error</h2>
-            <p className="text-gray-700 mb-6">{error || "Failed to load test"}</p>
+            <p className="text-gray-700 mb-6">
+              {error || "Failed to load test"}
+            </p>
             <div className="flex gap-3">
               <Button
                 variant="outline"
@@ -1129,9 +1355,8 @@ export default function TestTakingPage() {
   }
 
   const question: Question = testState.question;
-  const totalQs =
-    totalQuestions ?? testState.currentModule.totalQuestions ?? 0;
-  
+  const totalQs = totalQuestions ?? testState.currentModule.totalQuestions ?? 0;
+
   // Debug logging
   if (totalQs === 0 || totalQs === 10) {
     console.warn("[Test Page] Suspicious totalQuestions value:", {
@@ -1142,7 +1367,7 @@ export default function TestTakingPage() {
       currentIndex: testState.currentQuestionIndex,
     });
   }
-  
+
   const isLastQuestion =
     testState.currentQuestionIndex === Math.max(0, totalQs - 1);
   const isFlagged = flaggedQuestions.has(testState.currentQuestionIndex);
@@ -1274,18 +1499,19 @@ export default function TestTakingPage() {
             </div>
           </div>
         </div>
-        
+
         <main className="flex-1 relative z-10">
-          <div 
+          <div
             className="min-h-screen flex flex-col font-noto-serif transition-all duration-300"
             style={{ fontSize: "15px", lineHeight: "24px" }}
           >
             {/* Header with dashed border */}
-            <div 
+            <div
               className="bg-white text-gray-800 p-2 flex justify-between items-center border-b border-gray-300 relative"
               style={{
                 borderBottom: "2px dashed",
-                borderImage: "repeating-linear-gradient(to right, rgb(167, 56, 87) 0%, rgb(167, 56, 87) 3.5%, transparent 3.5%, transparent 4%, rgb(249, 223, 205) 4%, rgb(249, 223, 205) 7.5%, transparent 7.5%, transparent 8%, rgb(28, 17, 103) 8%, rgb(28, 17, 103) 11.5%, transparent 11.5%, transparent 12%, rgb(94, 147, 101) 12%, rgb(94, 147, 101) 15.5%, transparent 15.5%, transparent 16%) 1 / 1 / 0 stretch"
+                borderImage:
+                  "repeating-linear-gradient(to right, rgb(167, 56, 87) 0%, rgb(167, 56, 87) 3.5%, transparent 3.5%, transparent 4%, rgb(249, 223, 205) 4%, rgb(249, 223, 205) 7.5%, transparent 7.5%, transparent 8%, rgb(28, 17, 103) 8%, rgb(28, 17, 103) 11.5%, transparent 11.5%, transparent 12%, rgb(94, 147, 101) 12%, rgb(94, 147, 101) 15.5%, transparent 15.5%, transparent 16%) 1 / 1 / 0 stretch",
               }}
             >
               <div className="pl-4">
@@ -1300,7 +1526,7 @@ export default function TestTakingPage() {
                   Directions
                 </button>
               </div>
-              
+
               {/* Timer - Centered */}
               {!isTimerHidden ? (
                 <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-2">
@@ -1310,12 +1536,18 @@ export default function TestTakingPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      if (remainingTimeSeconds !== null && remainingTimeSeconds <= 300) {
+                      if (
+                        remainingTimeSeconds !== null &&
+                        remainingTimeSeconds <= 300
+                      ) {
                         return;
                       }
                       setIsTimerHidden(true);
                     }}
-                    disabled={remainingTimeSeconds !== null && remainingTimeSeconds <= 300}
+                    disabled={
+                      remainingTimeSeconds !== null &&
+                      remainingTimeSeconds <= 300
+                    }
                     className="flex items-center justify-center text-xs text-gray-600 hover:text-blue-600 focus:outline-none rounded-md p-1 transition-colors duration-200"
                     aria-label="Hide timer"
                     title="Hide timer"
@@ -1409,11 +1641,11 @@ export default function TestTakingPage() {
             <div className="flex-1 flex flex-col h-full overflow-hidden">
               <div className="relative flex h-full">
                 {/* Left Column: Question */}
-                <div 
-                  className="content-pane" 
-                  style={{ 
-                    width: "50%", 
-                    minWidth: "20%"
+                <div
+                  className="content-pane"
+                  style={{
+                    width: "50%",
+                    minWidth: "20%",
                   }}
                 >
                   {/* Question Index Container */}
@@ -1428,7 +1660,11 @@ export default function TestTakingPage() {
                           onClick={handleToggleFlag}
                           className="flex items-center text-sm text-gray-600 hover:text-black mr-2 h-full px-2"
                         >
-                          <Flag className={`w-5 h-5 text-gray-500 ${isFlagged ? "fill-orange-500 text-orange-500" : ""}`} />
+                          <Flag
+                            className={`w-5 h-5 text-gray-500 ${
+                              isFlagged ? "fill-orange-500 text-orange-500" : ""
+                            }`}
+                          />
                           <span className="ml-1">Mark for Review</span>
                         </button>
                       </div>
@@ -1445,21 +1681,28 @@ export default function TestTakingPage() {
                             isEliminationMode ? "bg-blue-100" : ""
                           }`}
                         >
-                          <span className="text-[12px] font-medium text-gray-600">ABC</span>
+                          <span className="text-[12px] font-medium text-gray-600">
+                            ABC
+                          </span>
                           {isEliminationMode && (
-                            <svg 
-                              fill="none" 
-                              stroke="currentColor" 
-                              viewBox="0 0 24 24" 
+                            <svg
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
                               className="absolute w-8 h-8 text-gray-500"
                             >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M18 6L6 18" />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="1"
+                                d="M18 6L6 18"
+                              />
                             </svg>
                           )}
                         </button>
                       )}
                     </div>
-                    
+
                     {/* Question Text */}
                     <div className="prose max-w-none mt-2">
                       <div>
@@ -1480,7 +1723,8 @@ export default function TestTakingPage() {
                               saveHighlightsToStorage(question.id, highlights);
                             } else {
                               // Remove highlights for this question if empty
-                              const allHighlights = getAllHighlightsFromStorage();
+                              const allHighlights =
+                                getAllHighlightsFromStorage();
                               allHighlights.delete(question.id);
                               if (typeof window !== "undefined") {
                                 try {
@@ -1488,9 +1732,15 @@ export default function TestTakingPage() {
                                   allHighlights.forEach((value, key) => {
                                     highlightsObj[key] = value;
                                   });
-                                  localStorage.setItem(getHighlightsStorageKey(), JSON.stringify(highlightsObj));
+                                  localStorage.setItem(
+                                    getHighlightsStorageKey(),
+                                    JSON.stringify(highlightsObj)
+                                  );
                                 } catch (err) {
-                                  console.error("Failed to save highlights to localStorage:", err);
+                                  console.error(
+                                    "Failed to save highlights to localStorage:",
+                                    err
+                                  );
                                 }
                               }
                             }
@@ -1499,20 +1749,19 @@ export default function TestTakingPage() {
                       </div>
                     </div>
                   </div>
-                  
                 </div>
-                
+
                 {/* Resizable Divider */}
                 <div className="divider" style={{ left: "50%" }}></div>
-                
+
                 {/* Right Column: Passage + Choices */}
-                <div 
-                  className="content-pane" 
-                  style={{ 
-                    width: "calc(50% - 5px)", 
-                    minWidth: "20%", 
-                    position: "relative", 
-                    left: "5px" 
+                <div
+                  className="content-pane"
+                  style={{
+                    width: "calc(50% - 5px)",
+                    minWidth: "20%",
+                    position: "relative",
+                    left: "5px",
                   }}
                 >
                   {/* Passage */}
@@ -1537,60 +1786,76 @@ export default function TestTakingPage() {
                       ) : null}
                     </div>
                   </div>
-                  
-                  {/* Choices */}
-                  {question.questionType === "MULTIPLE_CHOICE" && question.choices && question.choices.length > 0 && (
-                    <div className="space-y-2">
-                      {question.choices.map((choice, index) => {
-                        const isSelected = currentAnswer.choiceId === choice.id;
-                        const letter = String.fromCharCode(65 + index);
-                        const isEliminated = eliminatedChoices.has(choice.id);
 
-                        return (
-                          <div key={choice.id || index} className="relative flex items-center w-full mb-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (isEliminationMode) {
-                                  setEliminatedChoices((prev) => {
-                                    const next = new Set(prev);
-                                    if (next.has(choice.id)) {
-                                      next.delete(choice.id);
-                                    } else {
-                                      next.add(choice.id);
-                                    }
-                                    return next;
-                                  });
-                                } else {
-                                  handleAnswerChange({
-                                    choiceId: choice.id,
-                                    textAnswer: currentAnswer.textAnswer,
-                                  });
-                                }
-                              }}
-                              className={`w-full p-3 text-left border-2 rounded-lg text-base flex items-center gap-3 ${
-                                isSelected
-                                  ? "border-black"
-                                  : isEliminated
-                                  ? "border-gray-300 bg-gray-100 opacity-60"
-                                  : "border-gray-200 hover:bg-gray-200 cursor-pointer"
-                              }`}
+                  {/* Choices */}
+                  {question.questionType === "MULTIPLE_CHOICE" &&
+                    question.choices &&
+                    question.choices.length > 0 && (
+                      <div className="space-y-2">
+                        {question.choices.map((choice, index) => {
+                          const isSelected =
+                            currentAnswer.choiceId === choice.id;
+                          const letter = String.fromCharCode(65 + index);
+                          const isEliminated = eliminatedChoices.has(choice.id);
+
+                          return (
+                            <div
+                              key={choice.id || index}
+                              className="relative flex items-center w-full mb-2"
                             >
-                              <div className={`flex items-center justify-center w-6 h-6 rounded-full font-bold border border-black ${
-                                isSelected ? "bg-black text-white" : "text-black"
-                              }`}>
-                                <span className="text-xs">{letter}</span>
-                              </div>
-                              <div className={`flex-1 ${isEliminated ? "line-through text-gray-500" : ""}`}>
-                                {choice.choiceText || `Choice ${letter}`}
-                              </div>
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (isEliminationMode) {
+                                    setEliminatedChoices((prev) => {
+                                      const next = new Set(prev);
+                                      if (next.has(choice.id)) {
+                                        next.delete(choice.id);
+                                      } else {
+                                        next.add(choice.id);
+                                      }
+                                      return next;
+                                    });
+                                  } else {
+                                    handleAnswerChange({
+                                      choiceId: choice.id,
+                                      textAnswer: currentAnswer.textAnswer,
+                                    });
+                                  }
+                                }}
+                                className={`w-full p-3 text-left border-2 rounded-lg text-base flex items-center gap-3 ${
+                                  isSelected
+                                    ? "border-black"
+                                    : isEliminated
+                                    ? "border-gray-300 bg-gray-100 opacity-60"
+                                    : "border-gray-200 hover:bg-gray-200 cursor-pointer"
+                                }`}
+                              >
+                                <div
+                                  className={`flex items-center justify-center w-6 h-6 rounded-full font-bold border border-black ${
+                                    isSelected
+                                      ? "bg-black text-white"
+                                      : "text-black"
+                                  }`}
+                                >
+                                  <span className="text-xs">{letter}</span>
+                                </div>
+                                <div
+                                  className={`flex-1 ${
+                                    isEliminated
+                                      ? "line-through text-gray-500"
+                                      : ""
+                                  }`}
+                                >
+                                  {choice.choiceText || `Choice ${letter}`}
+                                </div>
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
                   {question.questionType === "STUDENT_PRODUCED" && (
                     <div className="space-y-4">
                       <input
@@ -1611,24 +1876,38 @@ export default function TestTakingPage() {
                 </div>
               </div>
             </div>
-            
+
             {/* Footer with dashed border */}
-            <div 
+            <div
               className="bg-blue-100 p-2 flex justify-between items-center"
               style={{
                 borderTop: "2px dashed",
                 backgroundColor: "rgb(229, 235, 245)",
-                borderImage: "repeating-linear-gradient(to right, rgb(167, 56, 87) 0%, rgb(167, 56, 87) 3.5%, transparent 3.5%, transparent 4%, rgb(249, 223, 205) 4%, rgb(249, 223, 205) 7.5%, transparent 7.5%, transparent 8%, rgb(28, 17, 103) 8%, rgb(28, 17, 103) 11.5%, transparent 11.5%, transparent 12%, rgb(94, 147, 101) 12%, rgb(94, 147, 101) 15.5%, transparent 15.5%, transparent 16%) 1 / 1 / 0 stretch"
+                borderImage:
+                  "repeating-linear-gradient(to right, rgb(167, 56, 87) 0%, rgb(167, 56, 87) 3.5%, transparent 3.5%, transparent 4%, rgb(249, 223, 205) 4%, rgb(249, 223, 205) 7.5%, transparent 7.5%, transparent 8%, rgb(28, 17, 103) 8%, rgb(28, 17, 103) 11.5%, transparent 11.5%, transparent 12%, rgb(94, 147, 101) 12%, rgb(94, 147, 101) 15.5%, transparent 15.5%, transparent 16%) 1 / 1 / 0 stretch",
               }}
             >
-              <p>{currentUser?.name || currentUser?.email?.split("@")[0] || "User"}</p>
-              <div 
+              <p>
+                {currentUser?.name ||
+                  currentUser?.email?.split("@")[0] ||
+                  "User"}
+              </p>
+              <div
                 className="bg-black text-white p-2 flex items-center gap-2 rounded-xl cursor-pointer"
-                style={{ position: "absolute", left: "50%", transform: "translateX(-50%)" }}
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                }}
                 onClick={() => setShowNavigator((prev) => !prev)}
               >
-                <p className="text-white">Question {testState.currentQuestionIndex + 1} of {totalQs}</p>
-                <button className="p-1 rounded" style={{ pointerEvents: "none" }}>
+                <p className="text-white">
+                  Question {testState.currentQuestionIndex + 1} of {totalQs}
+                </p>
+                <button
+                  className="p-1 rounded"
+                  style={{ pointerEvents: "none" }}
+                >
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
@@ -1638,10 +1917,10 @@ export default function TestTakingPage() {
                   onClick={handlePrevious}
                   disabled={testState.currentQuestionIndex === 0 || submitting}
                   className="px-4 py-2 text-white transition-opacity duration-200 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ 
-                    backgroundColor: "rgb(51, 76, 199)", 
+                  style={{
+                    backgroundColor: "rgb(51, 76, 199)",
                     borderRadius: "30px",
-                    opacity: testState.currentQuestionIndex === 0 ? 0.5 : 1
+                    opacity: testState.currentQuestionIndex === 0 ? 0.5 : 1,
                   }}
                 >
                   Back
@@ -1651,7 +1930,10 @@ export default function TestTakingPage() {
                     onClick={handleNext}
                     disabled={submitting}
                     className="px-4 py-2 text-white transition-opacity duration-200 rounded-md cursor-pointer"
-                    style={{ backgroundColor: "rgb(51, 76, 199)", borderRadius: "30px" }}
+                    style={{
+                      backgroundColor: "rgb(51, 76, 199)",
+                      borderRadius: "30px",
+                    }}
                   >
                     Next
                   </Button>
@@ -1660,7 +1942,10 @@ export default function TestTakingPage() {
                     onClick={handleFinishSection}
                     disabled={submitting}
                     className="px-4 py-2 text-white transition-opacity duration-200 rounded-md cursor-pointer"
-                    style={{ backgroundColor: "rgb(51, 76, 199)", borderRadius: "30px" }}
+                    style={{
+                      backgroundColor: "rgb(51, 76, 199)",
+                      borderRadius: "30px",
+                    }}
                   >
                     Finish Section
                   </Button>
@@ -1680,7 +1965,13 @@ export default function TestTakingPage() {
           flaggedSet={flaggedQuestions}
           onJump={handleJumpToQuestion}
           onClose={() => setShowNavigator(false)}
-          sectionTitle={`Section ${testState.currentSection.orderIndex + 1}, Module ${testState.currentModule.moduleNumber}: ${testState.currentSection.type === "ENGLISH" ? "Reading and Writing" : "Math"} Questions`}
+          sectionTitle={`Section ${
+            testState.currentSection.orderIndex + 1
+          }, Module ${testState.currentModule.moduleNumber}: ${
+            testState.currentSection.type === "ENGLISH"
+              ? "Reading and Writing"
+              : "Math"
+          } Questions`}
         />
       )}
 
@@ -1688,7 +1979,7 @@ export default function TestTakingPage() {
       {showNotesModal && (
         <>
           {/* Backdrop */}
-          <div 
+          <div
             className="fixed inset-0 bg-black/20 z-40"
             onClick={() => setShowNotesModal(false)}
           />
@@ -1708,12 +1999,14 @@ export default function TestTakingPage() {
                 <X className="w-5 h-5 text-gray-600" />
               </button>
             </div>
-            
+
             {/* Existing Notes Display */}
             <div className="flex-1 overflow-y-auto p-4">
               {questionNotes.has(testState.currentQuestionIndex) ? (
                 <div className="mb-4">
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">Your Notes:</h3>
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">
+                    Your Notes:
+                  </h3>
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap">
                     {questionNotes.get(testState.currentQuestionIndex)}
                   </div>
@@ -1737,10 +2030,12 @@ export default function TestTakingPage() {
                 </div>
               )}
             </div>
-            
+
             {/* Add Note Section */}
             <div className="border-t border-gray-200 p-4 bg-gray-50">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Add Note:</h3>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">
+                Add Note:
+              </h3>
               <textarea
                 value={newNoteText}
                 onChange={(e) => setNewNoteText(e.target.value)}
@@ -1767,5 +2062,3 @@ export default function TestTakingPage() {
     </div>
   );
 }
-
-

@@ -30,8 +30,9 @@ export const API_ENDPOINTS = {
     detail: (id: string) => `/users/${id}`,
   },
   exams: {
-    /** Backend: ro'yxat GET, qo'shish POST. To'g'ri yo'l backend API da qanday ekanligiga qarab o'zgartiring. */
-    dates: "/exam-dates",
+    // Backend exam dates API (GET list, POST add)
+    // Hozirgi backend route: /exams/dates
+    dates: "/exams/dates",
     select: "/exams/select",
   },
   scoring: {
@@ -49,6 +50,7 @@ export const API_ENDPOINTS = {
   },
   reference: {
     mathFormulas: "/reference/math-formulas",
-    mathFormulasByCategory: (category: string) => `/reference/math-formulas/${category}`,
+    mathFormulasByCategory: (category: string) =>
+      `/reference/math-formulas/${category}`,
   },
 } as const;
