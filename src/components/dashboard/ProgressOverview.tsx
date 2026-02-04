@@ -48,7 +48,7 @@ export function ProgressOverview() {
   const [isLoadingExamDates, setIsLoadingExamDates] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [progressStats, setProgressStats] = useState<ProgressStats | null>(
-    null,
+    null
   );
   const [isLoadingProgress, setIsLoadingProgress] = useState(true);
 
@@ -100,7 +100,8 @@ export function ProgressOverview() {
 
         const [user, datesRes] = await Promise.all([
           authService.getCurrentUser(),
-          fetch("/api/exams/dates", { method: "GET", credentials: "include" }),
+          // Faqat backenddan kelgan oxirgi exam datelar
+          fetch("/api/exam-dates", { method: "GET", credentials: "include" }),
         ]);
 
         // Target score va exam date profil dan (PATCH /auth/profile orqali saqlangan)
@@ -117,9 +118,8 @@ export function ProgressOverview() {
         let datesList: ExamDate[] = [];
         if (datesRes.ok) {
           const data = await datesRes.json();
-          datesList = Array.isArray(data)
-            ? data
-            : data.dates || data.data || [];
+          // /api/exam-dates to'g'ridan-to'g'ri massiv qaytaradi
+          datesList = Array.isArray(data) ? data : [];
         }
         setAvailableExamDates(datesList);
 
@@ -162,7 +162,7 @@ export function ProgressOverview() {
       const diff = target.getTime() - now.getTime();
       const days = Math.floor(diff / (1000 * 60 * 60 * 24));
       const hours = Math.floor(
-        (diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
+        (diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
       );
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((diff % (1000 * 60)) / 1000);
@@ -204,7 +204,7 @@ export function ProgressOverview() {
       setError(
         err instanceof Error
           ? err.message
-          : "Failed to save target score. Please try again.",
+          : "Failed to save target score. Please try again."
       );
     } finally {
       setIsLoading(false);
