@@ -30,7 +30,8 @@ export default function AdminExamDatesPage() {
     try {
       setLoading(true);
       setError("");
-      const res = await fetch("/api/admin/exam-dates", {
+      // Backend: GET /exams/dates -> proxy: /api/exam-dates
+      const res = await fetch("/api/exam-dates", {
         method: "GET",
         credentials: "include",
       });
@@ -59,11 +60,13 @@ export default function AdminExamDatesPage() {
     setError("");
     setSuccess("");
     try {
-      const res = await fetch("/api/admin/exam-dates", {
+      // No /admin prefix: POST /api/exam-dates -> backend /exams/dates
+      const res = await fetch("/api/exam-dates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ date: dateStr, label: dateStr }),
+        // Backend faqat { date } qabul qiladi
+        body: JSON.stringify({ date: dateStr }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to add");
@@ -99,14 +102,19 @@ export default function AdminExamDatesPage() {
     setError("");
     setSuccess("");
     try {
-      const res = await fetch(`/api/admin/exam-dates/${encodeURIComponent(editingId)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ date: dateStr, label: dateStr }),
-      });
+      const res = await fetch(
+        `/api/admin/exam-dates/${encodeURIComponent(editingId)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          // Lokal faylda ham faqat sana kerak
+          body: JSON.stringify({ date: dateStr }),
+        }
+      );
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Tahrirlash muvaffaqiyatsiz");
+      if (!res.ok)
+        throw new Error(data.message || "Tahrirlash muvaffaqiyatsiz");
       setSuccess("Sana yangilandi.");
       setEditingId(null);
       setEditDate("");
@@ -119,14 +127,18 @@ export default function AdminExamDatesPage() {
   }
 
   async function handleDelete(d: ExamDateItem) {
-    if (!confirm(`"${d.label || d.date}" sanasini o‘chirishni xohlaysizmi?`)) return;
+    if (!confirm(`"${d.label || d.date}" sanasini o‘chirishni xohlaysizmi?`))
+      return;
     setDeletingId(d.id);
     setError("");
     try {
-      const res = await fetch(`/api/admin/exam-dates/${encodeURIComponent(d.id)}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
+      const res = await fetch(
+        `/api/admin/exam-dates/${encodeURIComponent(d.id)}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.message || "O‘chirish muvaffaqiyatsiz");
@@ -146,7 +158,8 @@ export default function AdminExamDatesPage() {
         <div>
           <h2 className="text-3xl font-bold text-gray-900">Exam Dates</h2>
           <p className="text-gray-600 mt-1">
-            Add exam dates here. They will appear in the dashboard select for users.
+            Add exam dates here. They will appear in the dashboard select for
+            users.
           </p>
         </div>
         <Button variant="outline" onClick={() => router.push("/admin")}>
@@ -189,7 +202,9 @@ export default function AdminExamDatesPage() {
       </Card>
 
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Available exam dates</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          Available exam dates
+        </h3>
         {loading ? (
           <p className="text-gray-500">Loading...</p>
         ) : dates.length === 0 ? (
@@ -212,10 +227,19 @@ export default function AdminExamDatesPage() {
                       />
                     </div>
                     <div className="flex gap-2">
-                      <Button size="sm" onClick={handleSaveEdit} disabled={saving}>
+                      <Button
+                        size="sm"
+                        onClick={handleSaveEdit}
+                        disabled={saving}
+                      >
                         {saving ? "..." : "Saqlash"}
                       </Button>
-                      <Button size="sm" variant="outline" onClick={cancelEdit} disabled={saving}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={cancelEdit}
+                        disabled={saving}
+                      >
                         Bekor
                       </Button>
                     </div>
@@ -223,8 +247,10 @@ export default function AdminExamDatesPage() {
                 ) : (
                   <>
                     <div className="flex items-center gap-4">
-                      <span className="font-medium text-gray-900">{d.date}</span>
-                      <span className="text-gray-600">{d.label || d.date}</span>
+                      <span className="font-medium text-gray-900">
+                        {/* Faqat sana (YYYY-MM-DD), vaqtsiz */}
+                        {d.date.slice(0, 10)}
+                      </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Button
@@ -257,4 +283,3 @@ export default function AdminExamDatesPage() {
     </div>
   );
 }
-
