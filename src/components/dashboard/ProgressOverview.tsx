@@ -153,6 +153,12 @@ export function ProgressOverview() {
       const now = new Date();
       const target = new Date(examDate + "T00:00:00");
 
+      // Agar examDate noto'g'ri bo'lsa (Invalid Date) → NaN bo'lmasin
+      if (Number.isNaN(target.getTime())) {
+        setCountdown(null);
+        return;
+      }
+
       // If exam date is in the past, show 0
       if (target <= now) {
         setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });

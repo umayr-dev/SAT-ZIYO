@@ -7,6 +7,25 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { API_CONFIG, API_ENDPOINTS } from "@/src/config/api";
+import { promises as fs } from "fs";
+import path from "path";
+
+const DATA_FILE = path.join(process.cwd(), "data", "exam-dates.json");
+
+interface StoredData {
+  dates?: { id: string; date: string; label?: string }[];
+  deletedIds?: string[];
+}
+
+async function getDeletedIds(): Promise<string[]> {
+  try {
+    const raw = await fs.readFile(DATA_FILE, "utf-8");
+    const data: StoredData = JSON.parse(raw);
+    return Array.isArray(data.deletedIds) ? data.deletedIds : [];
+  } catch {
+    return [];
+  }
+}
 
 function getToken(request: NextRequest): string | null {
   const cookieToken = request.cookies.get("token")?.value || null;
@@ -61,7 +80,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(body, { status: 200 });
+    // Backend datelaridan faqat o'chirilmaganlarini qaytaramiz
+    const deletedIds = await getDeletedIds();
+    const list: any[] = Array.isArray(body)
+      ? body
+      : body?.dates || body?.data || [];
+    const filtered = deletedIds.length
+      ? list.filter((d) => !deletedIds.includes(String(d.id ?? d.date)))
+      : list;
+
+    return NextResponse.json(filtered, { status: 200 });
   } catch (err) {
     console.error("[ExamDates] GET error:", err);
     return NextResponse.json(
