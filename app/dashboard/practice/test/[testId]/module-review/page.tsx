@@ -22,7 +22,7 @@ export default function ModuleReviewPage() {
   const attemptId = params.testId as string;
 
   const section = searchParams.get("section");
-  const module = searchParams.get("module");
+  const moduleParam = searchParams.get("module");
   const type = searchParams.get("type") as "ENGLISH" | "MATH" | null;
   const totalParam = searchParams.get("total");
   const totalQuestions = useMemo(
@@ -170,7 +170,7 @@ export default function ModuleReviewPage() {
             Module Complete! 🎉
           </h1>
           <p className="text-gray-600">
-            Section {section || "?"}, Module {module || "?"}
+            Section {section || "?"}, Module {moduleParam || "?"}
             {type
               ? ` · ${type === "ENGLISH" ? "Reading & Writing" : "Math"}`
               : ""}
