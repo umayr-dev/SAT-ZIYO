@@ -41,6 +41,8 @@ import {
 import { useCurrentUser } from "@/src/hooks/use-auth";
 import { debounce } from "@/src/utils/request-queue";
 
+const QUESTIONS_PER_MODULE = { ENGLISH: 27, MATH: 22 } as const;
+
 export default function TestTakingPage() {
   const router = useRouter();
   const params = useParams();
@@ -137,8 +139,8 @@ export default function TestTakingPage() {
   const loadAnswersTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastAnswersLoadRef = useRef<number>(0);
   const ANSWERS_CACHE_DURATION = 15000; // 15 sec – kam so‘rov uchun
-  // Browser setTimeout returns number; track that here
   const preloadTimeoutRef = useRef<number | null>(null);
+  const preloadInFlightRef = useRef<boolean>(false);
 
   // Resizable 2-column layout state
   const [splitPosition, setSplitPosition] = useState(50); // percentage for left pane
@@ -559,6 +561,15 @@ export default function TestTakingPage() {
     try {
       await practiceService.abandonAttempt(attemptId);
     } catch (err) {
+      // Attempt already completed/abandoned – redirect without error
+      if (
+        err instanceof ApiClientError &&
+        err.status === 400 &&
+        /not in progress/i.test(err.message ?? "")
+      ) {
+        router.push("/dashboard/practice");
+        return;
+      }
       console.error("Failed to abandon attempt:", err);
     }
     router.push("/dashboard/practice");
@@ -676,26 +687,32 @@ export default function TestTakingPage() {
     };
   }, [startCountdown]);
 
-  // Keyingi savolni oldindan yuklash (silliq o‘tish) – 1.5 s dan keyin, faqat 1 ta
+  // Keyingi savolni oldindan yuklash – bitta preload ishlaydi, 429 kamayadi
   const preloadNextQuestions = useCallback(
     (currentIndex: number, totalQuestions: number) => {
       const nextIndex = currentIndex + 1;
       if (nextIndex >= totalQuestions) return;
-      if (getQuestionFromLocal(nextIndex)) return; // allaqachon bor
+      if (getQuestionFromLocal(nextIndex)) return;
+      if (preloadInFlightRef.current) return;
       if (preloadTimeoutRef.current !== null) {
         window.clearTimeout(preloadTimeoutRef.current);
       }
       preloadTimeoutRef.current = window.setTimeout(() => {
         preloadTimeoutRef.current = null;
+        if (preloadInFlightRef.current) return;
+        preloadInFlightRef.current = true;
         practiceService
-          .nextQuestion(attemptId)
+          .jumpToQuestion(attemptId, nextIndex)
           .then((nextState) => {
             if (nextState?.question)
               saveQuestionToLocal(nextIndex, nextState.question);
-            return practiceService.previousQuestion(attemptId);
+            return practiceService.jumpToQuestion(attemptId, currentIndex);
           })
-          .catch(() => {});
-      }, 1500);
+          .catch(() => {})
+          .finally(() => {
+            preloadInFlightRef.current = false;
+          });
+      }, 2500);
     },
     [attemptId, getQuestionFromLocal, saveQuestionToLocal]
   );
@@ -763,19 +780,14 @@ export default function TestTakingPage() {
         setCurrentAnswer({});
       }
 
-      // Set totalQuestions from current module if available
+      // Set totalQuestions from current module, capped to SAT standard (27/22) so navigation and goto stay correct
       if (state?.currentModule?.totalQuestions) {
-        console.log(
-          "[Test Page] Setting totalQuestions from currentModule:",
-          state.currentModule.totalQuestions
-        );
-        setTotalQuestions(state.currentModule.totalQuestions);
+        const sectionType = state.currentSection?.type ?? "ENGLISH";
+        const cap = QUESTIONS_PER_MODULE[sectionType] ?? 27;
+        const total = Math.min(state.currentModule.totalQuestions, cap);
+        setTotalQuestions(total);
 
-        // Preload next 3 questions in background
-        preloadNextQuestions(
-          state.currentQuestionIndex,
-          state.currentModule.totalQuestions
-        );
+        preloadNextQuestions(state.currentQuestionIndex, total);
       } else {
         console.warn(
           "[Test Page] No totalQuestions in currentModule:",
@@ -831,13 +843,14 @@ export default function TestTakingPage() {
 
       if (!answers || !Array.isArray(answers.answers)) {
         setAnsweredQuestions(new Set());
-        // Use totalQuestions from answers, then currentState, then testState, then currentModule
-        const total =
-          answers?.totalQuestions ??
+        const raw =
           state?.currentModule?.totalQuestions ??
           testState?.currentModule?.totalQuestions ??
+          answers?.totalQuestions ??
           0;
-        setTotalQuestions(total);
+        const sectionType = state?.currentSection?.type ?? testState?.currentSection?.type ?? "ENGLISH";
+        const cap = QUESTIONS_PER_MODULE[sectionType] ?? 27;
+        setTotalQuestions(Math.min(raw, cap));
         return;
       }
 
@@ -846,27 +859,21 @@ export default function TestTakingPage() {
       );
       setAnsweredQuestions(answeredSet);
 
-      // Use totalQuestions from API response, with fallback to current module
-      const total =
-        answers.totalQuestions ??
+      const raw =
         state?.currentModule?.totalQuestions ??
         testState?.currentModule?.totalQuestions ??
+        answers?.totalQuestions ??
         0;
-
-      console.log("[Test Page] Setting totalQuestions from answers:", {
-        fromAnswers: answers.totalQuestions,
-        fromState: state?.currentModule?.totalQuestions,
-        fromTestState: testState?.currentModule?.totalQuestions,
-        final: total,
-      });
-
-      setTotalQuestions(total);
+      const sectionType = state?.currentSection?.type ?? testState?.currentSection?.type ?? "ENGLISH";
+      const cap = QUESTIONS_PER_MODULE[sectionType] ?? 27;
+      setTotalQuestions(Math.min(raw, cap));
     } catch (err) {
       console.error("Failed to load answered questions:", err);
-      // On error, still try to set totalQuestions from state
       const state = currentState || testState;
       if (state?.currentModule?.totalQuestions) {
-        setTotalQuestions(state.currentModule.totalQuestions);
+        const sectionType = state.currentSection?.type ?? "ENGLISH";
+        const cap = QUESTIONS_PER_MODULE[sectionType] ?? 27;
+        setTotalQuestions(Math.min(state.currentModule.totalQuestions, cap));
       }
     }
   }
@@ -943,17 +950,19 @@ export default function TestTakingPage() {
   async function handleNext() {
     if (!testState?.question) return;
 
+    const currentIndex = testState.currentQuestionIndex;
+    const nextIndex = currentIndex + 1;
+    const cap = totalQuestions ?? QUESTIONS_PER_MODULE[testState.currentSection?.type ?? "ENGLISH"] ?? 27;
+    if (nextIndex >= cap) {
+      handleGoToModuleReview();
+      return;
+    }
+
     try {
       setSubmitting(true);
 
-      // Save current answer (no server request)
       handleAnswer();
-
-      // Clear markup when moving to next question
       setIsMarkupEnabled(false);
-
-      const currentIndex = testState.currentQuestionIndex;
-      const nextIndex = currentIndex + 1;
 
       const localQuestion = getQuestionFromLocal(nextIndex);
       if (localQuestion && testState.currentModule) {
@@ -968,7 +977,10 @@ export default function TestTakingPage() {
         return;
       }
 
-      const nextState = await practiceService.nextQuestion(attemptId);
+      const nextState = await practiceService.jumpToQuestion(
+        attemptId,
+        nextIndex
+      );
       setTestState(nextState);
       if (nextState.question)
         saveQuestionToLocal(nextIndex, nextState.question);
@@ -1010,7 +1022,10 @@ export default function TestTakingPage() {
         return;
       }
 
-      const prevState = await practiceService.previousQuestion(attemptId);
+      const prevState = await practiceService.jumpToQuestion(
+        attemptId,
+        prevIndex
+      );
       setTestState(prevState);
       if (prevState.question)
         saveQuestionToLocal(prevIndex, prevState.question);
@@ -1027,13 +1042,13 @@ export default function TestTakingPage() {
   async function handleJumpToQuestion(index: number) {
     if (!testState?.question) return;
 
+    const cap = totalQuestions ?? QUESTIONS_PER_MODULE[testState.currentSection?.type ?? "ENGLISH"] ?? 27;
+    if (index < 0 || index >= cap) return;
+
     try {
       setSubmitting(true);
 
-      // Save current answer (no server request)
       handleAnswer();
-
-      // Clear markup when jumping to another question
       setIsMarkupEnabled(false);
 
       const localQuestion = getQuestionFromLocal(index);
@@ -1404,18 +1419,10 @@ export default function TestTakingPage() {
   }
 
   const question: Question = testState.question;
-  const totalQs = totalQuestions ?? testState.currentModule.totalQuestions ?? 0;
-
-  // Debug logging
-  if (totalQs === 0 || totalQs === 10) {
-    console.warn("[Test Page] Suspicious totalQuestions value:", {
-      totalQs,
-      totalQuestions,
-      currentModuleTotal: testState.currentModule.totalQuestions,
-      currentModule: testState.currentModule,
-      currentIndex: testState.currentQuestionIndex,
-    });
-  }
+  const sectionType = testState.currentSection?.type ?? "ENGLISH";
+  const cap = QUESTIONS_PER_MODULE[sectionType] ?? 27;
+  const rawTotal = totalQuestions ?? testState.currentModule?.totalQuestions ?? 0;
+  const totalQs = Math.min(rawTotal, cap);
 
   const isLastQuestion =
     testState.currentQuestionIndex === Math.max(0, totalQs - 1);

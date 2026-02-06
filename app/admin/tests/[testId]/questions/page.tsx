@@ -384,16 +384,19 @@ export default function TestQuestionsPage() {
       const m = modules[idx];
       const raw = moduleSources[idx];
       const questions: any[] = raw?.questions ?? [];
-      const count =
-        m.questionCount ?? QUESTIONS_PER_MODULE[m.sectionType] ?? 27;
-      const slots: QuestionSlot[] = [];
-      for (let i = 0; i < count; i++) {
-        if (questions[i]) {
-          slots.push(apiQuestionToSlot(questions[i]));
-        } else {
-          slots.push(emptySlot());
+      const count = QUESTIONS_PER_MODULE[m.sectionType] ?? 27;
+      const slots: QuestionSlot[] = Array.from({ length: count }, () =>
+        emptySlot(),
+      );
+      (questions ?? []).forEach((q: Record<string, unknown>) => {
+        const orderIndex =
+          typeof (q as { orderIndex?: number }).orderIndex === "number"
+            ? (q as { orderIndex: number }).orderIndex
+            : 0;
+        if (orderIndex >= 0 && orderIndex < count) {
+          slots[orderIndex] = apiQuestionToSlot(q as Parameters<typeof apiQuestionToSlot>[0]);
         }
-      }
+      });
       next[m.moduleId] = slots;
     }
     setDrafts(next);
@@ -417,11 +420,14 @@ export default function TestQuestionsPage() {
     for (const m of testInfo.modules) {
       const mid = m.moduleId;
       const list = drafts[mid] ?? [];
-      const newSlots = list.filter(
-        (slot) =>
-          !slot.questionId && (slot.questionText ?? "").trim().length > 0,
-      );
-      const questions = newSlots.map((slot, i) => slotToQuestionInput(slot, i));
+      // orderIndex = slot index (0..26/22) so tartib raqami almashmasin
+      const questions = list
+        .map((slot, index) => ({ slot, index }))
+        .filter(
+          ({ slot }) =>
+            !slot.questionId && (slot.questionText ?? "").trim().length > 0,
+        )
+        .map(({ slot, index }) => slotToQuestionInput(slot, index));
       if (questions.length > 0) modules.push({ moduleId: mid, questions });
     }
     return modules.length > 0 ? { modules } : null;
@@ -455,19 +461,11 @@ export default function TestQuestionsPage() {
     );
     let sent = 0;
     try {
-      for (const mod of payload.modules) {
-        const { moduleId, questions } = mod;
-        for (let i = 0; i < questions.length; i++) {
-          setSubmitProgress({ current: sent + 1, total: totalToSend });
-          const q = {
-            ...questions[i],
-            orderIndex: questions[i].orderIndex ?? i,
-          };
-          await adminTestService.addQuestionToModule(moduleId, q);
-          sent++;
-          if (sent < totalToSend) await new Promise((r) => setTimeout(r, 600));
-        }
-      }
+      // Bulk: bitta so'rovda barcha savollarni yuborish — 429 va Too Many Request bo'lmasin
+      setSubmitProgress({ current: 0, total: totalToSend });
+      const result = await adminTestService.submitAllQuestions(testId, payload);
+      sent = result?.totalAdded ?? totalToSend;
+      setSubmitProgress({ current: sent, total: totalToSend });
       setSuccess(
         sent === 1
           ? "1 ta savol qo'shildi. Rasm backend (GCS) da saqlanadi — barcha qurilmalarda ko'rinadi."
@@ -477,18 +475,56 @@ export default function TestQuestionsPage() {
       void refetch();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Saqlash xatosi";
-      const isStorage500 =
-        msg.includes("upload image to storage") ||
-        msg.includes("500") ||
-        msg.includes("Failed to upload");
-      const hint = isStorage500
-        ? " Backend (GCS) sozlamalarini va loglarni tekshiring — api.satziyo.uz."
-        : "";
-      setError(
-        sent > 0
-          ? `${sent} ta saqlandi. Keyingi savol xato: ${msg}${hint}`
-          : `${msg}${hint}`,
-      );
+      const isBulkUnavailable =
+        msg.includes("Bulk add failed") ||
+        msg.includes("404") ||
+        msg.includes("Not Found");
+      if (isBulkUnavailable && totalToSend > 0) {
+        // Fallback: 1 ta 1 ta yuborish, lekin batch va delay bilan (429 kamayadi)
+        const BATCH_SIZE = 5;
+        const DELAY_MS = 400;
+        try {
+          for (const mod of payload.modules) {
+            const { moduleId, questions } = mod;
+            for (let i = 0; i < questions.length; i++) {
+              setSubmitProgress({ current: sent + 1, total: totalToSend });
+              await adminTestService.addQuestionToModule(moduleId, questions[i]);
+              sent++;
+              if (sent < totalToSend && sent % BATCH_SIZE === 0) {
+                await new Promise((r) => setTimeout(r, DELAY_MS));
+              }
+            }
+          }
+          setSuccess(
+            sent === 1
+              ? "1 ta savol qo'shildi."
+              : `${sent} ta savol qo'shildi.`,
+          );
+          invalidateTest(testId);
+          void refetch();
+        } catch (fallbackErr) {
+          const fallbackMsg =
+            fallbackErr instanceof Error ? fallbackErr.message : "Saqlash xatosi";
+          setError(
+            sent > 0
+              ? `${sent} ta saqlandi. Keyingi savol xato: ${fallbackMsg}`
+              : fallbackMsg,
+          );
+        }
+      } else {
+        const isStorage500 =
+          msg.includes("upload image to storage") ||
+          msg.includes("500") ||
+          msg.includes("Failed to upload");
+        const hint = isStorage500
+          ? " Backend (GCS) sozlamalarini va loglarni tekshiring — api.satziyo.uz."
+          : "";
+        setError(
+          sent > 0
+            ? `${sent} ta saqlandi. Keyingi savol xato: ${msg}${hint}`
+            : `${msg}${hint}`,
+        );
+      }
     } finally {
       setSubmitting(false);
       setSubmitProgress(null);
@@ -561,9 +597,7 @@ export default function TestQuestionsPage() {
           {testInfo?.modules?.map((module) => {
             const mid = module.moduleId;
             const count =
-              module.questionCount ??
-              QUESTIONS_PER_MODULE[module.sectionType] ??
-              27;
+              QUESTIONS_PER_MODULE[module.sectionType] ?? 27;
             const filled = (drafts[mid] ?? []).filter(
               (q) => (q.questionText ?? "").trim().length > 0,
             ).length;
@@ -611,9 +645,7 @@ export default function TestQuestionsPage() {
             {Array.from(
               {
                 length:
-                  selectedModule.questionCount ??
-                  QUESTIONS_PER_MODULE[selectedModule.sectionType] ??
-                  27,
+                  QUESTIONS_PER_MODULE[selectedModule.sectionType] ?? 27,
               },
               (_, i) => {
                 const mid = selectedModule.moduleId;
