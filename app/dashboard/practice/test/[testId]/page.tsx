@@ -43,6 +43,10 @@ import { debounce } from "@/src/utils/request-queue";
 
 const QUESTIONS_PER_MODULE = { ENGLISH: 27, MATH: 22 } as const;
 
+/** Strict Mode / double mount da loadTestState ikki marta chaqilmasin – so‘nggi natija cache (qisqa vaqt) */
+let loadStateCache: { attemptId: string; state: StartTestResponse; ts: number } | null = null;
+const LOAD_STATE_CACHE_MS = 2500;
+
 export default function TestTakingPage() {
   const router = useRouter();
   const params = useParams();
@@ -141,6 +145,12 @@ export default function TestTakingPage() {
   const ANSWERS_CACHE_DURATION = 15000; // 15 sec – kam so‘rov uchun
   const preloadTimeoutRef = useRef<number | null>(null);
   const preloadInFlightRef = useRef<boolean>(false);
+  /** Goto so‘rovlari ketma-ket – 429 kamayadi */
+  const gotoMutexRef = useRef<Promise<unknown>>(Promise.resolve());
+  /** loadTestState dublikat chaqirilmasin (Strict Mode / remount) */
+  const loadTestStateInFlightRef = useRef(false);
+  /** Next/Prev/Jump davomida ikkinchi so‘rov ketmasin – 1 so‘rov, keyin 2 kelmasin */
+  const navigationInFlightRef = useRef(false);
 
   // Resizable 2-column layout state
   const [splitPosition, setSplitPosition] = useState(50); // percentage for left pane
@@ -533,7 +543,7 @@ export default function TestTakingPage() {
     };
   }, []);
 
-  // Agar module-review sahifasidan ma'lum bir savolga qaytish kerak bo'lsa
+  // Agar module-review sahifasidan ma'lum bir savolga qaytish kerak bo'lsa – faqat index hozirgi savoldan farq qilsa goto
   useEffect(() => {
     if (!testState?.question) return;
     if (typeof window === "undefined") return;
@@ -545,11 +555,12 @@ export default function TestTakingPage() {
       sessionStorage.removeItem(key);
       return;
     }
-    // Jump to requested question (bu yerda serverga faqat kerak bo'lsa so'rov ketadi)
+    sessionStorage.removeItem(key);
+    // Allaqachon shu savolda bo‘lsak – qayta goto so‘rov yubormaymiz (dublikat 1/0 so‘rovlari kamayadi)
+    if (index === testState.currentQuestionIndex) return;
     handleJumpToQuestion(index).catch((err) =>
       console.error("[Test Page] Failed to jump from module review:", err)
     );
-    sessionStorage.removeItem(key);
   }, [attemptId, handleJumpToQuestion, testState]);
 
   useEffect(() => {
@@ -687,7 +698,22 @@ export default function TestTakingPage() {
     };
   }, [startCountdown]);
 
-  // Keyingi savolni oldindan yuklash – bitta preload ishlaydi, 429 kamayadi
+  /** Goto so‘rovini ketma-ketlashtirish – 429 kamayadi */
+  const runGoto = useCallback(
+    (index: number): Promise<StartTestResponse> => {
+      const prev = gotoMutexRef.current;
+      const p = prev
+        .then(() => practiceService.jumpToQuestion(attemptId, index))
+        .catch((err) => {
+          throw err;
+        });
+      gotoMutexRef.current = p;
+      return p as Promise<StartTestResponse>;
+    },
+    [attemptId]
+  );
+
+  // Keyingi savolni faqat cache'ga yuklash – runGoto(currentIndex) chaqirmaymiz, chunki u state'ni ustiga yozadi va 429 oshadi
   const preloadNextQuestions = useCallback(
     (currentIndex: number, totalQuestions: number) => {
       const nextIndex = currentIndex + 1;
@@ -700,24 +726,49 @@ export default function TestTakingPage() {
       preloadTimeoutRef.current = window.setTimeout(() => {
         preloadTimeoutRef.current = null;
         if (preloadInFlightRef.current) return;
+        if (getQuestionFromLocal(nextIndex)) return;
         preloadInFlightRef.current = true;
-        practiceService
-          .jumpToQuestion(attemptId, nextIndex)
+        runGoto(nextIndex)
           .then((nextState) => {
-            if (nextState?.question)
+            if (nextState?.question && nextState.currentQuestionIndex === nextIndex)
               saveQuestionToLocal(nextIndex, nextState.question);
-            return practiceService.jumpToQuestion(attemptId, currentIndex);
           })
           .catch(() => {})
           .finally(() => {
             preloadInFlightRef.current = false;
           });
-      }, 2500);
+      }, 3500);
     },
-    [attemptId, getQuestionFromLocal, saveQuestionToLocal]
+    [getQuestionFromLocal, saveQuestionToLocal, runGoto]
   );
 
   async function loadTestState() {
+    if (loadTestStateInFlightRef.current) return;
+    // Strict Mode / double mount: yaqinda cache bo‘lsa so‘rov yubormaymiz – dublikat current kamayadi
+    if (
+      loadStateCache?.attemptId === attemptId &&
+      Date.now() - loadStateCache.ts < LOAD_STATE_CACHE_MS
+    ) {
+      const state = loadStateCache.state;
+      setTestState(state);
+      setEliminatedChoices(new Set());
+      if (state.question) saveQuestionToLocal(state.currentQuestionIndex, state.question);
+      const savedAnswer = getAllAnswersFromStorage().get(state.currentQuestionIndex);
+      if (savedAnswer) {
+        setCurrentAnswer({ choiceId: savedAnswer.choiceId, textAnswer: savedAnswer.textAnswer });
+        if (savedAnswer.eliminatedChoices?.length)
+          setEliminatedChoices(new Set(savedAnswer.eliminatedChoices));
+      } else setCurrentAnswer({});
+      if (state?.currentModule?.totalQuestions) {
+        const sectionType = state.currentSection?.type ?? "ENGLISH";
+        const cap = QUESTIONS_PER_MODULE[sectionType] ?? 27;
+        setTotalQuestions(Math.min(state.currentModule.totalQuestions, cap));
+      }
+      setAnsweredQuestions(new Set(getAllAnswersFromStorage().keys()));
+      setLoading(false);
+      return;
+    }
+    loadTestStateInFlightRef.current = true;
     try {
       setLoading(true);
       setError(""); // Clear previous errors
@@ -749,6 +800,7 @@ export default function TestTakingPage() {
       }
 
       setTestState(state);
+      loadStateCache = { attemptId, state, ts: Date.now() };
       setEliminatedChoices(new Set()); // Clear eliminations when loading new question
       saveQuestionToLocal(state.currentQuestionIndex, state.question);
 
@@ -817,9 +869,12 @@ export default function TestTakingPage() {
         );
       } else if (err instanceof Error && err.message.includes("401")) {
         setError("Unauthorized. Please log in again.");
+      } else if (err instanceof Error && /429|Too Many Requests/i.test(err.message)) {
+        setError("Server busy (Too Many Requests). Click Retry below or wait a moment and refresh.");
       }
     } finally {
       setLoading(false);
+      loadTestStateInFlightRef.current = false;
     }
   }
 
@@ -949,6 +1004,7 @@ export default function TestTakingPage() {
 
   async function handleNext() {
     if (!testState?.question) return;
+    if (navigationInFlightRef.current) return;
 
     const currentIndex = testState.currentQuestionIndex;
     const nextIndex = currentIndex + 1;
@@ -959,28 +1015,15 @@ export default function TestTakingPage() {
     }
 
     try {
+      navigationInFlightRef.current = true;
       setSubmitting(true);
 
       handleAnswer();
       setIsMarkupEnabled(false);
 
-      const localQuestion = getQuestionFromLocal(nextIndex);
-      if (localQuestion && testState.currentModule) {
-        setTestState({
-          ...testState,
-          currentQuestionIndex: nextIndex,
-          question: localQuestion,
-        });
-        applySavedAnswerForIndex(nextIndex);
-        setSubmitting(false);
-        if (totalQuestions) preloadNextQuestions(nextIndex, totalQuestions);
-        return;
-      }
-
-      const nextState = await practiceService.jumpToQuestion(
-        attemptId,
-        nextIndex
-      );
+      // Har doim API'dan yangi savolni olish – faqat javob so'ralgan indexga mos bo'lsa state yangilaymiz
+      const nextState = await runGoto(nextIndex);
+      if (nextState.currentQuestionIndex !== nextIndex) return;
       setTestState(nextState);
       if (nextState.question)
         saveQuestionToLocal(nextIndex, nextState.question);
@@ -992,13 +1035,16 @@ export default function TestTakingPage() {
       );
     } finally {
       setSubmitting(false);
+      navigationInFlightRef.current = false;
     }
   }
 
   async function handlePrevious() {
     if (!testState?.question) return;
+    if (navigationInFlightRef.current) return;
 
     try {
+      navigationInFlightRef.current = true;
       setSubmitting(true);
 
       // Save current answer (no server request)
@@ -1010,22 +1056,9 @@ export default function TestTakingPage() {
       const currentIndex = testState.currentQuestionIndex;
       const prevIndex = currentIndex - 1;
 
-      const localQuestion = getQuestionFromLocal(prevIndex);
-      if (localQuestion && testState.currentModule) {
-        setTestState({
-          ...testState,
-          currentQuestionIndex: prevIndex,
-          question: localQuestion,
-        });
-        applySavedAnswerForIndex(prevIndex);
-        setSubmitting(false);
-        return;
-      }
-
-      const prevState = await practiceService.jumpToQuestion(
-        attemptId,
-        prevIndex
-      );
+      // Har doim API'dan yangi savolni olish – faqat javob so'ralgan indexga mos bo'lsa state yangilaymiz
+      const prevState = await runGoto(prevIndex);
+      if (prevState.currentQuestionIndex !== prevIndex) return;
       setTestState(prevState);
       if (prevState.question)
         saveQuestionToLocal(prevIndex, prevState.question);
@@ -1036,35 +1069,30 @@ export default function TestTakingPage() {
       );
     } finally {
       setSubmitting(false);
+      navigationInFlightRef.current = false;
     }
   }
 
   async function handleJumpToQuestion(index: number) {
     if (!testState?.question) return;
+    if (navigationInFlightRef.current) return;
 
     const cap = totalQuestions ?? QUESTIONS_PER_MODULE[testState.currentSection?.type ?? "ENGLISH"] ?? 27;
     if (index < 0 || index >= cap) return;
 
     try {
+      navigationInFlightRef.current = true;
       setSubmitting(true);
 
       handleAnswer();
       setIsMarkupEnabled(false);
 
-      const localQuestion = getQuestionFromLocal(index);
-      if (localQuestion && testState.currentModule) {
-        setTestState({
-          ...testState,
-          currentQuestionIndex: index,
-          question: localQuestion,
-        });
-        applySavedAnswerForIndex(index);
-        setSubmitting(false);
-        if (totalQuestions) preloadNextQuestions(index, totalQuestions);
+      // Har doim API'dan yangi savolni olish – faqat so'ralgan index bo'lsa state yangilaymiz (eski javob ustiga yozilmasin)
+      const state = await runGoto(index);
+      if (state.currentQuestionIndex !== index) {
+        setError("Savol indexi mos kelmadi. Qayta urinib ko'ring.");
         return;
       }
-
-      const state = await practiceService.jumpToQuestion(attemptId, index);
       setTestState(state);
       if (state.question) saveQuestionToLocal(index, state.question);
       applySavedAnswerForIndex(index);
@@ -1075,6 +1103,7 @@ export default function TestTakingPage() {
       );
     } finally {
       setSubmitting(false);
+      navigationInFlightRef.current = false;
     }
   }
 
@@ -1556,14 +1585,14 @@ export default function TestTakingPage() {
           </div>
         </div>
 
-        <main className="flex-1 relative z-10">
+        <main className="flex-1 relative z-10 flex flex-col h-screen min-h-0">
           <div
-            className="min-h-screen flex flex-col font-noto-serif transition-all duration-300"
+            className="h-full flex flex-col font-noto-serif transition-all duration-300"
             style={{ fontSize: "15px", lineHeight: "24px" }}
           >
-            {/* Header with dashed border */}
+            {/* Header – qotib turadi */}
             <div
-              className="bg-white text-gray-800 p-2 flex justify-between items-center border-b border-gray-300 relative"
+              className="flex-shrink-0 bg-white text-gray-800 p-2 flex justify-between items-center border-b border-gray-300 relative"
               style={{
                 borderBottom: "2px dashed",
                 borderImage:
@@ -1693,78 +1722,103 @@ export default function TestTakingPage() {
               </div>
             </div>
 
-            {/* Main Content - 2 Column Layout with Resizable Divider */}
-            <div
-              className="flex-1 flex flex-col h-full overflow-hidden"
-              style={{ minHeight: "calc(100vh - 140px)" }}
-            >
-              <div className="relative flex h-full" ref={layoutContainerRef}>
-                {/* Left Column: Question */}
+            {/* Markaz – chap: image+passage; o‘ng: savol+choices; ustunlar orasida gap, matn dividerga yopishmasin */}
+            <div className="flex-1 min-h-0 flex flex-col">
+              <div className="relative flex flex-1 min-h-0 overflow-hidden gap-0" ref={layoutContainerRef}>
+                {/* Left Column: image + passage – scroll faqat shu ustunda, o‘ngda padding */}
                 <div
-                  className="content-pane"
+                  className="content-pane flex flex-col min-h-0 flex-shrink-0 pr-2"
                   style={{
-                    flexBasis: `${splitPosition}%`,
-                    minWidth: "20%",
+                    width: `calc(${splitPosition}% - 6px)`,
+                    minWidth: 120,
                   }}
                 >
-                  {/* Question Index Container */}
-                  <div className="mb-4">
-                    <div className="question-index-container flex items-center justify-between bg-gray-200 rounded mb-2 top-0 z-5">
-                      <div className="flex items-center h-full">
-                        <p className="question-index font-semibold bg-black text-white text-sm h-full px-3 py-2 rounded-l">
-                          {testState.currentQuestionIndex + 1}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={handleToggleFlag}
-                          className="flex items-center text-sm text-gray-600 hover:text-black mr-2 h-full px-2"
-                        >
-                          <Flag
-                            className={`w-5 h-5 text-gray-500 ${
-                              isFlagged ? "fill-orange-500 text-orange-500" : ""
-                            }`}
-                          />
-                          <span className="ml-1">Mark for Review</span>
-                        </button>
+                  <div
+                    className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-hide"
+                    style={{ WebkitOverflowScrolling: "touch" }}
+                  >
+                    {(question.sharedPassage?.content || question.passage) || question.imageUrl ? (
+                      <div className="prose max-w-none pr-4 pb-4">
+                        {question.imageUrl && (
+                          <div className="mb-4">
+                            <Image
+                              src={question.imageUrl}
+                              alt="Savol rasmi"
+                              width={400}
+                              height={300}
+                              className="w-full h-auto rounded-lg object-contain max-h-[320px]"
+                            />
+                          </div>
+                        )}
+                        {(question.sharedPassage?.content || question.passage) && (
+                          <div className="p-4 bg-gray-50/80 rounded-lg">
+                            <p className="text-base leading-relaxed whitespace-pre-wrap">
+                              {question.sharedPassage?.content || question.passage}
+                            </p>
+                          </div>
+                        )}
                       </div>
-                      {question.questionType === "MULTIPLE_CHOICE" && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsEliminationMode((prev) => !prev);
-                            if (isEliminationMode) {
-                              setEliminatedChoices(new Set());
-                            }
-                          }}
-                          className={`flex items-center text-sm text-gray-600 hover:text-black mr-2 h-full relative border border-gray-300 rounded-sm w-8 h-8 flex items-center justify-center bg-transparent ${
-                            isEliminationMode ? "bg-blue-100" : ""
-                          }`}
-                        >
-                          <span className="text-[12px] font-medium text-gray-600">
-                            ABC
-                          </span>
-                          {isEliminationMode && (
-                            <svg
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                              className="absolute w-8 h-8 text-gray-500"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="1"
-                                d="M18 6L6 18"
-                              />
-                            </svg>
-                          )}
-                        </button>
-                      )}
-                    </div>
+                    ) : (
+                      <div className="p-4 text-gray-500 text-sm">Passage yoki rasm yo&apos;q.</div>
+                    )}
+                  </div>
+                </div>
 
-                    {/* Question Text */}
-                    <div className="prose max-w-none mt-2">
-                      <div>
+                {/* Resizable Divider – markazdagi ustun, 2 tarafiga bo‘shliq */}
+                <div
+                  className="divider flex-shrink-0"
+                  style={{ left: `calc(${splitPosition}% - 4px)` }}
+                  onMouseDown={handleDividerMouseDown}
+                />
+
+                {/* Right Column: savol raqami, savol matni, choices – chapda padding, dividerga yopishmasin */}
+                <div
+                  className="content-pane flex flex-col min-h-0 flex-1 min-w-0 pl-2"
+                  style={{ width: `calc(${100 - splitPosition}% - 6px)` }}
+                >
+                  <div
+                    className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-hide pl-3"
+                    style={{ WebkitOverflowScrolling: "touch" }}
+                  >
+                    {/* Question Index + Flag – savol matni dividerga yopishmasin */}
+                    <div className="mb-4 pr-2">
+                      <div className="question-index-container flex items-center justify-between bg-gray-200 rounded mb-2">
+                        <div className="flex items-center h-full">
+                          <p className="question-index font-semibold bg-black text-white text-sm h-full px-3 py-2 rounded-l">
+                            {testState.currentQuestionIndex + 1}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={handleToggleFlag}
+                            className="flex items-center text-sm text-gray-600 hover:text-black mr-2 h-full px-2"
+                          >
+                            <Flag
+                              className={`w-5 h-5 text-gray-500 ${isFlagged ? "fill-orange-500 text-orange-500" : ""}`}
+                            />
+                            <span className="ml-1">Mark for Review</span>
+                          </button>
+                        </div>
+                        {question.questionType === "MULTIPLE_CHOICE" && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsEliminationMode((prev) => !prev);
+                              if (isEliminationMode) setEliminatedChoices(new Set());
+                            }}
+                            className={`flex items-center text-sm text-gray-600 hover:text-black mr-2 h-full relative border border-gray-300 rounded-sm w-8 h-8 justify-center bg-transparent ${isEliminationMode ? "bg-blue-100" : ""}`}
+                          >
+                            <span className="text-[12px] font-medium text-gray-600">ABC</span>
+                            {isEliminationMode && (
+                              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="absolute w-8 h-8 text-gray-500">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M18 6L6 18" />
+                              </svg>
+                            )}
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Question Text */}
+                      <div className="prose max-w-none mt-2">
                         <QuestionDisplay
                           question={question}
                           selectedChoiceId={undefined}
@@ -1777,13 +1831,10 @@ export default function TestTakingPage() {
                           showOnlyQuestionText
                           attemptId={attemptId}
                           onHighlightsChange={(highlights) => {
-                            // Save highlights to localStorage in test page format
                             if (highlights.length > 0) {
                               saveHighlightsToStorage(question.id, highlights);
                             } else {
-                              // Remove highlights for this question if empty
-                              const allHighlights =
-                                getAllHighlightsFromStorage();
+                              const allHighlights = getAllHighlightsFromStorage();
                               allHighlights.delete(question.id);
                               if (typeof window !== "undefined") {
                                 try {
@@ -1791,15 +1842,9 @@ export default function TestTakingPage() {
                                   allHighlights.forEach((value, key) => {
                                     highlightsObj[key] = value;
                                   });
-                                  localStorage.setItem(
-                                    getHighlightsStorageKey(),
-                                    JSON.stringify(highlightsObj)
-                                  );
+                                  localStorage.setItem(getHighlightsStorageKey(), JSON.stringify(highlightsObj));
                                 } catch (err) {
-                                  console.error(
-                                    "Failed to save highlights to localStorage:",
-                                    err
-                                  );
+                                  console.error("Failed to save highlights to localStorage:", err);
                                 }
                               }
                             }
@@ -1807,48 +1852,8 @@ export default function TestTakingPage() {
                         />
                       </div>
                     </div>
-                  </div>
-                </div>
 
-                {/* Resizable Divider */}
-                <div
-                  className="divider"
-                  style={{ left: `${splitPosition}%` }}
-                  onMouseDown={handleDividerMouseDown}
-                ></div>
-
-                {/* Right Column: Passage + Choices */}
-                <div
-                  className="content-pane"
-                  style={{
-                    flexBasis: `${100 - splitPosition}%`,
-                    minWidth: "20%",
-                  }}
-                >
-                  {/* Passage */}
-                  <div className="prose max-w-none mb-4">
-                    <div>
-                      {question.passage ? (
-                        <div className="p-6">
-                          <p className="text-base leading-relaxed whitespace-pre-wrap">
-                            {question.passage}
-                          </p>
-                        </div>
-                      ) : question.imageUrl ? (
-                        <div className="p-6">
-                          <Image
-                            src={question.imageUrl}
-                            alt="Question graphic"
-                            width={800}
-                            height={600}
-                            className="w-full h-auto rounded-lg"
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  {/* Choices */}
+                    {/* Choices */}
                   {question.questionType === "MULTIPLE_CHOICE" &&
                     question.choices &&
                     question.choices.length > 0 && (
@@ -1858,11 +1863,12 @@ export default function TestTakingPage() {
                             currentAnswer.choiceId === choice.id;
                           const letter = String.fromCharCode(65 + index);
                           const isEliminated = eliminatedChoices.has(choice.id);
+                          const choiceImageUrl = choice.imageUrl?.trim();
 
                           return (
                             <div
                               key={choice.id || index}
-                              className="relative flex items-center w-full mb-2"
+                              className="relative w-full mb-2"
                             >
                               <button
                                 type="button"
@@ -1884,7 +1890,7 @@ export default function TestTakingPage() {
                                     });
                                   }
                                 }}
-                                className={`w-full p-3 text-left border-2 rounded-lg text-base flex items-center gap-3 ${
+                                className={`w-full p-3 text-left border-2 rounded-lg text-base flex items-start gap-3 ${
                                   isSelected
                                     ? "border-black"
                                     : isEliminated
@@ -1893,7 +1899,7 @@ export default function TestTakingPage() {
                                 }`}
                               >
                                 <div
-                                  className={`flex items-center justify-center w-6 h-6 rounded-full font-bold border border-black ${
+                                  className={`flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full font-bold border border-black ${
                                     isSelected
                                       ? "bg-black text-white"
                                       : "text-black"
@@ -1902,13 +1908,29 @@ export default function TestTakingPage() {
                                   <span className="text-xs">{letter}</span>
                                 </div>
                                 <div
-                                  className={`flex-1 ${
+                                  className={`flex-1 min-w-0 ${
                                     isEliminated
                                       ? "line-through text-gray-500"
                                       : ""
                                   }`}
                                 >
-                                  {choice.choiceText || `Choice ${letter}`}
+                                  {(choice.choiceText || `Choice ${letter}`) && (
+                                    <span className="block">
+                                      {choice.choiceText || `Choice ${letter}`}
+                                    </span>
+                                  )}
+                                  {choiceImageUrl && (
+                                    <span className="block mt-2">
+                                      <Image
+                                        src={choiceImageUrl}
+                                        alt={`Variant ${letter}`}
+                                        width={280}
+                                        height={160}
+                                        className="rounded border border-gray-200 object-contain max-h-40 w-full"
+                                        unoptimized={choiceImageUrl.startsWith("data:")}
+                                      />
+                                    </span>
+                                  )}
                                 </div>
                               </button>
                             </div>
@@ -1934,13 +1956,14 @@ export default function TestTakingPage() {
                       />
                     </div>
                   )}
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Footer with dashed border */}
+            {/* Footer – qotib turadi (Question navigator / Back–Next) */}
             <div
-              className="bg-blue-100 p-2 flex justify-between items-center"
+              className="flex-shrink-0 bg-blue-100 p-2 flex justify-between items-center"
               style={{
                 borderTop: "2px dashed",
                 backgroundColor: "rgb(229, 235, 245)",

@@ -86,6 +86,17 @@ const nextConfig = {
 
   // Ensure CSS is properly loaded
   poweredByHeader: false,
+
+  // GCS (Google Cloud Storage) rasmlari uchun next/image
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "storage.googleapis.com",
+        pathname: "/**",
+      },
+    ],
+  },
 };
 
 export default nextConfig;

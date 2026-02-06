@@ -1071,14 +1071,22 @@ export default function TestQuestionsPage() {
                                     e instanceof Error
                                       ? e.message
                                       : "Saqlash xatosi";
+                                  const isAnswered =
+                                    /answered|cannot update question|tahrirlab bo'lmaydi/i.test(
+                                      msg
+                                    );
                                   const isStorage500 =
                                     msg.includes("upload image to storage") ||
                                     msg.includes("500") ||
                                     msg.includes("Failed to upload");
-                                  const hint = isStorage500
-                                    ? " Backend (GCS) sozlamalarini tekshiring."
-                                    : "";
-                                  setError(`${msg}${hint}`);
+                                  let displayMsg = msg;
+                                  if (isAnswered) {
+                                    displayMsg =
+                                      "Bu savol allaqachon talabalar tomonidan javob berilgan. Natijalarni saqlash uchun tahrirlashga ruxsat berilmaydi. O'zgartirish kerak bo'lsa, yangi savol qo'shing (bo'sh slotdan foydalaning).";
+                                  } else if (isStorage500) {
+                                    displayMsg += " Backend (GCS) sozlamalarini tekshiring.";
+                                  }
+                                  setError(displayMsg);
                                 } finally {
                                   setSavingSlotKey(null);
                                 }

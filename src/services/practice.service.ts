@@ -3,7 +3,7 @@
  * Handles all test-taking related API calls
  */
 
-import { apiClient } from "@/src/lib/api-client";
+import { apiClient, ApiClientError } from "@/src/lib/api-client";
 
 export interface Test {
   id: string;
@@ -79,6 +79,7 @@ export interface Question {
     id: string;
     choiceText: string;
     orderIndex: number;
+    imageUrl?: string;
   }[];
 }
 
@@ -202,15 +203,20 @@ class PracticeService {
   }
 
   /**
-   * Get current question
+   * Get current question (429 da bir marta qayta urinadi)
    */
   async getCurrentQuestion(attemptId: string): Promise<StartTestResponse> {
-    return apiClient<StartTestResponse>(
-      `/api/practice/attempts/${attemptId}/current`,
-      {
-        requireAuth: true,
-      },
-    );
+    const url = `/api/practice/attempts/${attemptId}/current`;
+    const opts = { requireAuth: true };
+    try {
+      return await apiClient<StartTestResponse>(url, opts);
+    } catch (err) {
+      if (err instanceof ApiClientError && err.status === 429) {
+        await new Promise((r) => setTimeout(r, 2500));
+        return apiClient<StartTestResponse>(url, opts);
+      }
+      throw err;
+    }
   }
 
   /**
@@ -348,19 +354,23 @@ class PracticeService {
   }
 
   /**
-   * Jump to specific question
+   * Jump to specific question (429 da bir marta qayta urinadi)
    */
   async jumpToQuestion(
     attemptId: string,
     questionIndex: number,
   ): Promise<StartTestResponse> {
-    return apiClient<StartTestResponse>(
-      `/api/practice/attempts/${attemptId}/goto/${questionIndex}`,
-      {
-        method: "POST",
-        requireAuth: true,
-      },
-    );
+    const url = `/api/practice/attempts/${attemptId}/goto/${questionIndex}`;
+    const opts = { method: "POST" as const, requireAuth: true };
+    try {
+      return await apiClient<StartTestResponse>(url, opts);
+    } catch (err) {
+      if (err instanceof ApiClientError && err.status === 429) {
+        await new Promise((r) => setTimeout(r, 2500));
+        return apiClient<StartTestResponse>(url, opts);
+      }
+      throw err;
+    }
   }
 
   /**
