@@ -13,6 +13,7 @@ export interface Test {
   sections: TestSection[];
   totalDuration?: number;
   totalQuestions?: number;
+  accessType?: "FREE" | "PREMIUM";
 }
 
 export interface TestSection {

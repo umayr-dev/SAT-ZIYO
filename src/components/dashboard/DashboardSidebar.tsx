@@ -28,56 +28,27 @@ interface MenuItem {
   href: string;
   badge?: string;
   badgeColor?: "emerald" | "blue" | "amber";
-  enabled?: boolean;
 }
 
+// Only show actually available sections; hide "not allowed"/coming-soon items
 const menuItems: MenuItem[] = [
   {
     label: "Home",
     icon: <Home className="h-5 w-5" />,
     href: "/dashboard",
-    enabled: true,
   },
   {
     label: "Practice",
     icon: <BookOpen className="h-5 w-5" />,
     href: "/dashboard/practice",
-    enabled: true,
-  },
-  {
-    label: "Question Bank",
-    icon: <BookText className="h-5 w-5" />,
-    href: "/dashboard/question-bank",
-    badge: "Free",
-    badgeColor: "emerald",
-    enabled: false,
-  },
-  {
-    label: "Classes",
-    icon: <Users className="h-5 w-5" />,
-    href: "/dashboard/classes",
-    enabled: false,
-  },
-  {
-    label: "Vocabulary",
-    icon: <BarChart3 className="h-5 w-5" />,
-    href: "/dashboard/vocabulary",
-    enabled: false,
   },
 ];
 
 const bottomMenuItems: MenuItem[] = [
   {
-    label: "Performance Analytics",
-    icon: <TrendingUp className="h-5 w-5" />,
-    href: "/dashboard/analytics",
-    enabled: false,
-  },
-  {
     label: "Support",
     icon: <Headphones className="h-5 w-5" />,
     href: "/support",
-    enabled: true,
   },
 ];
 
@@ -204,113 +175,65 @@ export function DashboardSidebar() {
             <nav className="space-y-1">
               {menuItems.map((item) => {
                 const isActive = pathname === item.href;
-                const isEnabled = item.enabled !== false;
                 return (
-                  <div key={item.href} className="relative group/item [&>*]:after:!content-none [&>*]:after:!hidden">
-                    {isEnabled ? (
-                      <Link
-                        href={item.href}
-                        onClick={() => setIsMobileMenuOpen(false)}
-                        className={cn(
-                          "flex items-center rounded-xl text-sm font-medium transition-all duration-200 group relative border-r-0 after:content-none after:!hidden",
-                          isCollapsed
-                            ? "justify-center px-2 py-3"
-                            : "justify-between px-4 py-3",
-                          isActive
-                            ? "bg-gray-900 text-white shadow-md"
-                            : "text-gray-700 hover:bg-gray-50 hover:text-gray-900",
-                        )}
-                        title={isCollapsed ? item.label : undefined}
-                      >
-                        <div className="flex items-center gap-3 relative z-10">
-                          <div
-                            className={cn(
-                              "transition-colors duration-200",
-                              isActive
-                                ? "text-white"
-                                : "text-gray-500 group-hover:text-gray-900",
-                            )}
-                          >
-                            {item.icon}
-                          </div>
-                          {!isCollapsed && <span>{item.label}</span>}
-                        </div>
-                        {!isCollapsed && item.badge && (
-                          <span
-                            className={cn(
-                              "text-xs px-2.5 py-1 rounded-full font-semibold relative z-10",
-                              item.badgeColor === "emerald"
-                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                : item.badgeColor === "blue"
-                                  ? "bg-blue-50 text-blue-700 border border-blue-200"
-                                  : "bg-amber-50 text-amber-700 border border-amber-200",
-                            )}
-                          >
-                            {item.badge}
-                          </span>
-                        )}
-                        {isCollapsed && item.badge && (
-                          <span
-                            className={cn(
-                              "absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full",
-                              item.badgeColor === "emerald"
-                                ? "bg-emerald-500"
-                                : item.badgeColor === "blue"
-                                  ? "bg-blue-500"
-                                  : "bg-amber-500",
-                            )}
-                          />
-                        )}
-                      </Link>
-                    ) : (
-                      <div
-                        className={cn(
-                          "flex items-center rounded-xl text-sm font-medium transition-all duration-200 relative group/disabled border-r-0 after:content-none after:!hidden",
-                          isCollapsed
-                            ? "justify-center px-2 py-3"
-                            : "justify-between px-4 py-3",
-                          "text-gray-400",
-                        )}
-                        title={
-                          isCollapsed
-                            ? `${item.label} - Coming Soon`
-                            : undefined
-                        }
-                      >
-                        <div className="flex items-center gap-3 relative z-10">
-                          <div className="text-gray-400">{item.icon}</div>
-                          {!isCollapsed && (
-                            <span className="text-gray-400">{item.label}</span>
+                  <div
+                    key={item.href}
+                    className="relative group/item [&>*]:after:!content-none [&>*]:after:!hidden"
+                  >
+                    <Link
+                      href={item.href}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className={cn(
+                        "flex items-center rounded-xl text-sm font-medium transition-all duration-200 group relative border-r-0 after:content-none after:!hidden",
+                        isCollapsed
+                          ? "justify-center px-2 py-3"
+                          : "justify-between px-4 py-3",
+                        isActive
+                          ? "bg-gray-900 text-white shadow-md"
+                          : "text-gray-700 hover:bg-gray-50 hover:text-gray-900",
+                      )}
+                      title={isCollapsed ? item.label : undefined}
+                    >
+                      <div className="flex items-center gap-3 relative z-10">
+                        <div
+                          className={cn(
+                            "transition-colors duration-200",
+                            isActive
+                              ? "text-white"
+                              : "text-gray-500 group-hover:text-gray-900",
                           )}
+                        >
+                          {item.icon}
                         </div>
-                        {!isCollapsed && item.badge && (
-                          <span
-                            className={cn(
-                              "text-xs px-2.5 py-1 rounded-full font-semibold relative z-10 opacity-50",
-                              item.badgeColor === "emerald"
-                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                : item.badgeColor === "blue"
-                                  ? "bg-blue-50 text-blue-700 border border-blue-200"
-                                  : "bg-amber-50 text-amber-700 border border-amber-200",
-                            )}
-                          >
-                            {item.badge}
-                          </span>
-                        )}
-                        {isCollapsed && item.badge && (
-                          <span
-                            className={cn(
-                              "absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full opacity-50",
-                              item.badgeColor === "emerald"
-                                ? "bg-emerald-500"
-                                : item.badgeColor === "blue"
-                                  ? "bg-blue-500"
-                                  : "bg-amber-500",
-                            )}
-                          />
-                        )}
+                        {!isCollapsed && <span>{item.label}</span>}
                       </div>
-                    )}
+                      {!isCollapsed && item.badge && (
+                        <span
+                          className={cn(
+                            "text-xs px-2.5 py-1 rounded-full font-semibold relative z-10",
+                            item.badgeColor === "emerald"
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              : item.badgeColor === "blue"
+                                ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                : "bg-amber-50 text-amber-700 border border-amber-200",
+                          )}
+                        >
+                          {item.badge}
+                        </span>
+                      )}
+                      {isCollapsed && item.badge && (
+                        <span
+                          className={cn(
+                            "absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full",
+                            item.badgeColor === "emerald"
+                              ? "bg-emerald-500"
+                              : item.badgeColor === "blue"
+                                ? "bg-blue-500"
+                                : "bg-amber-500",
+                          )}
+                        />
+                      )}
+                    </Link>
                   </div>
                 );
               })}
@@ -366,53 +289,37 @@ export function DashboardSidebar() {
             <nav className="space-y-1">
               {bottomMenuItems.map((item) => {
                 const isActive = pathname === item.href;
-                const isEnabled = item.enabled !== false;
                 return (
-                  <div key={item.href} className="relative group/item [&>*]:after:!content-none [&>*]:after:!hidden">
-                    {isEnabled ? (
-                      <Link
-                        href={item.href}
-                        onClick={() => setIsMobileMenuOpen(false)}
-                        className={cn(
-                          "flex items-center rounded-xl text-sm font-medium transition-all duration-200 group relative border-r-0 after:content-none after:!hidden",
-                          isCollapsed
-                            ? "justify-center px-2 py-3"
-                            : "gap-3 px-4 py-3",
-                          isActive
-                            ? "bg-gray-900 text-white shadow-md"
-                            : "text-gray-700 hover:bg-gray-50 hover:text-gray-900",
-                        )}
-                        title={isCollapsed ? item.label : undefined}
-                      >
-                        <div
-                          className={cn(
-                            "transition-colors duration-200",
-                            isActive
-                              ? "text-white"
-                              : "text-gray-500 group-hover:text-gray-900",
-                          )}
-                        >
-                          {item.icon}
-                        </div>
-                        {!isCollapsed && <span>{item.label}</span>}
-                      </Link>
-                    ) : (
+                  <div
+                    key={item.href}
+                    className="relative group/item [&>*]:after:!content-none [&>*]:after:!hidden"
+                  >
+                    <Link
+                      href={item.href}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className={cn(
+                        "flex items-center rounded-xl text-sm font-medium transition-all duration-200 group relative border-r-0 after:content-none after:!hidden",
+                        isCollapsed
+                          ? "justify-center px-2 py-3"
+                          : "gap-3 px-4 py-3",
+                        isActive
+                          ? "bg-gray-900 text-white shadow-md"
+                          : "text-gray-700 hover:bg-gray-50 hover:text-gray-900",
+                      )}
+                      title={isCollapsed ? item.label : undefined}
+                    >
                       <div
                         className={cn(
-                          "flex items-center rounded-xl text-sm font-medium transition-all duration-200 relative group/disabled border-r-0 after:content-none after:!hidden",
-                          isCollapsed
-                            ? "justify-center px-2 py-3"
-                            : "gap-3 px-4 py-3",
-                          "text-gray-400",
+                          "transition-colors duration-200",
+                          isActive
+                            ? "text-white"
+                            : "text-gray-500 group-hover:text-gray-900",
                         )}
-                        title={isCollapsed ? item.label : undefined}
                       >
-                        <div className="text-gray-400">{item.icon}</div>
-                        {!isCollapsed && (
-                          <span className="text-gray-400">{item.label}</span>
-                        )}
+                        {item.icon}
                       </div>
-                    )}
+                      {!isCollapsed && <span>{item.label}</span>}
+                    </Link>
                   </div>
                 );
               })}

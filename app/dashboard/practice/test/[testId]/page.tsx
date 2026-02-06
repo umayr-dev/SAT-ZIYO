@@ -18,6 +18,7 @@ import {
   StartTestResponse,
   Question,
 } from "@/src/services/practice.service";
+import { ApiClientError } from "@/src/lib/api-client";
 import { TestTimer } from "@/src/components/practice/TestTimer";
 import { QuestionDisplay } from "@/src/components/practice/QuestionDisplay";
 import { QuestionNavigator } from "@/src/components/practice/QuestionNavigator";
@@ -139,6 +140,11 @@ export default function TestTakingPage() {
   // Browser setTimeout returns number; track that here
   const preloadTimeoutRef = useRef<number | null>(null);
 
+  // Resizable 2-column layout state
+  const [splitPosition, setSplitPosition] = useState(50); // percentage for left pane
+  const layoutContainerRef = useRef<HTMLDivElement | null>(null);
+  const isDraggingDividerRef = useRef(false);
+
   // localStorage key for answers
   const getStorageKey = useCallback(
     () => `test_answers_${attemptId}`,
@@ -237,6 +243,42 @@ export default function TestTakingPage() {
       return new Map();
     }
   }, [getHighlightsStorageKey]);
+
+  // Handle dragging of the vertical divider between question and choices
+  useEffect(() => {
+    function handleMouseMove(e: MouseEvent) {
+      if (!isDraggingDividerRef.current || !layoutContainerRef.current) return;
+      const rect = layoutContainerRef.current.getBoundingClientRect();
+      if (rect.width <= 0) return;
+      const relativeX = e.clientX - rect.left;
+      let next = (relativeX / rect.width) * 100;
+      // Clamp between 20% and 80%
+      next = Math.max(20, Math.min(80, next));
+      setSplitPosition(next);
+    }
+
+    function handleMouseUp() {
+      if (!isDraggingDividerRef.current) return;
+      isDraggingDividerRef.current = false;
+      document.body.style.cursor = "";
+    }
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, []);
+
+  const handleDividerMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      isDraggingDividerRef.current = true;
+      document.body.style.cursor = "col-resize";
+    },
+    []
+  );
 
   // Save highlights to localStorage (grouped by questionId)
   const saveHighlightsToStorage = useCallback(
@@ -488,6 +530,25 @@ export default function TestTakingPage() {
       }
     };
   }, []);
+
+  // Agar module-review sahifasidan ma'lum bir savolga qaytish kerak bo'lsa
+  useEffect(() => {
+    if (!testState?.question) return;
+    if (typeof window === "undefined") return;
+    const key = `test_jump_${attemptId}`;
+    const stored = sessionStorage.getItem(key);
+    if (!stored) return;
+    const index = parseInt(stored, 10);
+    if (!Number.isFinite(index) || index < 0) {
+      sessionStorage.removeItem(key);
+      return;
+    }
+    // Jump to requested question (bu yerda serverga faqat kerak bo'lsa so'rov ketadi)
+    handleJumpToQuestion(index).catch((err) =>
+      console.error("[Test Page] Failed to jump from module review:", err)
+    );
+    sessionStorage.removeItem(key);
+  }, [attemptId, handleJumpToQuestion, testState]);
 
   useEffect(() => {
     loadTestState();
@@ -865,6 +926,20 @@ export default function TestTakingPage() {
     eliminatedChoices,
   ]);
 
+  // Navigate to module review page (no server calls, only local state)
+  const handleGoToModuleReview = useCallback(() => {
+    if (!testState?.currentModule || totalQuestions === null) return;
+    // Make sure current answer is persisted to localStorage
+    handleAnswer();
+    const sectionNum = testState.currentSection.orderIndex + 1;
+    const moduleNum = testState.currentModule.moduleNumber;
+    const type = testState.currentSection.type;
+    const total = totalQuestions;
+    router.push(
+      `/dashboard/practice/test/${attemptId}/module-review?section=${sectionNum}&module=${moduleNum}&type=${type}&total=${total}`
+    );
+  }, [attemptId, handleAnswer, router, testState, totalQuestions]);
+
   async function handleNext() {
     if (!testState?.question) return;
 
@@ -1013,55 +1088,8 @@ export default function TestTakingPage() {
     if (!testState?.question) return;
 
     try {
-      setSubmitting(true);
-      // Save current answer before finishing
-      handleAnswer();
-
-      // Submit all pending answers and highlights to server before finishing section
-      await Promise.all([submitAllPendingAnswers(), submitAllHighlights()]);
-
-      const result = await practiceService.finishModule(attemptId);
-
-      switch (result.nextStep) {
-        case "BREAK":
-          router.push(`/dashboard/practice/test/${attemptId}/break`);
-          break;
-        case "MODULE_2":
-        case "NEW_SECTION": {
-          const nextState = await practiceService.getCurrentQuestion(attemptId);
-          setTestState(nextState);
-          if (nextState?.question)
-            saveQuestionToLocal(
-              nextState.currentQuestionIndex,
-              nextState.question
-            );
-          applySavedAnswerForIndex(nextState.currentQuestionIndex);
-
-          // Clear memory cache for new module (sessionStorage da saqlanganlar qoladi)
-          setQuestionsCache(new Map());
-
-          // Update totalQuestions from new module
-          if (nextState?.currentModule?.totalQuestions) {
-            setTotalQuestions(nextState.currentModule.totalQuestions);
-
-            // Preload next 3 questions for new module
-            preloadNextQuestions(
-              nextState.currentQuestionIndex,
-              nextState.currentModule.totalQuestions
-            );
-          }
-
-          // Answered questions: localStorage dan (API so‘rovsiz)
-          const stored = getAllAnswersFromStorage();
-          setAnsweredQuestions(new Set(stored.keys()));
-          break;
-        }
-        case "SUBMIT_TEST":
-        case "COMPLETE":
-        default:
-          router.push(`/dashboard/practice/test/${attemptId}/finish`);
-          break;
-      }
+      // Endi modulni darhol tugatmaymiz – review sahifasiga olib boramiz
+      handleGoToModuleReview();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to finish section");
     } finally {
@@ -1236,8 +1264,26 @@ export default function TestTakingPage() {
         // Submit all pending answers and highlights
         await Promise.all([submitAllPendingAnswers(), submitAllHighlights()]);
 
-        // Submit test
-        await practiceService.submitTest(attemptId);
+        // Submit test – but backend may already have finalized attempt
+        try {
+          await practiceService.submitTest(attemptId);
+        } catch (err) {
+          if (
+            err instanceof ApiClientError &&
+            err.status === 400 &&
+            /not in progress/i.test(err.message)
+          ) {
+            // Attempt already completed or not active – treat as graceful finish
+            console.warn(
+              "[Test Page] Attempt already not in progress, skipping submitTest"
+            );
+          } else {
+            console.error("Failed to submit test on time up:", err);
+            setError("Failed to finish section. Please try again.");
+            return;
+          }
+        }
+
         router.push(`/dashboard/practice/test/${attemptId}/finish`);
       } catch (err) {
         console.error("Failed to finish section:", err);
@@ -1641,13 +1687,16 @@ export default function TestTakingPage() {
             </div>
 
             {/* Main Content - 2 Column Layout with Resizable Divider */}
-            <div className="flex-1 flex flex-col h-full overflow-hidden">
-              <div className="relative flex h-full">
+            <div
+              className="flex-1 flex flex-col h-full overflow-hidden"
+              style={{ minHeight: "calc(100vh - 140px)" }}
+            >
+              <div className="relative flex h-full" ref={layoutContainerRef}>
                 {/* Left Column: Question */}
                 <div
                   className="content-pane"
                   style={{
-                    width: "50%",
+                    flexBasis: `${splitPosition}%`,
                     minWidth: "20%",
                   }}
                 >
@@ -1755,16 +1804,18 @@ export default function TestTakingPage() {
                 </div>
 
                 {/* Resizable Divider */}
-                <div className="divider" style={{ left: "50%" }}></div>
+                <div
+                  className="divider"
+                  style={{ left: `${splitPosition}%` }}
+                  onMouseDown={handleDividerMouseDown}
+                ></div>
 
                 {/* Right Column: Passage + Choices */}
                 <div
                   className="content-pane"
                   style={{
-                    width: "calc(50% - 5px)",
+                    flexBasis: `${100 - splitPosition}%`,
                     minWidth: "20%",
-                    position: "relative",
-                    left: "5px",
                   }}
                 >
                   {/* Passage */}
@@ -1975,6 +2026,7 @@ export default function TestTakingPage() {
               ? "Reading and Writing"
               : "Math"
           } Questions`}
+          onGoToReview={handleGoToModuleReview}
         />
       )}
 

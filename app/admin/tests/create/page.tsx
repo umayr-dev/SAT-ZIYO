@@ -49,6 +49,7 @@ export default function CreateTestPage() {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [accessType, setAccessType] = useState<"FREE" | "PREMIUM">("FREE");
 
   useEffect(() => {
     setMounted(true);
@@ -114,6 +115,7 @@ export default function CreateTestPage() {
         title,
         description,
         sections: simpleSections,
+        accessType,
       });
       setSuccess("Test created successfully! You can now add questions.");
       setTimeout(() => {
@@ -184,6 +186,34 @@ export default function CreateTestPage() {
               rows={3}
               disabled={loading}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Access Type</Label>
+            <div className="flex gap-4 text-sm">
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="accessType"
+                  value="FREE"
+                  checked={accessType === "FREE"}
+                  onChange={() => setAccessType("FREE")}
+                  disabled={loading}
+                />
+                <span>Free</span>
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="accessType"
+                  value="PREMIUM"
+                  checked={accessType === "PREMIUM"}
+                  onChange={() => setAccessType("PREMIUM")}
+                  disabled={loading}
+                />
+                <span>Premium</span>
+              </label>
+            </div>
           </div>
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">

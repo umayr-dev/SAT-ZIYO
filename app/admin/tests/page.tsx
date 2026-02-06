@@ -32,6 +32,7 @@ interface Test {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  accessType?: "FREE" | "PREMIUM";
 }
 
 export default function TestsPage() {
@@ -129,7 +130,15 @@ export default function TestsPage() {
       ) : (
         <div className="space-y-5">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {paginatedTests.map((test) => (
+            {paginatedTests.map((test) => {
+              const accessType = test.accessType === "PREMIUM" ? "PREMIUM" : "FREE";
+              const accessLabel = accessType === "PREMIUM" ? "Premium" : "Free";
+              const accessClasses =
+                accessType === "PREMIUM"
+                  ? "bg-amber-50 text-amber-700 border border-amber-200"
+                  : "bg-emerald-50 text-emerald-700 border border-emerald-200";
+
+              return (
               <Card
                 key={test.id}
                 className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow-md hover:border-orange-200 transition-all duration-200"
@@ -156,6 +165,9 @@ export default function TestsPage() {
                       }`}
                     >
                       {test.isActive ? "Faol" : "Nofaol"}
+                    </span>
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${accessClasses}`}>
+                      {accessLabel}
                     </span>
                     <span className="flex items-center gap-1">
                       <Calendar className="w-3.5 h-3.5" />
@@ -202,7 +214,7 @@ export default function TestsPage() {
                   </div>
                 </div>
               </Card>
-            ))}
+            )})}
           </div>
 
           {totalPages > 1 && (

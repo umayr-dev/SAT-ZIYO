@@ -4,6 +4,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Card } from "@/src/ui/card";
 import { Button } from "@/src/ui/button";
 import { Loading } from "@/src/ui/loading";
@@ -100,19 +101,32 @@ export default function PracticePage() {
         });
         break;
       case "free":
-        // Free tests - all tests are free for now, but can be filtered by test property
-        filtered = filtered; // Add free test logic if needed
+        // Free tests - default to FREE when accessType is not PREMIUM
+        filtered = filtered.filter((test) => {
+          const accessType = (test as any).accessType as
+            | "FREE"
+            | "PREMIUM"
+            | undefined;
+          return accessType !== "PREMIUM";
+        });
         break;
       case "in_progress":
         filtered = filtered.filter((test) => {
-          return attempts.some(
-            (a) => a.testId === test.id && a.status === "IN_PROGRESS",
+          const testAttempts = attempts.filter((a) => a.testId === test.id);
+          const hasInProgress = testAttempts.some(
+            (a) => a.status === "IN_PROGRESS",
           );
+          const hasCompleted = testAttempts.some(
+            (a) => a.status === "COMPLETED",
+          );
+          // In progress = bor, lekin hali to'liq yakunlanmagan
+          return hasInProgress && !hasCompleted;
         });
         break;
       case "completed":
         filtered = filtered.filter((test) => {
           const testAttempts = attempts.filter((a) => a.testId === test.id);
+          // Completed = kamida bitta COMPLETED attempt bor
           return testAttempts.some((a) => a.status === "COMPLETED");
         });
         break;
@@ -143,18 +157,27 @@ export default function PracticePage() {
       new: tests.filter(
         (test) => attempts.filter((a) => a.testId === test.id).length === 0,
       ).length,
-      free: tests.length, // All are free for now
-      in_progress: tests.filter(
-        (test) =>
-          attempts.find(
-            (a) => a.testId === test.id && a.status === "IN_PROGRESS",
-          ) !== undefined,
-      ).length,
-      completed: tests.filter((test) =>
-        attempts
-          .filter((a) => a.testId === test.id)
-          .some((a) => a.status === "COMPLETED"),
-      ).length,
+      free: tests.filter((test) => {
+        const accessType = (test as any).accessType as
+          | "FREE"
+          | "PREMIUM"
+          | undefined;
+        return accessType !== "PREMIUM";
+      }).length,
+      in_progress: tests.filter((test) => {
+        const testAttempts = attempts.filter((a) => a.testId === test.id);
+        const hasInProgress = testAttempts.some(
+          (a) => a.status === "IN_PROGRESS",
+        );
+        const hasCompleted = testAttempts.some(
+          (a) => a.status === "COMPLETED",
+        );
+        return hasInProgress && !hasCompleted;
+      }).length,
+      completed: tests.filter((test) => {
+        const testAttempts = attempts.filter((a) => a.testId === test.id);
+        return testAttempts.some((a) => a.status === "COMPLETED");
+      }).length,
     };
   }, [tests, attempts]);
 
@@ -167,24 +190,19 @@ export default function PracticePage() {
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full max-w-5xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-4xl font-bold text-gray-900 mb-2">
-          Your Practice Papers
-        </h1>
-        <p className="text-gray-600 text-lg">
-          Hone your skills with official past papers. Consistency is key to
-          success.
+        <p className="text-xs font-semibold tracking-[0.2em] uppercase text-gray-500 mb-2">
+          Official practice
         </p>
-        <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <p className="text-sm text-yellow-800">
-            <strong>Important Note:</strong> If your test is not listed under
-            the &apos;In Progress&apos; or &apos;Completed&apos; tabs, it may
-            have been unpublished or permanently removed by the exam
-            administrator.
-          </p>
-        </div>
+        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
+          Official Practice Tests
+        </h1>
+        <p className="text-sm md:text-base text-gray-600">
+          Real SAT-style tests from your dashboard. Filter by status and jump
+          back into your latest attempt in one click.
+        </p>
       </div>
 
       {error && (
@@ -200,102 +218,116 @@ export default function PracticePage() {
         <div className="flex items-center gap-2 overflow-x-auto pb-2">
           <button
             onClick={() => setActiveFilter("all")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs md:text-sm font-medium transition-colors whitespace-nowrap border ${
               activeFilter === "all"
-                ? "bg-gray-900 text-white"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                ? "bg-gray-900 text-white border-gray-900"
+                : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
             }`}
           >
             <Filter className="w-4 h-4" />
             All Papers
-            <span className="ml-1 text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full">
+            <span className="ml-1 text-[10px] md:text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">
               {filterCounts.all}
             </span>
           </button>
           <button
             onClick={() => setActiveFilter("new")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs md:text-sm font-medium transition-colors whitespace-nowrap border ${
               activeFilter === "new"
-                ? "bg-gray-900 text-white"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                ? "bg-gray-900 text-white border-gray-900"
+                : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
             }`}
           >
             <Star className="w-4 h-4" />
             New Tests
-            <span className="ml-1 text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full">
+            <span className="ml-1 text-[10px] md:text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">
               {filterCounts.new}
             </span>
           </button>
           <button
             onClick={() => setActiveFilter("free")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs md:text-sm font-medium transition-colors whitespace-nowrap border ${
               activeFilter === "free"
-                ? "bg-gray-900 text-white"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                ? "bg-gray-900 text-white border-gray-900"
+                : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
             }`}
           >
             <BookOpen className="w-4 h-4" />
             Free Tests
-            <span className="ml-1 text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full">
+            <span className="ml-1 text-[10px] md:text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">
               {filterCounts.free}
             </span>
           </button>
           <button
             onClick={() => setActiveFilter("in_progress")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs md:text-sm font-medium transition-colors whitespace-nowrap border ${
               activeFilter === "in_progress"
-                ? "bg-gray-900 text-white"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                ? "bg-gray-900 text-white border-gray-900"
+                : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
             }`}
           >
             <RefreshCw className="w-4 h-4" />
             In Progress
-            <span className="ml-1 text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full">
+            <span className="ml-1 text-[10px] md:text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">
               {filterCounts.in_progress}
             </span>
           </button>
           <button
             onClick={() => setActiveFilter("completed")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs md:text-sm font-medium transition-colors whitespace-nowrap border ${
               activeFilter === "completed"
-                ? "bg-gray-900 text-white"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                ? "bg-gray-900 text-white border-gray-900"
+                : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
             }`}
           >
             <CheckCircle2 className="w-4 h-4" />
             Completed
-            <span className="ml-1 text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full">
+            <span className="ml-1 text-[10px] md:text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">
               {filterCounts.completed}
             </span>
           </button>
         </div>
 
-        {/* Sort Dropdown */}
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-gray-600">Sort:</label>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as "newest" | "oldest")}
-            className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+        {/* Sort & Reset */}
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveFilter("all");
+              setSortBy("newest");
+            }}
+            className="text-xs md:text-sm text-gray-500 hover:text-gray-900 underline-offset-2 hover:underline"
           >
-            <option value="newest">Newest to Oldest</option>
-            <option value="oldest">Oldest to Newest</option>
-          </select>
+            Reset filters
+          </button>
+          <div className="hidden md:flex items-center gap-2">
+            <label className="text-xs text-gray-500">Sort</label>
+            <select
+              value={sortBy}
+              onChange={(e) =>
+                setSortBy(e.target.value as "newest" | "oldest")
+              }
+              className="px-3 py-2 border border-gray-200 rounded-full bg-white text-xs focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+            >
+              <option value="newest">Newest</option>
+              <option value="oldest">Oldest</option>
+            </select>
+          </div>
         </div>
       </div>
 
-      {/* Test Cards Grid */}
+      {/* Test Cards Grid (PlaynTest mock-exam inspired, minimal) */}
       {filteredAndSortedTests.length === 0 ? (
-        <Card className="p-12 text-center">
-          <p className="text-gray-600 text-lg mb-2">
+        <Card className="p-12 text-center border border-dashed border-gray-300 bg-gray-50/60">
+          <p className="text-gray-700 text-base mb-2">
             No practice tests available
           </p>
-          <p className="text-gray-500 text-sm">
+          <p className="text-gray-500 text-xs">
             Try selecting a different filter
           </p>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredAndSortedTests.map((test, index) => {
             const inProgressAttempt = getInProgressAttempt(test.id);
             const bestScore = getBestScore(test.id);
@@ -311,100 +343,128 @@ export default function PracticePage() {
             );
             const totalPeopleTook = allAttemptsForTest.length;
 
+            const statusBadge = inProgressAttempt
+              ? { label: "In progress", color: "bg-blue-50 text-blue-700" }
+              : completedAttempts.length > 0
+              ? { label: "Completed", color: "bg-emerald-50 text-emerald-700" }
+              : { label: "Unsolved", color: "bg-gray-100 text-gray-700" };
+
+            const hasAttempts = totalPeopleTook > 0;
+            const title =
+              test.title ||
+              `Test #${filteredAndSortedTests.length - index}`;
+
+            const accessType = ((test as any).accessType ??
+              "FREE") as "FREE" | "PREMIUM";
+            const accessLabel =
+              accessType === "PREMIUM" ? "Premium" : "Free";
+            const accessClasses =
+              accessType === "PREMIUM"
+                ? "bg-amber-50 text-amber-700 border border-amber-200"
+                : "bg-emerald-50 text-emerald-700 border border-emerald-200";
+
             return (
               <Card
                 key={test.id}
-                className="p-6 bg-white border border-gray-200 hover:shadow-xl transition-all duration-200 rounded-xl"
+                className="p-4 md:p-5 bg-white border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 rounded-2xl"
               >
-                <div className="space-y-4">
-                  {/* Test Title and Icon */}
-                  <div className="flex items-start gap-3 mb-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm">
-                      <FileText className="w-6 h-6 text-gray-700" />
+                <div className="space-y-3">
+                  {/* Top: colorful tile with large logo background + title */}
+                  <div className="relative overflow-hidden rounded-2xl h-32 md:h-36 bg-gradient-to-br from-orange-200 via-orange-300 to-orange-500">
+                    {/* Full-size logo as soft background */}
+                    <div className="absolute inset-0 flex items-center justify-center opacity-25">
+                      <div className="relative w-40 h-40 md:w-52 md:h-52">
+                        <Image
+                          src="/logo.png"
+                          alt="SAT Ziyo"
+                          fill
+                          className="object-contain"
+                          sizes="200px"
+                        />
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h2 className="text-lg font-bold text-gray-900 mb-1 line-clamp-2">
-                        {test.title ||
-                          `Paper #${filteredAndSortedTests.length - index}`}
-                      </h2>
-                      {test.description && (
-                        <p className="text-xs text-gray-500 line-clamp-1">
-                          {test.description}
-                        </p>
+                    {/* Gradient overlays for depth */}
+                    <div className="absolute inset-0 pointer-events-none">
+                      <div className="absolute -top-10 left-0 w-40 h-32 bg-orange-300/70 rounded-full blur-3xl" />
+                      <div className="absolute bottom-0 right-[-40px] w-48 h-32 bg-orange-700/60 rounded-full blur-3xl" />
+                    </div>
+                    {/* Title on top */}
+                    <div className="relative h-full flex items-center justify-center">
+                      <span className="text-lg md:text-xl font-semibold text-white drop-shadow-sm text-center px-4">
+                        {title}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Middle: meta + attempts */}
+                  <div className="flex items-center justify-between text-[11px] md:text-xs text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>{totalDuration} min</span>
+                      </div>
+                      <span className="h-1 w-1 rounded-full bg-gray-300" />
+                      <span>{totalQuestions} questions</span>
+                    </div>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${statusBadge.color}`}
+                    >
+                      {statusBadge.label}
+                    </span>
+                  </div>
+                  <div className="text-[11px] md:text-xs text-gray-500 flex items-center justify-between">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${accessClasses}`}
+                    >
+                      {accessLabel}
+                    </span>
+                    <span>
+                      {hasAttempts ? (
+                        bestScore !== null ? (
+                          <>Best score: {bestScore}% · {totalPeopleTook} attempts</>
+                        ) : (
+                          <>{totalPeopleTook} attempts so far</>
+                        )
+                      ) : (
+                        <>No attempts yet</>
                       )}
-                    </div>
+                    </span>
                   </div>
 
-                  {/* Test Info */}
-                  <div className="flex items-center gap-4 text-xs text-gray-500 pb-3 border-b border-gray-100">
-                    <div className="flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>{totalDuration}m</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <FileText className="w-3.5 h-3.5" />
-                      <span>{totalQuestions} Q</span>
-                    </div>
-                  </div>
-
-                  {/* Stats */}
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <Users className="w-4 h-4" />
-                        <span className="text-xs">People took</span>
-                      </div>
-                      <span className="font-semibold text-gray-900">
-                        {totalPeopleTook}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <Trophy className="w-4 h-4" />
-                        <span className="text-xs">Your last score</span>
-                      </div>
-                      <span className="font-semibold text-gray-900">
-                        {bestScore !== null ? `${bestScore}%` : "Not taken"}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex gap-2 pt-4 border-t border-gray-100">
-                    {inProgressAttempt ? (
-                      <Button
-                        onClick={() =>
-                          router.push(
-                            `/dashboard/practice/test/${inProgressAttempt.id}`,
-                          )
-                        }
-                        className="flex-1 bg-gray-900 hover:bg-gray-800 text-white rounded-lg"
-                      >
-                        <RotateCcw className="w-4 h-4 mr-2" />
-                        Continue
-                      </Button>
-                    ) : (
-                      <Button
-                        onClick={() =>
-                          router.push(
-                            `/dashboard/practice/test/${test.id}/start`,
-                          )
-                        }
-                        className="flex-1 bg-gray-900 hover:bg-gray-800 text-white rounded-lg"
-                      >
-                        <Play className="w-4 h-4 mr-2" />
-                        Start Test
-                      </Button>
-                    )}
+                  {/* Bottom: primary action + comments */}
+                  <div className="pt-1 md:pt-2 flex items-center gap-2">
                     <Button
+                      onClick={() =>
+                        router.push(
+                          inProgressAttempt
+                            ? `/dashboard/practice/test/${inProgressAttempt.id}`
+                            : `/dashboard/practice/test/${test.id}/start`,
+                        )
+                      }
+                      className="flex-1 bg-gray-900 hover:bg-gray-800 text-white rounded-xl py-2.5 text-sm font-semibold"
+                    >
+                      {inProgressAttempt ? (
+                        <>
+                          <RotateCcw className="w-4 h-4 mr-2" />
+                          Continue test
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-4 h-4 mr-2" />
+                          Start test
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
                       variant="outline"
                       onClick={() =>
                         router.push(
                           `/dashboard/practice/test/${test.id}/comments`,
                         )
                       }
-                      className="bg-white border-gray-300 hover:bg-gray-50 rounded-lg px-3"
-                      title="Discuss"
+                      className="bg-white border-gray-200 hover:bg-gray-50 rounded-xl px-3 py-2"
+                      title="Comments / Discussion"
                     >
                       <MessageCircle className="w-4 h-4" />
                     </Button>

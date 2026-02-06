@@ -49,6 +49,7 @@ function DashboardContent() {
     <div className="max-w-7xl mx-auto space-y-6">
       <DashboardHeader user={user} />
 
+      {/* Asosiy dashboard kontenti: Progress + Exam Countdown + Target Score (yangi UI ichida) */}
       <div>
         <ProgressOverview />
       </div>

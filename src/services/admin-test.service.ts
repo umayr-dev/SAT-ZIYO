@@ -114,6 +114,7 @@ class AdminTestService {
     title: string;
     description?: string;
     sections: any[];
+    accessType?: "FREE" | "PREMIUM";
   }): Promise<{ id: string; title: string }> {
     const response = await fetch("/api/admin/tests", {
       method: "POST",
@@ -172,7 +173,12 @@ class AdminTestService {
    */
   async updateTest(
     testId: string,
-    data: { title?: string; description?: string; isActive?: boolean },
+    data: {
+      title?: string;
+      description?: string;
+      isActive?: boolean;
+      accessType?: "FREE" | "PREMIUM";
+    },
   ): Promise<any> {
     const response = await fetch(`/api/admin/tests/${testId}`, {
       method: "PATCH",

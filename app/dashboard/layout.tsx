@@ -59,7 +59,13 @@ function DashboardLayoutContent({ children }: DashboardLayoutProps) {
               : "pl-4 pr-8 pt-6 pb-8 lg:pl-6 lg:pr-10"
           )}
         >
-          <div className="max-w-[1440px] mx-auto w-full">
+          <div
+            className={cn(
+              isPracticeTestRoute
+                ? "w-full min-w-[1500px]"
+                : "max-w-[1440px] mx-auto w-full"
+            )}
+          >
             {children}
           </div>
         </div>
