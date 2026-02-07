@@ -1,89 +1,60 @@
+"use client";
+
 import Link from "next/link";
 
 export default function Footer() {
   return (
-    <footer className="bg-gray-900 text-gray-300">
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          {/* Brand */}
-          <div className="col-span-1 md:col-span-2">
-            <div className="flex items-center space-x-2 mb-4">
-              <span className="text-2xl font-bold text-white">SAT</span>
-              <span className="text-2xl font-bold text-orange-400">Ziyo</span>
-            </div>
-            <p className="text-gray-400 max-w-md">
-              Your comprehensive SAT preparation platform. Master English and
-              Math with practice tests and detailed explanations.
+    <footer className="bg-slate-900 text-slate-300">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
+          <div className="md:col-span-2">
+            <span className="text-xl font-bold text-white">SAT Ziyo</span>
+            <p className="mt-3 text-sm text-slate-400 max-w-sm leading-relaxed">
+              Digital SAT preparation with full-length mocks, real exam format, and analytics. Unlock your dream score.
             </p>
           </div>
-
-          {/* Quick Links */}
           <div>
-            <h3 className="text-white font-semibold mb-4">Quick Links</h3>
-            <ul className="space-y-2">
+            <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">
+              Product
+            </h3>
+            <ul className="space-y-3">
               <li>
-                <Link
-                  href="/practice"
-                  className="hover:text-orange-400 transition-colors"
-                >
+                <Link href="/dashboard/practice" className="text-sm hover:text-white transition-colors">
                   Practice Tests
                 </Link>
               </li>
               <li>
-                <Link
-                  href="/tests"
-                  className="hover:text-orange-400 transition-colors"
-                >
-                  Full Tests
+                <Link href="/score-calculator" className="text-sm hover:text-white transition-colors">
+                  Score Calculator
                 </Link>
               </li>
               <li>
-                <Link
-                  href="/results"
-                  className="hover:text-orange-400 transition-colors"
-                >
-                  Results
-                </Link>
+                <a href="/#pricing" className="text-sm hover:text-white transition-colors">
+                  Pricing
+                </a>
               </li>
             </ul>
           </div>
-
-          {/* Support */}
           <div>
-            <h3 className="text-white font-semibold mb-4">Support</h3>
-            <ul className="space-y-2">
+            <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">
+              Support
+            </h3>
+            <ul className="space-y-3">
               <li>
-                <Link
-                  href="/about"
-                  className="hover:text-orange-400 transition-colors"
-                >
-                  About Us
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/contact"
-                  className="hover:text-orange-400 transition-colors"
-                >
-                  Contact
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/help"
-                  className="hover:text-orange-400 transition-colors"
-                >
+                <Link href="/support" className="text-sm hover:text-white transition-colors">
                   Help Center
                 </Link>
+              </li>
+              <li>
+                <a href="/#testimonials" className="text-sm hover:text-white transition-colors">
+                  Testimonials
+                </a>
               </li>
             </ul>
           </div>
         </div>
-
-        <div className="mt-8 pt-8 border-t border-gray-800 text-center text-sm text-gray-400">
-          <p>
-            &copy; {new Date().getFullYear()} SAT Ziyo. All rights reserved.
-          </p>
+        <div className="mt-12 pt-8 border-t border-slate-800 text-center text-sm text-slate-500">
+          © {new Date().getFullYear()} SAT Ziyo. All rights reserved.
         </div>
       </div>
     </footer>

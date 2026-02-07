@@ -2,93 +2,63 @@
 
 import { useEffect, useState } from "react";
 
+const QUOTES = [
+  {
+    text: "The mock tests felt exactly like the real exam. I improved my score by 120 points in two months.",
+    name: "Student",
+    role: "Digital SAT test-taker",
+  },
+  {
+    text: "Clear analytics helped me see exactly where to focus. The 8 free mocks were enough to get started.",
+    name: "Student",
+    role: "Prep in Uzbekistan",
+  },
+  {
+    text: "Full-length mocks with real timing made a huge difference. Highly recommend for anyone serious about the SAT.",
+    name: "Student",
+    role: "International applicant",
+  },
+];
+
 export default function Testimonials() {
-  const [isVisible, setIsVisible] = useState(false);
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true);
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    const element = document.getElementById("testimonials");
-    if (element) {
-      observer.observe(element);
-    }
-
-    return () => {
-      if (element) {
-        observer.unobserve(element);
-      }
-    };
+    const el = document.getElementById("testimonials");
+    if (!el) return;
+    const obs = new IntersectionObserver(([e]) => e.isIntersecting && setVisible(true), { threshold: 0.08 });
+    obs.observe(el);
+    return () => obs.disconnect();
   }, []);
-  const testimonials = [
-    {
-      name: "Sarah Johnson",
-      role: "High School Student",
-      content:
-        "This platform helped me improve my SAT score by 200 points! The practice tests are incredibly realistic and the explanations are clear.",
-      rating: 5,
-    },
-    {
-      name: "Michael Chen",
-      role: "College Applicant",
-      content:
-        "The detailed analytics helped me identify my weak areas. I focused on those topics and saw significant improvement in just a few weeks.",
-      rating: 5,
-    },
-    {
-      name: "Emily Rodriguez",
-      role: "Student",
-      content:
-        "I love how I can practice anytime, anywhere. The mobile-friendly design makes it easy to study on the go. Highly recommended!",
-      rating: 5,
-    },
-  ];
 
   return (
-    <section className="py-20 bg-gray-50">
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl text-center mb-16">
-          <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
-            What Students Say
+    <section id="testimonials" className="py-20 sm:py-28 bg-slate-50">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div
+          className={`max-w-2xl mx-auto text-center mb-16 transition-all duration-600 ${
+            visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+          }`}
+        >
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
+            What students say
           </h2>
-          <p className="mt-4 text-lg text-gray-600">
-            Join thousands of students who have improved their SAT scores
+          <p className="mt-4 text-lg text-slate-600">
+            Join students who improved their scores with full-length mocks and clear feedback.
           </p>
         </div>
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-          {testimonials.map((testimonial, index) => (
+        <div className="grid md:grid-cols-3 gap-8">
+          {QUOTES.map((q, i) => (
             <div
-              key={index}
-              className={`bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-500 ${
-                isVisible
-                  ? "opacity-100 translate-y-0"
-                  : "opacity-0 translate-y-10"
+              key={i}
+              className={`rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-600 ${
+                visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
               }`}
-              style={{ transitionDelay: `${index * 150}ms` }}
+              style={{ transitionDelay: `${100 + i * 100}ms` }}
             >
-              <div className="flex items-center mb-4">
-                {[...Array(testimonial.rating)].map((_, i) => (
-                  <span key={i} className="text-yellow-400 text-xl">
-                    ★
-                  </span>
-                ))}
-              </div>
-              <p className="text-gray-700 mb-4 leading-relaxed">
-                <span>&ldquo;</span>
-                {testimonial.content}
-                <span>&rdquo;</span>
-              </p>
-              <div className="border-t pt-4">
-                <div className="font-semibold text-gray-900">
-                  {testimonial.name}
-                </div>
-                <div className="text-sm text-gray-600">{testimonial.role}</div>
+              <p className="text-slate-700 leading-relaxed">&ldquo;{q.text}&rdquo;</p>
+              <div className="mt-4 pt-4 border-t border-slate-100">
+                <div className="font-semibold text-slate-900">{q.name}</div>
+                <div className="text-sm text-slate-500">{q.role}</div>
               </div>
             </div>
           ))}

@@ -41,6 +41,14 @@ export default function ModuleReviewPage() {
     [attemptId]
   );
 
+  // Test sahifasi bilan bir xil: kalitlar s{sectionOrderIndex}_m{moduleNumber}_{index}; URL da section 1-based
+  const modulePrefix = useMemo(() => {
+    const sectionIndex =
+      section != null ? Math.max(0, parseInt(String(section), 10) - 1) : 0;
+    const m = moduleParam != null ? String(moduleParam) : "1";
+    return `s${sectionIndex}_m${m}_`;
+  }, [section, moduleParam]);
+
   useEffect(() => {
     if (!totalQuestions || typeof window === "undefined") {
       setLoading(false);
@@ -59,11 +67,12 @@ export default function ModuleReviewPage() {
       const answered = new Set<number>();
       const flagged = new Set<number>();
       Object.entries(answers).forEach(([key, ans]) => {
-        const idx = parseInt(key, 10);
+        if (!key.startsWith(modulePrefix)) return;
+        const idx = parseInt(key.slice(modulePrefix.length), 10);
         if (Number.isNaN(idx) || idx < 0 || idx >= totalQuestions) return;
         const hasAnswer =
           !!ans.choiceId ||
-          (ans.textAnswer !== undefined && ans.textAnswer.trim() !== "");
+          (ans.textAnswer !== undefined && String(ans.textAnswer).trim() !== "");
         if (hasAnswer) answered.add(idx);
         if (ans.markedForReview) flagged.add(idx);
       });
@@ -79,7 +88,7 @@ export default function ModuleReviewPage() {
     } finally {
       setLoading(false);
     }
-  }, [getStorageKey, totalQuestions]);
+  }, [getStorageKey, totalQuestions, modulePrefix]);
 
   const answeredCount = answeredSet.size;
   const flaggedCount = flaggedSet.size;
@@ -98,14 +107,16 @@ export default function ModuleReviewPage() {
       setSubmitting(true);
       setError(null);
 
-      // Batch submit all answers from localStorage (kam so'rov)
+      // Faqat joriy modul javoblarini yuborish (kalitlar s{section}_m{module}_{index})
       let answersArray: LocalAnswer[] = [];
       if (typeof window !== "undefined") {
         try {
           const stored = localStorage.getItem(getStorageKey());
           if (stored) {
             const answers = JSON.parse(stored) as Record<string, LocalAnswer>;
-            answersArray = Object.values(answers);
+            answersArray = Object.entries(answers)
+              .filter(([key]) => key.startsWith(modulePrefix))
+              .map(([, a]) => a);
           }
         } catch (e) {
           console.error("[ModuleReview] Failed to parse answers:", e);

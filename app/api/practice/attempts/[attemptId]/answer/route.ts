@@ -66,7 +66,10 @@ export async function POST(
       );
     }
 
-    return NextResponse.json(data, { status: 200 });
+    // Only return answer acknowledgment; do not forward result/score from answer API.
+    // Final score must be fetched from GET /api/practice/attempts/:attemptId/results
+    const { result, score, results, ...answerAck } = data as Record<string, unknown>;
+    return NextResponse.json(answerAck, { status: 200 });
   } catch (error) {
     console.error("Practice answer POST error:", error);
     return NextResponse.json(

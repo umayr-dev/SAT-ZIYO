@@ -3,156 +3,124 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Check } from "lucide-react";
-import { Button } from "@/src/ui/button";
+
+const PLANS = [
+  {
+    name: "Free",
+    price: "$0",
+    period: "forever",
+    description: "Start with full-length mocks—no card required.",
+    features: [
+      "8 full-length mock tests",
+      "Real Digital SAT format",
+      "Score & section breakdown",
+      "Question-by-question review",
+      "Progress tracking",
+    ],
+    cta: "Get Started Free",
+    href: "/auth/register",
+    popular: false,
+    accent: false,
+  },
+  {
+    name: "Premium",
+    price: "$15",
+    period: "per month",
+    description: "Unlimited mocks and full access.",
+    features: [
+      "Unlimited full-length mocks",
+      "All Free features",
+      "Advanced analytics",
+      "Detailed explanations",
+      "Priority support",
+    ],
+    cta: "Start Premium",
+    href: "/auth/register?plan=premium",
+    popular: true,
+    accent: true,
+  },
+];
 
 export default function Pricing() {
-  const [isVisible, setIsVisible] = useState(false);
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true);
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    const element = document.getElementById("pricing");
-    if (element) {
-      observer.observe(element);
-    }
-
-    return () => {
-      if (element) {
-        observer.unobserve(element);
-      }
-    };
+    const el = document.getElementById("pricing");
+    if (!el) return;
+    const obs = new IntersectionObserver(([e]) => e.isIntersecting && setVisible(true), { threshold: 0.08 });
+    obs.observe(el);
+    return () => obs.disconnect();
   }, []);
 
-  const plans = [
-    {
-      name: "Free",
-      price: "$0",
-      period: "forever",
-      description: "Perfect for getting started",
-      features: [
-        "100 Practice Questions",
-        "Basic Progress Tracking",
-        "Limited Test Simulations",
-        "Community Support",
-      ],
-      cta: "Get Started Free",
-      href: "/auth/register",
-      popular: false,
-    },
-    {
-      name: "Premium",
-      price: "$19",
-      period: "per month",
-      description: "Best for serious students",
-      features: [
-        "10,000+ Practice Questions",
-        "Advanced Analytics",
-        "Unlimited Test Simulations",
-        "Detailed Explanations",
-        "Priority Support",
-        "Mobile App Access",
-      ],
-      cta: "Start Premium",
-      href: "/auth/register?plan=premium",
-      popular: true,
-    },
-    {
-      name: "Pro",
-      price: "$49",
-      period: "per month",
-      description: "For maximum results",
-      features: [
-        "Everything in Premium",
-        "1-on-1 Tutoring Sessions",
-        "Custom Study Plans",
-        "Performance Predictions",
-        "24/7 Support",
-        "Early Access to Features",
-      ],
-      cta: "Go Pro",
-      href: "/auth/register?plan=pro",
-      popular: false,
-    },
-  ];
-
   return (
-    <section id="pricing" className="py-20 bg-white">
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
+    <section id="pricing" className="py-20 sm:py-28 bg-white">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div
-          className={`mx-auto max-w-2xl text-center mb-16 transition-all duration-1000 ${
-            isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"
+          className={`max-w-2xl mx-auto text-center mb-16 transition-all duration-600 ${
+            visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
           }`}
         >
-          <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
-            Choose Your Plan
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
+            Simple pricing
           </h2>
-          <p className="mt-4 text-lg text-gray-600">
-            Select the perfect plan for your SAT preparation journey
+          <p className="mt-4 text-lg text-slate-600">
+            Two plans: start free with 8 mocks, or go Premium for unlimited access from $15.
           </p>
         </div>
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-3 lg:grid-cols-3">
-          {plans.map((plan, index) => (
+        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          {PLANS.map((plan, i) => (
             <div
-              key={index}
-              className={`relative transition-all duration-700 delay-${
-                index * 100
-              } ${
-                isVisible
-                  ? "opacity-100 translate-y-0 scale-100"
-                  : "opacity-0 translate-y-10 scale-95"
+              key={plan.name}
+              className={`relative transition-all duration-600 ${
+                visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
               }`}
-              style={{ transitionDelay: `${index * 150}ms` }}
+              style={{ transitionDelay: `${80 + i * 120}ms` }}
             >
               {plan.popular && (
-                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-orange-500 text-white px-4 py-1 rounded-full text-sm font-semibold">
-                  Most Popular
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 text-xs font-semibold text-white bg-slate-900 rounded-full">
+                  Most popular
                 </div>
               )}
               <div
-                className={`bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all h-full border-2 ${
-                  plan.popular
-                    ? "border-orange-500 scale-105"
-                    : "border-gray-200"
+                className={`h-full rounded-2xl border-2 p-8 flex flex-col ${
+                  plan.accent
+                    ? "border-slate-900 bg-slate-900 text-white shadow-xl shadow-slate-900/10"
+                    : "border-slate-200 bg-slate-50/50"
                 }`}
               >
-                <div className="text-center mb-8">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                    {plan.name}
-                  </h3>
-                  <div className="flex items-baseline justify-center gap-1">
-                    <span className="text-5xl font-extrabold text-gray-900">
-                      {plan.price}
-                    </span>
-                    <span className="text-gray-600">/{plan.period}</span>
-                  </div>
-                  <p className="mt-2 text-gray-600">{plan.description}</p>
+                <h3 className={`text-xl font-bold ${plan.accent ? "text-white" : "text-slate-900"}`}>{plan.name}</h3>
+                <div className="mt-4 flex items-baseline gap-1">
+                  <span className={`text-4xl font-bold ${plan.accent ? "text-white" : "text-slate-900"}`}>
+                    {plan.price}
+                  </span>
+                  <span className={plan.accent ? "text-slate-400" : "text-slate-500"}>
+                    /{plan.period}
+                  </span>
                 </div>
-                <ul className="space-y-4 mb-8">
-                  {plan.features.map((feature, featureIndex) => (
-                    <li key={featureIndex} className="flex items-start gap-3">
-                      <Check className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
-                      <span className="text-gray-700">{feature}</span>
+                <p className={`mt-2 text-sm ${plan.accent ? "text-slate-400" : "text-slate-600"}`}>
+                  {plan.description}
+                </p>
+                <ul className="mt-6 space-y-3 flex-1">
+                  {plan.features.map((f) => (
+                    <li key={f} className="flex items-start gap-3">
+                      <Check
+                        className={`h-5 w-5 flex-shrink-0 mt-0.5 ${
+                          plan.accent ? "text-emerald-400" : "text-slate-600"
+                        }`}
+                      />
+                      <span className={plan.accent ? "text-slate-200" : "text-slate-700"}>{f}</span>
                     </li>
                   ))}
                 </ul>
-                <Link href={plan.href} className="block">
-                  <Button
-                    className={`w-full ${
-                      plan.popular
-                        ? "bg-orange-500 hover:bg-orange-600"
-                        : "bg-gray-900 hover:bg-gray-800"
-                    }`}
-                    size="lg"
-                  >
-                    {plan.cta}
-                  </Button>
+                <Link
+                  href={plan.href}
+                  className={`mt-8 inline-flex items-center justify-center w-full py-3.5 px-6 rounded-xl text-base font-semibold transition-colors ${
+                    plan.accent
+                      ? "bg-white text-slate-900 hover:bg-slate-100"
+                      : "bg-slate-900 text-white hover:bg-slate-800"
+                  }`}
+                >
+                  {plan.cta}
                 </Link>
               </div>
             </div>

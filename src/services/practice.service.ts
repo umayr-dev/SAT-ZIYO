@@ -127,22 +127,36 @@ export interface BreakStatusResponse {
 
 export interface TestResults {
   totalScore: number;
+  readingWritingScore?: number;
+  mathScore?: number;
+  percentile?: number;
   totalQuestions: number;
   correctAnswers: number;
   wrongAnswers: number;
   completedAt: string;
   sections: SectionResult[];
+  domainPerformance?: Record<
+    string,
+    { correct: number; total: number; percentage: number }
+  >;
 }
 
 export interface SectionResult {
   sectionType: "ENGLISH" | "MATH";
-  score: number;
+  /** Scaled score 200–800 (from lookup table) */
+  scaledScore?: number;
+  /** Legacy: same as scaledScore */
+  score?: number;
+  rawScore?: number;
+  totalQuestions?: number;
+  module2Difficulty?: "EASY" | "HARD";
   modules: ModuleResult[];
 }
 
 export interface ModuleResult {
   moduleNumber: number;
   difficulty: "EASY" | "HARD";
+  assignedDifficulty?: "EASY" | "HARD" | null;
   score: number;
   correctCount: number;
   totalCount: number;
@@ -154,6 +168,7 @@ export interface QuestionResult {
   questionText: string;
   questionType: "MULTIPLE_CHOICE" | "STUDENT_PRODUCED";
   difficulty: "EASY" | "MEDIUM" | "HARD";
+  contentDomain?: string;
   userChoiceId?: string;
   userTextAnswer?: string;
   correctChoiceId?: string;
@@ -432,16 +447,18 @@ class PracticeService {
   }
 
   /**
-   * Submit test for scoring
+   * Submit test for scoring.
+   * Sends answers via POST /submit, then fetches final score from GET /results.
    */
   async submitTest(attemptId: string): Promise<TestResults> {
-    return apiClient<TestResults>(
+    await apiClient(
       `/api/practice/attempts/${attemptId}/submit`,
       {
         method: "POST",
         requireAuth: true,
       },
     );
+    return this.getResults(attemptId);
   }
 
   /**

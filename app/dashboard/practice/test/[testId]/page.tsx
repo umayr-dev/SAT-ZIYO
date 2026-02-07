@@ -96,6 +96,7 @@ export default function TestTakingPage() {
   );
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [newNoteText, setNewNoteText] = useState("");
+  const [isQuestionLoading, setIsQuestionLoading] = useState(false);
 
   // localStorage key for notes
   const getNotesStorageKey = useCallback(
@@ -157,11 +158,18 @@ export default function TestTakingPage() {
   const layoutContainerRef = useRef<HTMLDivElement | null>(null);
   const isDraggingDividerRef = useRef(false);
 
-  // localStorage key for answers
+  // localStorage key for answers (one key per attempt; inside we use s{section}_m{module}_{index})
   const getStorageKey = useCallback(
     () => `test_answers_${attemptId}`,
     [attemptId]
   );
+
+  // Current module prefix so each module's answers are isolated (no carry-over to next module)
+  const getCurrentModulePrefix = useCallback(() => {
+    const s = testState?.currentSection?.orderIndex ?? 0;
+    const m = testState?.currentModule?.moduleNumber ?? 1;
+    return `s${s}_m${m}_`;
+  }, [testState?.currentSection?.orderIndex, testState?.currentModule?.moduleNumber]);
 
   // sessionStorage: savollarni backenddan olgach saqlash (tez o‘tish uchun)
   const getQuestionsStorageKey = useCallback(
@@ -363,29 +371,14 @@ export default function TestTakingPage() {
     console.log("[Test Page] All highlights submitted successfully");
   }, [attemptId, getAllHighlightsFromStorage]);
 
-  // Load answers from localStorage on mount
-  useEffect(() => {
-    if (typeof window !== "undefined" && attemptId) {
-      try {
-        const stored = localStorage.getItem(getStorageKey());
-        if (stored) {
-          const answers = JSON.parse(stored);
-          // Restore answered questions set
-          const answeredSet = new Set<number>();
-          Object.keys(answers).forEach((key) => {
-            if (answers[key]) {
-              answeredSet.add(parseInt(key));
-            }
-          });
-          setAnsweredQuestions(answeredSet);
-        }
-      } catch (err) {
-        console.error("Failed to load answers from localStorage:", err);
-      }
-    }
-  }, [attemptId, getStorageKey]);
+  // True only when user has selected an answer (choice or grid-in text)
+  const hasActualAnswer = useCallback(
+    (answer: { choiceId?: string; textAnswer?: string }) =>
+      !!(answer.choiceId || (answer.textAnswer != null && String(answer.textAnswer).trim() !== "")),
+    []
+  );
 
-  // Save answer to localStorage
+  // Save answer to localStorage (scoped by current module: s{section}_m{module}_{index})
   const saveAnswerToStorage = useCallback(
     (
       questionIndex: number,
@@ -401,18 +394,73 @@ export default function TestTakingPage() {
 
       try {
         const key = getStorageKey();
+        const prefix = getCurrentModulePrefix();
         const stored = localStorage.getItem(key);
-        const answers = stored ? JSON.parse(stored) : {};
-        answers[questionIndex] = answer;
+        const answers: Record<string, unknown> = stored ? JSON.parse(stored) : {};
+        answers[prefix + questionIndex] = answer;
         localStorage.setItem(key, JSON.stringify(answers));
       } catch (err) {
         console.error("Failed to save answer to localStorage:", err);
       }
     },
-    [getStorageKey]
+    [getStorageKey, getCurrentModulePrefix]
   );
 
-  // Get all answers from localStorage
+  // Remove answer for one question from localStorage (so we don't submit empty)
+  const removeAnswerFromStorage = useCallback(
+    (questionIndex: number) => {
+      if (typeof window === "undefined") return;
+      try {
+        const key = getStorageKey();
+        const prefix = getCurrentModulePrefix();
+        const stored = localStorage.getItem(key);
+        if (!stored) return;
+        const answers = JSON.parse(stored) as Record<string, unknown>;
+        delete answers[prefix + questionIndex];
+        localStorage.setItem(key, JSON.stringify(answers));
+      } catch (err) {
+        console.error("Failed to remove answer from localStorage:", err);
+      }
+    },
+    [getStorageKey, getCurrentModulePrefix]
+  );
+
+  // Load answered set for current module only (so switching module shows 0 answered for new module)
+  const syncAnsweredFromStorage = useCallback(() => {
+    if (typeof window === "undefined" || !attemptId) return;
+    const prefix = getCurrentModulePrefix();
+    try {
+      const stored = localStorage.getItem(getStorageKey());
+      if (!stored) {
+        setAnsweredQuestions(new Set());
+        return;
+      }
+      const answers = JSON.parse(stored) as Record<string, Record<string, unknown>>;
+      const answeredSet = new Set<number>();
+      Object.keys(answers).forEach((k) => {
+        if (!k.startsWith(prefix)) return;
+        const entry = answers[k] as { choiceId?: string; textAnswer?: string };
+        if (entry && hasActualAnswer(entry)) {
+          const idx = parseInt(k.slice(prefix.length), 10);
+          if (!Number.isNaN(idx)) answeredSet.add(idx);
+        }
+      });
+      setAnsweredQuestions(answeredSet);
+    } catch (err) {
+      console.error("Failed to load answers from localStorage:", err);
+    }
+  }, [attemptId, getStorageKey, getCurrentModulePrefix, hasActualAnswer]);
+
+  useEffect(() => {
+    syncAnsweredFromStorage();
+  }, [syncAnsweredFromStorage]);
+
+  // Navigator ochilganda answered/unanswered yangilab ko‘rsatish
+  useEffect(() => {
+    if (showNavigator) syncAnsweredFromStorage();
+  }, [showNavigator, syncAnsweredFromStorage]);
+
+  // Get all answers from localStorage for current module only (so next module starts with 0 answered)
   const getAllAnswersFromStorage = useCallback((): Map<
     number,
     {
@@ -426,10 +474,12 @@ export default function TestTakingPage() {
     if (typeof window === "undefined") return new Map();
 
     try {
-      const stored = localStorage.getItem(getStorageKey());
+      const key = getStorageKey();
+      const prefix = getCurrentModulePrefix();
+      const stored = localStorage.getItem(key);
       if (!stored) return new Map();
 
-      const answers = JSON.parse(stored);
+      const answers = JSON.parse(stored) as Record<string, Record<string, unknown>>;
       const map = new Map<
         number,
         {
@@ -440,13 +490,61 @@ export default function TestTakingPage() {
           eliminatedChoices?: string[];
         }
       >();
-      Object.keys(answers).forEach((key) => {
-        map.set(parseInt(key), answers[key]);
+      Object.keys(answers).forEach((k) => {
+        if (!k.startsWith(prefix)) return;
+        const questionIndex = parseInt(k.slice(prefix.length), 10);
+        if (Number.isNaN(questionIndex)) return;
+        const entry = answers[k] as {
+          questionId: string;
+          choiceId?: string;
+          textAnswer?: string;
+          markedForReview?: boolean;
+          eliminatedChoices?: string[];
+        };
+        map.set(questionIndex, entry);
       });
       return map;
     } catch (err) {
       console.error("Failed to get answers from localStorage:", err);
       return new Map();
+    }
+  }, [getStorageKey, getCurrentModulePrefix]);
+
+  // All answers from all modules (for submit on time-up or finish page)
+  const getAllAnswersForSubmit = useCallback((): Array<{
+    questionId: string;
+    choiceId?: string;
+    textAnswer?: string;
+    markedForReview?: boolean;
+    eliminatedChoices?: string[];
+  }> => {
+    if (typeof window === "undefined") return [];
+
+    try {
+      const key = getStorageKey();
+      const stored = localStorage.getItem(key);
+      if (!stored) return [];
+
+      const answers = JSON.parse(stored) as Record<string, Record<string, unknown>>;
+      return Object.keys(answers)
+        .filter((k) => /^s\d+_m\d+_\d+$/.test(k))
+        .filter((k) => {
+          const entry = answers[k] as { choiceId?: string; textAnswer?: string };
+          return !!(
+            entry?.choiceId ||
+            (entry?.textAnswer != null && String(entry.textAnswer).trim() !== "")
+          );
+        })
+        .map((k) => answers[k] as {
+          questionId: string;
+          choiceId?: string;
+          textAnswer?: string;
+          markedForReview?: boolean;
+          eliminatedChoices?: string[];
+        });
+    } catch (err) {
+      console.error("Failed to get answers for submit:", err);
+      return [];
     }
   }, [getStorageKey]);
 
@@ -753,8 +851,12 @@ export default function TestTakingPage() {
       setTestState(state);
       setEliminatedChoices(new Set());
       if (state.question) saveQuestionToLocal(state.currentQuestionIndex, state.question);
-      const savedAnswer = getAllAnswersFromStorage().get(state.currentQuestionIndex);
-      if (savedAnswer) {
+      const statePrefix = `s${state.currentSection.orderIndex}_m${state.currentModule.moduleNumber}_`;
+      const key = getStorageKey();
+      const raw = typeof window !== "undefined" ? localStorage.getItem(key) : null;
+      const savedEntry = raw ? (JSON.parse(raw) as Record<string, Record<string, unknown>>)[statePrefix + state.currentQuestionIndex] : undefined;
+      const savedAnswer = savedEntry as { choiceId?: string; textAnswer?: string; eliminatedChoices?: string[] } | undefined;
+      if (savedAnswer && (savedAnswer.choiceId || (savedAnswer.textAnswer != null && String(savedAnswer.textAnswer).trim() !== ""))) {
         setCurrentAnswer({ choiceId: savedAnswer.choiceId, textAnswer: savedAnswer.textAnswer });
         if (savedAnswer.eliminatedChoices?.length)
           setEliminatedChoices(new Set(savedAnswer.eliminatedChoices));
@@ -764,7 +866,26 @@ export default function TestTakingPage() {
         const cap = QUESTIONS_PER_MODULE[sectionType] ?? 27;
         setTotalQuestions(Math.min(state.currentModule.totalQuestions, cap));
       }
-      setAnsweredQuestions(new Set(getAllAnswersFromStorage().keys()));
+      const statePrefixCache = `s${state.currentSection.orderIndex}_m${state.currentModule.moduleNumber}_`;
+      try {
+        const key = getStorageKey();
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          const answers = JSON.parse(stored) as Record<string, Record<string, unknown>>;
+          const answeredSet = new Set<number>();
+          Object.keys(answers).forEach((k) => {
+            if (!k.startsWith(statePrefixCache)) return;
+            const entry = answers[k] as { choiceId?: string; textAnswer?: string };
+            if (entry && (!!entry.choiceId || (entry.textAnswer != null && String(entry.textAnswer).trim() !== ""))) {
+              const idx = parseInt(k.slice(statePrefixCache.length), 10);
+              if (!Number.isNaN(idx)) answeredSet.add(idx);
+            }
+          });
+          setAnsweredQuestions(answeredSet);
+        } else setAnsweredQuestions(new Set());
+      } catch {
+        setAnsweredQuestions(new Set());
+      }
       setLoading(false);
       return;
     }
@@ -804,23 +925,21 @@ export default function TestTakingPage() {
       setEliminatedChoices(new Set()); // Clear eliminations when loading new question
       saveQuestionToLocal(state.currentQuestionIndex, state.question);
 
-      // Load saved answer for current question from localStorage
-      const savedAnswer = getAllAnswersFromStorage().get(
-        state.currentQuestionIndex
-      );
-      if (savedAnswer) {
+      // Load saved answer for current question from current module only (use state prefix, not testState)
+      const statePrefix = `s${state.currentSection.orderIndex}_m${state.currentModule.moduleNumber}_`;
+      const key = getStorageKey();
+      const raw = typeof window !== "undefined" ? localStorage.getItem(key) : null;
+      const answersMap = raw ? (JSON.parse(raw) as Record<string, Record<string, unknown>>) : {};
+      const savedEntry = answersMap[statePrefix + state.currentQuestionIndex];
+      const savedAnswer = savedEntry as { choiceId?: string; textAnswer?: string; eliminatedChoices?: string[]; markedForReview?: boolean } | undefined;
+      const hasActual = savedAnswer && (!!savedAnswer.choiceId || (savedAnswer.textAnswer != null && String(savedAnswer.textAnswer).trim() !== ""));
+      if (hasActual && savedAnswer) {
         setCurrentAnswer({
           choiceId: savedAnswer.choiceId,
           textAnswer: savedAnswer.textAnswer,
         });
-        // Restore eliminated choices if any
-        if (
-          savedAnswer.eliminatedChoices &&
-          savedAnswer.eliminatedChoices.length > 0
-        ) {
+        if (savedAnswer.eliminatedChoices?.length)
           setEliminatedChoices(new Set(savedAnswer.eliminatedChoices));
-        }
-        // Restore flagged status if any
         if (savedAnswer.markedForReview) {
           setFlaggedQuestions((prev) => {
             const next = new Set(prev);
@@ -853,9 +972,27 @@ export default function TestTakingPage() {
         setRemainingTimeSeconds(durationSeconds);
       }
 
-      // Answered questions: localStorage dan (API so‘rovsiz – kam so‘rov)
-      const stored = getAllAnswersFromStorage();
-      setAnsweredQuestions(new Set(stored.keys()));
+      // Answered questions: only current module (prefix s{section}_m{module}_)
+      const statePrefixApi = `s${state.currentSection.orderIndex}_m${state.currentModule.moduleNumber}_`;
+      try {
+        const key = getStorageKey();
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          const answers = JSON.parse(raw) as Record<string, Record<string, unknown>>;
+          const answeredSet = new Set<number>();
+          Object.keys(answers).forEach((k) => {
+            if (!k.startsWith(statePrefixApi)) return;
+            const entry = answers[k] as { choiceId?: string; textAnswer?: string };
+            if (entry && (!!entry.choiceId || (entry.textAnswer != null && String(entry.textAnswer).trim() !== ""))) {
+              const idx = parseInt(k.slice(statePrefixApi.length), 10);
+              if (!Number.isNaN(idx)) answeredSet.add(idx);
+            }
+          });
+          setAnsweredQuestions(answeredSet);
+        } else setAnsweredQuestions(new Set());
+      } catch {
+        setAnsweredQuestions(new Set());
+      }
     } catch (err) {
       console.error("[Test Page] Failed to load test state:", err);
       const errorMessage =
@@ -909,10 +1046,8 @@ export default function TestTakingPage() {
         return;
       }
 
-      const answeredSet = new Set(
-        answers.answers.filter((a) => a.answered).map((a) => a.questionIndex)
-      );
-      setAnsweredQuestions(answeredSet);
+      // Do not overwrite answeredQuestions from API – we use module-scoped localStorage only
+      // (API may return global indices; would show wrong count in next module)
 
       const raw =
         state?.currentModule?.totalQuestions ??
@@ -946,12 +1081,13 @@ export default function TestTakingPage() {
     }, 500); // Wait 500ms after last call
   }
 
-  // Save answer to localStorage only (no server request during test)
+  // Save answer to localStorage only when user has actually selected an answer (no server request during test)
   const handleAnswer = useCallback(() => {
     if (!testState?.question) return;
 
     const currentIndex = testState.currentQuestionIndex;
     const questionId = testState.question.id;
+    const hasAnswer = hasActualAnswer(currentAnswer);
 
     const answerData = {
       questionId,
@@ -961,29 +1097,38 @@ export default function TestTakingPage() {
       eliminatedChoices: Array.from(eliminatedChoices),
     };
 
-    // Save to localStorage immediately
-    saveAnswerToStorage(currentIndex, answerData);
-
-    // Store in pending answers map (for submission at end)
-    setPendingAnswers((prev) => {
-      const next = new Map(prev);
-      next.set(currentIndex, answerData);
-      return next;
-    });
-
-    // Optimistically update answered questions
-    setAnsweredQuestions((prev) => {
-      const next = new Set(prev);
-      next.add(currentIndex);
-      return next;
-    });
-
-    // Do not clear currentAnswer – selection stays visible; when navigating we load from storage
+    if (hasAnswer) {
+      saveAnswerToStorage(currentIndex, answerData);
+      setPendingAnswers((prev) => {
+        const next = new Map(prev);
+        next.set(currentIndex, answerData);
+        return next;
+      });
+      setAnsweredQuestions((prev) => {
+        const next = new Set(prev);
+        next.add(currentIndex);
+        return next;
+      });
+    } else {
+      removeAnswerFromStorage(currentIndex);
+      setPendingAnswers((prev) => {
+        const next = new Map(prev);
+        next.delete(currentIndex);
+        return next;
+      });
+      setAnsweredQuestions((prev) => {
+        const next = new Set(prev);
+        next.delete(currentIndex);
+        return next;
+      });
+    }
     // NO SERVER REQUEST - answers will be submitted when test finishes
   }, [
     testState,
     currentAnswer,
+    hasActualAnswer,
     saveAnswerToStorage,
+    removeAnswerFromStorage,
     flaggedQuestions,
     eliminatedChoices,
   ]);
@@ -1016,6 +1161,7 @@ export default function TestTakingPage() {
 
     try {
       navigationInFlightRef.current = true;
+      setIsQuestionLoading(true);
       setSubmitting(true);
 
       handleAnswer();
@@ -1035,6 +1181,7 @@ export default function TestTakingPage() {
       );
     } finally {
       setSubmitting(false);
+      setIsQuestionLoading(false);
       navigationInFlightRef.current = false;
     }
   }
@@ -1045,6 +1192,7 @@ export default function TestTakingPage() {
 
     try {
       navigationInFlightRef.current = true;
+      setIsQuestionLoading(true);
       setSubmitting(true);
 
       // Save current answer (no server request)
@@ -1069,6 +1217,7 @@ export default function TestTakingPage() {
       );
     } finally {
       setSubmitting(false);
+      setIsQuestionLoading(false);
       navigationInFlightRef.current = false;
     }
   }
@@ -1082,6 +1231,7 @@ export default function TestTakingPage() {
 
     try {
       navigationInFlightRef.current = true;
+      setIsQuestionLoading(true);
       setSubmitting(true);
 
       handleAnswer();
@@ -1103,6 +1253,7 @@ export default function TestTakingPage() {
       );
     } finally {
       setSubmitting(false);
+      setIsQuestionLoading(false);
       navigationInFlightRef.current = false;
     }
   }
@@ -1141,72 +1292,28 @@ export default function TestTakingPage() {
     }
   }
 
-  // Submit all pending answers from localStorage to server (PRODUCTION-READY: Batch submission)
+  // Submit all pending answers from localStorage (all modules) to server (PRODUCTION-READY: Batch submission)
   const submitAllPendingAnswers = useCallback(async () => {
-    const allAnswers = getAllAnswersFromStorage();
+    const allAnswers = getAllAnswersForSubmit();
 
-    if (allAnswers.size === 0) {
+    if (allAnswers.length === 0) {
       console.log("[Test Page] No answers to submit");
       return;
     }
 
     console.log(
-      `[Test Page] Submitting ${allAnswers.size} answers to server (batch mode)...`
+      `[Test Page] Submitting ${allAnswers.length} answers to server (batch mode)...`
     );
 
-    // Convert Map to Array to avoid iterator issues
-    const answersArray = Array.from(allAnswers.entries());
+    const batchAnswers = allAnswers.map((answer) => ({
+      questionId: answer.questionId,
+      choiceId: answer.choiceId,
+      textAnswer: answer.textAnswer,
+      markedForReview: answer.markedForReview,
+      eliminatedChoices: answer.eliminatedChoices,
+    }));
 
-    // Filter out invalid answers before submission
-    const validAnswers = answersArray
-      .map(([questionIndex, answer]) => {
-        // Get question from cache to check type
-        const question = questionsCache.get(questionIndex);
-
-        if (!question) {
-          // If question not in cache, include it (will be validated on server)
-          return { questionIndex, answer };
-        }
-
-        // Validate: MULTIPLE_CHOICE requires choiceId
-        if (question.questionType === "MULTIPLE_CHOICE" && !answer.choiceId) {
-          console.warn(
-            `[Test Page] Skipping question ${questionIndex}: MULTIPLE_CHOICE requires choiceId`
-          );
-          return null;
-        }
-
-        // Validate: STUDENT_PRODUCED requires textAnswer
-        if (
-          question.questionType === "STUDENT_PRODUCED" &&
-          !answer.textAnswer
-        ) {
-          console.warn(
-            `[Test Page] Skipping question ${questionIndex}: STUDENT_PRODUCED requires textAnswer`
-          );
-          return null;
-        }
-
-        return { questionIndex, answer };
-      })
-      .filter(
-        (item): item is { questionIndex: number; answer: any } => item !== null
-      );
-
-    if (validAnswers.length === 0) {
-      console.log("[Test Page] No valid answers to submit");
-      return;
-    }
-
-    // PRODUCTION-READY: Use batch submission instead of individual requests
     try {
-      const batchAnswers = validAnswers.map(({ answer }) => ({
-        questionId: answer.questionId,
-        choiceId: answer.choiceId,
-        textAnswer: answer.textAnswer,
-        markedForReview: answer.markedForReview,
-        eliminatedChoices: answer.eliminatedChoices,
-      }));
 
       // Submit in batches of 10 to avoid overwhelming server
       const BATCH_SIZE = 10;
@@ -1250,9 +1357,8 @@ export default function TestTakingPage() {
       let successCount = 0;
       let failCount = 0;
 
-      for (let i = 0; i < validAnswers.length; i++) {
-        const { questionIndex, answer } = validAnswers[i];
-
+      for (let i = 0; i < allAnswers.length; i++) {
+        const answer = allAnswers[i];
         try {
           await practiceService.submitAnswer(
             attemptId,
@@ -1263,15 +1369,13 @@ export default function TestTakingPage() {
             answer.eliminatedChoices
           );
           successCount++;
-
-          // Delay between requests
-          if (i < validAnswers.length - 1) {
+          if (i < allAnswers.length - 1) {
             await new Promise((resolve) => setTimeout(resolve, 200));
           }
-        } catch (err) {
+        } catch (submitErr) {
           console.error(
-            `Failed to submit answer for question ${questionIndex}:`,
-            err
+            `Failed to submit answer for question ${answer.questionId}:`,
+            submitErr
           );
           failCount++;
         }
@@ -1281,7 +1385,7 @@ export default function TestTakingPage() {
         `[Test Page] Fallback submission complete: ${successCount} succeeded, ${failCount} failed`
       );
     }
-  }, [attemptId, getAllAnswersFromStorage, questionsCache]);
+  }, [attemptId, getAllAnswersForSubmit]);
 
   function handleAnswerChange(answer: {
     choiceId?: string;
@@ -1723,9 +1827,14 @@ export default function TestTakingPage() {
             </div>
 
             {/* Markaz – chap: image+passage; o‘ng: savol+choices; ustunlar orasida gap, matn dividerga yopishmasin */}
-            <div className="flex-1 min-h-0 flex flex-col">
-              <div className="relative flex flex-1 min-h-0 overflow-hidden gap-0" ref={layoutContainerRef}>
-                {/* Left Column: image + passage – scroll faqat shu ustunda, o‘ngda padding */}
+            <div className="flex-1 min-h-0 flex flex-col relative">
+              {isQuestionLoading && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/80 transition-opacity duration-200" aria-hidden="true">
+                  <Loading size="lg" />
+                </div>
+              )}
+              <div className={`relative flex flex-1 min-h-0 overflow-hidden gap-0 transition-opacity duration-150 ${isQuestionLoading ? "opacity-60 pointer-events-none" : ""}`} ref={layoutContainerRef}>
+                {/* Left Column: question + image (ustma ust) */}
                 <div
                   className="content-pane flex flex-col min-h-0 flex-shrink-0 pr-2"
                   style={{
@@ -1737,51 +1846,7 @@ export default function TestTakingPage() {
                     className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-hide"
                     style={{ WebkitOverflowScrolling: "touch" }}
                   >
-                    {(question.sharedPassage?.content || question.passage) || question.imageUrl ? (
-                      <div className="prose max-w-none pr-4 pb-4">
-                        {question.imageUrl && (
-                          <div className="mb-4">
-                            <Image
-                              src={question.imageUrl}
-                              alt="Savol rasmi"
-                              width={400}
-                              height={300}
-                              className="w-full h-auto rounded-lg object-contain max-h-[320px]"
-                            />
-                          </div>
-                        )}
-                        {(question.sharedPassage?.content || question.passage) && (
-                          <div className="p-4 bg-gray-50/80 rounded-lg">
-                            <p className="text-base leading-relaxed whitespace-pre-wrap">
-                              {question.sharedPassage?.content || question.passage}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="p-4 text-gray-500 text-sm">Passage yoki rasm yo&apos;q.</div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Resizable Divider – markazdagi ustun, 2 tarafiga bo‘shliq */}
-                <div
-                  className="divider flex-shrink-0"
-                  style={{ left: `calc(${splitPosition}% - 4px)` }}
-                  onMouseDown={handleDividerMouseDown}
-                />
-
-                {/* Right Column: savol raqami, savol matni, choices – chapda padding, dividerga yopishmasin */}
-                <div
-                  className="content-pane flex flex-col min-h-0 flex-1 min-w-0 pl-2"
-                  style={{ width: `calc(${100 - splitPosition}% - 6px)` }}
-                >
-                  <div
-                    className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-hide pl-3"
-                    style={{ WebkitOverflowScrolling: "touch" }}
-                  >
-                    {/* Question Index + Flag – savol matni dividerga yopishmasin */}
-                    <div className="mb-4 pr-2">
+                    <div className="pr-4 pb-4">
                       <div className="question-index-container flex items-center justify-between bg-gray-200 rounded mb-2">
                         <div className="flex items-center h-full">
                           <p className="question-index font-semibold bg-black text-white text-sm h-full px-3 py-2 rounded-l">
@@ -1816,8 +1881,6 @@ export default function TestTakingPage() {
                           </button>
                         )}
                       </div>
-
-                      {/* Question Text */}
                       <div className="prose max-w-none mt-2">
                         <QuestionDisplay
                           question={question}
@@ -1844,14 +1907,53 @@ export default function TestTakingPage() {
                                   });
                                   localStorage.setItem(getHighlightsStorageKey(), JSON.stringify(highlightsObj));
                                 } catch (err) {
-                                  console.error("Failed to save highlights to localStorage:", err);
+                                  console.error("Failed to save highlights from localStorage:", err);
                                 }
                               }
                             }
                           }}
                         />
                       </div>
+                      {question.imageUrl && (
+                        <div className="mt-4 bg-gray-100 rounded-lg min-h-[120px] flex items-center justify-center overflow-hidden">
+                          <Image
+                            src={question.imageUrl}
+                            alt="Savol rasmi"
+                            width={400}
+                            height={300}
+                            className="w-full h-auto rounded-lg object-contain max-h-[320px] bg-gray-100"
+                            unoptimized={question.imageUrl.startsWith("data:")}
+                          />
+                        </div>
+                      )}
                     </div>
+                  </div>
+                </div>
+
+                {/* Resizable Divider – markazdagi ustun, 2 tarafiga bo‘shliq */}
+                <div
+                  className="divider flex-shrink-0"
+                  style={{ left: `calc(${splitPosition}% - 4px)` }}
+                  onMouseDown={handleDividerMouseDown}
+                />
+
+                {/* Right Column: passage ustida, variantlar pastda */}
+                <div
+                  className="content-pane flex flex-col min-h-0 flex-1 min-w-0 pl-2"
+                  style={{ width: `calc(${100 - splitPosition}% - 6px)` }}
+                >
+                  <div
+                    className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-hide pl-3"
+                    style={{ WebkitOverflowScrolling: "touch" }}
+                  >
+                    {/* Passage (ong tarafda, variantlar ustida) */}
+                    {(question.sharedPassage?.content || question.passage) && (
+                      <div className="mb-6 p-4 bg-gray-50/80 rounded-lg">
+                        <p className="text-base leading-relaxed whitespace-pre-wrap">
+                          {question.sharedPassage?.content || question.passage}
+                        </p>
+                      </div>
+                    )}
 
                     {/* Choices */}
                   {question.questionType === "MULTIPLE_CHOICE" &&
@@ -1920,13 +2022,13 @@ export default function TestTakingPage() {
                                     </span>
                                   )}
                                   {choiceImageUrl && (
-                                    <span className="block mt-2">
+                                    <span className="block mt-2 bg-gray-100 rounded border border-gray-200 overflow-hidden">
                                       <Image
                                         src={choiceImageUrl}
                                         alt={`Variant ${letter}`}
                                         width={280}
                                         height={160}
-                                        className="rounded border border-gray-200 object-contain max-h-40 w-full"
+                                        className="rounded object-contain max-h-40 w-full bg-gray-100"
                                         unoptimized={choiceImageUrl.startsWith("data:")}
                                       />
                                     </span>

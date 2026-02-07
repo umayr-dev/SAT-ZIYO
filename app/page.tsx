@@ -10,29 +10,15 @@ import Footer from "@/src/components/sections/Footer";
 
 export default function Home() {
   return (
-    <main className="min-h-screen">
+    <main className="min-h-screen bg-white">
       <Header />
-      <section id="home">
-        <Hero />
-      </section>
-      <section id="statistics">
-        <Statistics />
-      </section>
-      <section id="features">
-        <Features />
-      </section>
-      <section id="how-it-works">
-        <HowItWorks />
-      </section>
-      <section id="testimonials">
-        <Testimonials />
-      </section>
-      <section id="pricing">
-        <Pricing />
-      </section>
-      <section id="cta">
-        <CTA />
-      </section>
+      <Hero />
+      <Statistics />
+      <Features />
+      <HowItWorks />
+      <Testimonials />
+      <Pricing />
+      <CTA />
       <Footer />
     </main>
   );

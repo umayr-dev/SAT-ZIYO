@@ -14,7 +14,6 @@ import {
   Trophy,
   Play,
   RotateCcw,
-  Filter,
   Star,
   BookOpen,
   RefreshCw,
@@ -51,6 +50,11 @@ export default function PracticePage() {
       .filter((a) => a.status === "COMPLETED" && a.totalScore !== undefined)
       .map((a) => a.totalScore!);
     return testAttempts.length > 0 ? Math.max(...testAttempts) : null;
+  }
+
+  // SAT total score: display in steps of 10, minimum 400 (backend may return raw e.g. 402)
+  function formatSatTotalScore(score: number): number {
+    return Math.max(400, Math.round(Number(score) / 10) * 10);
   }
 
   function calculateTotalDuration(test: Test): number {
@@ -200,8 +204,8 @@ export default function PracticePage() {
           Official Practice Tests
         </h1>
         <p className="text-sm md:text-base text-gray-600">
-          Real SAT-style tests from your dashboard. Filter by status and jump
-          back into your latest attempt in one click.
+          Real SAT-style tests from your dashboard. Jump back into your latest
+          attempt in one click.
         </p>
       </div>
 
@@ -213,117 +217,11 @@ export default function PracticePage() {
         </Card>
       )}
 
-      {/* Filter Tabs */}
-      <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-2 overflow-x-auto pb-2">
-          <button
-            onClick={() => setActiveFilter("all")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs md:text-sm font-medium transition-colors whitespace-nowrap border ${
-              activeFilter === "all"
-                ? "bg-gray-900 text-white border-gray-900"
-                : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
-            }`}
-          >
-            <Filter className="w-4 h-4" />
-            All Papers
-            <span className="ml-1 text-[10px] md:text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">
-              {filterCounts.all}
-            </span>
-          </button>
-          <button
-            onClick={() => setActiveFilter("new")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs md:text-sm font-medium transition-colors whitespace-nowrap border ${
-              activeFilter === "new"
-                ? "bg-gray-900 text-white border-gray-900"
-                : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
-            }`}
-          >
-            <Star className="w-4 h-4" />
-            New Tests
-            <span className="ml-1 text-[10px] md:text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">
-              {filterCounts.new}
-            </span>
-          </button>
-          <button
-            onClick={() => setActiveFilter("free")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs md:text-sm font-medium transition-colors whitespace-nowrap border ${
-              activeFilter === "free"
-                ? "bg-gray-900 text-white border-gray-900"
-                : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
-            }`}
-          >
-            <BookOpen className="w-4 h-4" />
-            Free Tests
-            <span className="ml-1 text-[10px] md:text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">
-              {filterCounts.free}
-            </span>
-          </button>
-          <button
-            onClick={() => setActiveFilter("in_progress")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs md:text-sm font-medium transition-colors whitespace-nowrap border ${
-              activeFilter === "in_progress"
-                ? "bg-gray-900 text-white border-gray-900"
-                : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
-            }`}
-          >
-            <RefreshCw className="w-4 h-4" />
-            In Progress
-            <span className="ml-1 text-[10px] md:text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">
-              {filterCounts.in_progress}
-            </span>
-          </button>
-          <button
-            onClick={() => setActiveFilter("completed")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs md:text-sm font-medium transition-colors whitespace-nowrap border ${
-              activeFilter === "completed"
-                ? "bg-gray-900 text-white border-gray-900"
-                : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
-            }`}
-          >
-            <CheckCircle2 className="w-4 h-4" />
-            Completed
-            <span className="ml-1 text-[10px] md:text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">
-              {filterCounts.completed}
-            </span>
-          </button>
-        </div>
-
-        {/* Sort & Reset */}
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => {
-              setActiveFilter("all");
-              setSortBy("newest");
-            }}
-            className="text-xs md:text-sm text-gray-500 hover:text-gray-900 underline-offset-2 hover:underline"
-          >
-            Reset filters
-          </button>
-          <div className="hidden md:flex items-center gap-2">
-            <label className="text-xs text-gray-500">Sort</label>
-            <select
-              value={sortBy}
-              onChange={(e) =>
-                setSortBy(e.target.value as "newest" | "oldest")
-              }
-              className="px-3 py-2 border border-gray-200 rounded-full bg-white text-xs focus:outline-none focus:ring-2 focus:ring-gray-900/10"
-            >
-              <option value="newest">Newest</option>
-              <option value="oldest">Oldest</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Test Cards Grid (PlaynTest mock-exam inspired, minimal) */}
+      {/* Test Cards Grid */}
       {filteredAndSortedTests.length === 0 ? (
         <Card className="p-12 text-center border border-dashed border-gray-300 bg-gray-50/60">
           <p className="text-gray-700 text-base mb-2">
             No practice tests available
-          </p>
-          <p className="text-gray-500 text-xs">
-            Try selecting a different filter
           </p>
         </Card>
       ) : (
@@ -369,28 +267,28 @@ export default function PracticePage() {
                 className="p-4 md:p-5 bg-white border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 rounded-2xl"
               >
                 <div className="space-y-3">
-                  {/* Top: colorful tile with large logo background + title */}
-                  <div className="relative overflow-hidden rounded-2xl h-32 md:h-36 bg-gradient-to-br from-orange-200 via-orange-300 to-orange-500">
-                    {/* Full-size logo as soft background */}
-                    <div className="absolute inset-0 flex items-center justify-center opacity-25">
-                      <div className="relative w-40 h-40 md:w-52 md:h-52">
+                  {/* Top: tile with logo + glass effect, test name centered */}
+                  <div className="relative overflow-hidden rounded-2xl h-44 md:h-52 bg-gradient-to-br from-orange-200 via-orange-300 to-orange-500">
+                    {/* Logo: larger so more visible */}
+                    <div className="absolute inset-0 flex items-center justify-center opacity-40">
+                      <div className="relative w-44 h-44 md:w-56 md:h-56">
                         <Image
                           src="/logo.png"
                           alt="SAT Ziyo"
                           fill
                           className="object-contain"
-                          sizes="200px"
+                          sizes="224px"
                         />
                       </div>
                     </div>
-                    {/* Gradient overlays for depth */}
+                    {/* Glass effect overlays */}
                     <div className="absolute inset-0 pointer-events-none">
                       <div className="absolute -top-10 left-0 w-40 h-32 bg-orange-300/70 rounded-full blur-3xl" />
                       <div className="absolute bottom-0 right-[-40px] w-48 h-32 bg-orange-700/60 rounded-full blur-3xl" />
                     </div>
-                    {/* Title on top */}
-                    <div className="relative h-full flex items-center justify-center">
-                      <span className="text-lg md:text-xl font-semibold text-white drop-shadow-sm text-center px-4">
+                    {/* Test name centered */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-lg md:text-xl font-semibold text-white drop-shadow-md text-center px-4">
                         {title}
                       </span>
                     </div>
@@ -421,7 +319,7 @@ export default function PracticePage() {
                     <span>
                       {hasAttempts ? (
                         bestScore !== null ? (
-                          <>Best score: {bestScore}% · {totalPeopleTook} attempts</>
+                          <>Best score: {formatSatTotalScore(bestScore)} · {totalPeopleTook} attempts</>
                         ) : (
                           <>{totalPeopleTook} attempts so far</>
                         )
