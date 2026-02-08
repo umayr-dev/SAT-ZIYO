@@ -83,6 +83,66 @@ export interface Question {
   }[];
 }
 
+/** Backend boshqa string yuborishi mumkin (GRID_IN, Student_Produced). Ochiq javob (yozma) kerak bo‘lsa true. */
+export function isOpenAnswerQuestion(q: { questionType?: string; choices?: unknown[] }): boolean {
+  const t = (q.questionType ?? "").toUpperCase().replace(/[-_\s]/g, "_");
+  if (t === "STUDENT_PRODUCED" || t === "GRID_IN" || t === "GRIDIN") return true;
+  if (t === "MULTIPLE_CHOICE" && (!q.choices || !Array.isArray(q.choices) || q.choices.length === 0))
+    return true;
+  return false;
+}
+
+/** Variantlar (A/B/C/D) ko‘rsatilsinmi */
+export function hasChoiceOptions(q: { questionType?: string; choices?: unknown[] }): boolean {
+  const t = (q.questionType ?? "").toUpperCase().replace(/[-_\s]/g, "_");
+  return t === "MULTIPLE_CHOICE" && Array.isArray(q.choices) && q.choices.length > 0;
+}
+
+/** MD/backend: savol rasmi – imageUrl yoki image_url (snake_case) */
+export function getQuestionImageUrl(
+  q: { imageUrl?: string | null; image_url?: string | null }
+): string | undefined {
+  const url = (q as { imageUrl?: string; image_url?: string }).imageUrl
+    ?? (q as { image_url?: string }).image_url;
+  return typeof url === "string" && url.trim() ? url.trim() : undefined;
+}
+
+/** MD/backend: variant matni – choiceText yoki choice_text */
+export function getChoiceText(
+  c: { choiceText?: string | null; choice_text?: string | null }
+): string {
+  const text = (c as { choiceText?: string }).choiceText ?? (c as { choice_text?: string }).choice_text;
+  return typeof text === "string" ? text.trim() : "";
+}
+
+/** MD/backend: variant rasmi – imageUrl, image_url, image, choiceImageUrl, choice_image_url (barcha mumkin fieldlar) */
+export function getChoiceImageUrl(c: Record<string, unknown>): string | undefined {
+  const keys = [
+    "imageUrl",
+    "image_url",
+    "image",
+    "choiceImageUrl",
+    "choice_image_url",
+    "choiceImage",
+    "choice_image",
+  ];
+  for (const k of keys) {
+    const v = c[k];
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  // Har qanday key bo‘yicha string URL (http/https/data:) – backend boshqa nom bilan yuborsa
+  for (const [k, v] of Object.entries(c)) {
+    if (typeof v === "string" && v.trim() && (v.startsWith("http") || v.startsWith("data:")))
+      return v.trim();
+  }
+  return undefined;
+}
+
+/** Next/Image: tashqi URL (GCS, data:) – unoptimized ishlatish kerak, aks holda render bo‘lmasligi mumkin */
+export function shouldUnoptimizeImage(url: string): boolean {
+  return url.startsWith("data:") || url.includes("storage.googleapis.com");
+}
+
 export interface AnswerResponse {
   success: boolean;
   answeredAt: string;
@@ -179,6 +239,7 @@ export interface QuestionResult {
     id: string;
     choiceText: string;
     isCorrect: boolean;
+    imageUrl?: string;
   }[];
 }
 

@@ -7,7 +7,14 @@ import React, {
   useRef,
   useCallback,
 } from "react";
-import { Question } from "@/src/services/practice.service";
+import {
+  Question,
+  isOpenAnswerQuestion,
+  hasChoiceOptions,
+  getQuestionImageUrl,
+  getChoiceText,
+  getChoiceImageUrl,
+} from "@/src/services/practice.service";
 import { MathRenderer } from "@/src/components/math/MathRenderer";
 
 type HighlightStyle =
@@ -271,9 +278,10 @@ export function QuestionDisplay({
     italic: "italic",
   };
 
-  // Support both legacy passage field and new sharedPassage
+  // Support both legacy passage field and new sharedPassage; MD: question image imageUrl / image_url
   const passageText = question.sharedPassage?.content || question.passage;
-  const hasPassage = !!passageText || !!question.imageUrl;
+  const questionImageUrl = getQuestionImageUrl(question);
+  const hasPassage = !!passageText || !!questionImageUrl;
   const showPassage = hasPassage && !hidePassage;
 
   const [showFloatingToolbar, setShowFloatingToolbar] = useState(false);
@@ -579,11 +587,9 @@ export function QuestionDisplay({
       {!showOnlyQuestionText && (
         <>
           {/* Multiple Choice */}
-          {question.questionType === "MULTIPLE_CHOICE" &&
-          question.choices &&
-          question.choices.length > 0 ? (
+          {hasChoiceOptions(question) ? (
             <div className="space-y-3 mt-4">
-              {question.choices.map((choice, index) => {
+              {(question.choices ?? []).map((choice, index) => {
                 const isSelected = selectedChoiceId === choice.id;
                 const letter = String.fromCharCode(65 + index); // A, B, C, D
 
@@ -607,27 +613,39 @@ export function QuestionDisplay({
                       >
                         {letter}
                       </span>
-                      <span className="flex-1 text-gray-900">
-                        {choice.choiceText || `Choice ${letter}`}
-                      </span>
+                      <div className="flex-1 min-w-0">
+                        {getChoiceText(choice) ? (
+                          <span className="block text-gray-900">
+                            {getChoiceText(choice)}
+                          </span>
+                        ) : (
+                          <span className="block text-gray-500 italic">
+                            Choice {letter}
+                          </span>
+                        )}
+                        {getChoiceImageUrl(choice) && (
+                          <span className="block mt-2 bg-gray-100 rounded border border-gray-200 overflow-hidden">
+                            <img
+                              src={getChoiceImageUrl(choice)!}
+                              alt={`Choice ${letter}`}
+                              className="rounded object-contain max-h-40 w-full bg-gray-100 min-h-[80px]"
+                              loading="lazy"
+                            />
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </button>
                 );
               })}
             </div>
-          ) : question.questionType === "MULTIPLE_CHOICE" ? (
-            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg mt-4">
-              <p className="text-sm text-yellow-800">
-                ⚠ No choices available for this question
-              </p>
-            </div>
           ) : null}
 
-          {/* Student-Produced Response (Grid-in) */}
-          {question.questionType === "STUDENT_PRODUCED" && (
-            <div className="space-y-4 mt-4">
+          {/* Student-Produced Response (Grid-in) – ochiq javob */}
+          {isOpenAnswerQuestion(question) && (
+            <div className="space-y-2 mt-4 pt-2">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Enter your answer:
                 </label>
                 <input
@@ -636,7 +654,7 @@ export function QuestionDisplay({
                   onChange={(e) => onTextAnswerChange(e.target.value)}
                   placeholder="Type your answer"
                   pattern="[0-9.\\-/]+"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
+                  className="max-w-[140px] px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
                 />
               </div>
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">

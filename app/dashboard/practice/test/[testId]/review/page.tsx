@@ -9,6 +9,10 @@ import {
   practiceService,
   TestResults,
   QuestionResult,
+  isOpenAnswerQuestion,
+  hasChoiceOptions,
+  getChoiceText,
+  getChoiceImageUrl,
 } from "@/src/services/practice.service";
 import { ChevronLeft, ChevronRight, CheckCircle, XCircle } from "lucide-react";
 
@@ -165,9 +169,9 @@ export default function QuestionReviewPage() {
           </div>
 
           {/* Multiple Choice Review */}
-          {question.questionType === "MULTIPLE_CHOICE" && question.choices && (
+          {hasChoiceOptions(question) && (
             <div className="space-y-3 mb-6">
-              {question.choices.map((choice, index) => {
+              {(question.choices ?? []).map((choice, index) => {
                 const letter = String.fromCharCode(65 + index);
                 const isCorrect = choice.isCorrect;
                 const isUserChoice = choice.id === question.userChoiceId;
@@ -196,15 +200,29 @@ export default function QuestionReviewPage() {
                       >
                         {letter}
                       </span>
-                      <div className="flex-1">
-                        <span className="text-gray-900">{choice.choiceText}</span>
+                      <div className="flex-1 min-w-0">
+                        {getChoiceText(choice) && (
+                          <span className="block text-gray-900">
+                            {getChoiceText(choice)}
+                          </span>
+                        )}
+                        {getChoiceImageUrl(choice) && (
+                          <span className="block mt-2 bg-gray-100 rounded border border-gray-200 overflow-hidden">
+                            <img
+                              src={getChoiceImageUrl(choice)!}
+                              alt={`Choice ${letter}`}
+                              className="rounded object-contain max-h-40 w-full bg-gray-100 min-h-[80px]"
+                              loading="lazy"
+                            />
+                          </span>
+                        )}
                         {isCorrect && (
-                          <span className="ml-2 text-green-700 font-semibold">
+                          <span className="ml-0 mt-1 block text-green-700 font-semibold">
                             (Correct)
                           </span>
                         )}
                         {isUserChoice && !isCorrect && (
-                          <span className="ml-2 text-red-700 font-semibold">
+                          <span className="ml-0 mt-1 block text-red-700 font-semibold">
                             (Your Answer)
                           </span>
                         )}
@@ -216,8 +234,8 @@ export default function QuestionReviewPage() {
             </div>
           )}
 
-          {/* Grid-in / Text Answer Review */}
-          {question.questionType === "STUDENT_PRODUCED" && (
+          {/* Grid-in / Text Answer Review – ochiq javob */}
+          {isOpenAnswerQuestion(question) && (
             <div className="space-y-3 mb-6">
               <div className="p-4 bg-blue-50 rounded-lg">
                 <p className="text-sm text-gray-600 mb-1">Your Answer</p>

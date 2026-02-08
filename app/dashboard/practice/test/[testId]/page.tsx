@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
-import Image from "next/image";
 import { Card } from "@/src/ui/card";
 import { Button } from "@/src/ui/button";
 import { Loading } from "@/src/ui/loading";
@@ -17,6 +16,11 @@ import {
   practiceService,
   StartTestResponse,
   Question,
+  isOpenAnswerQuestion,
+  hasChoiceOptions,
+  getQuestionImageUrl,
+  getChoiceText,
+  getChoiceImageUrl,
 } from "@/src/services/practice.service";
 import { ApiClientError } from "@/src/lib/api-client";
 import { TestTimer } from "@/src/components/practice/TestTimer";
@@ -46,6 +50,99 @@ const QUESTIONS_PER_MODULE = { ENGLISH: 27, MATH: 22 } as const;
 /** Strict Mode / double mount da loadTestState ikki marta chaqilmasin – so‘nggi natija cache (qisqa vaqt) */
 let loadStateCache: { attemptId: string; state: StartTestResponse; ts: number } | null = null;
 const LOAD_STATE_CACHE_MS = 2500;
+
+const DESMOS_MIN_W = 320;
+const DESMOS_MIN_H = 280;
+const DESMOS_MAX_W = 900;
+const DESMOS_MAX_H = 700;
+
+function DesmosCalculatorPanel({
+  width,
+  height,
+  onSizeChange,
+  onClose,
+}: {
+  width: number;
+  height: number;
+  onSizeChange: (size: { width: number; height: number }) => void;
+  onClose: () => void;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const startRef = useRef({ x: 0, y: 0, w: 0, h: 0 });
+
+  const handleResizeStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      startRef.current = { x: e.clientX, y: e.clientY, w: width, h: height };
+      const handleMove = (moveEvent: MouseEvent) => {
+        const dx = moveEvent.clientX - startRef.current.x;
+        const dy = moveEvent.clientY - startRef.current.y;
+        const newW = Math.max(DESMOS_MIN_W, Math.min(DESMOS_MAX_W, startRef.current.w + dx));
+        const newH = Math.max(DESMOS_MIN_H, Math.min(DESMOS_MAX_H, startRef.current.h + dy));
+        onSizeChange({ width: newW, height: newH });
+      };
+      const handleUp = () => {
+        window.removeEventListener("mousemove", handleMove);
+        window.removeEventListener("mouseup", handleUp);
+      };
+      window.addEventListener("mousemove", handleMove);
+      window.addEventListener("mouseup", handleUp);
+    },
+    [width, height, onSizeChange]
+  );
+
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest("[data-desmos-resize]")) return;
+    const target = panelRef.current;
+    if (!target) return;
+    const startX = e.clientX - target.offsetLeft;
+    const startY = e.clientY - target.offsetTop;
+    const handleMove = (moveEvent: MouseEvent) => {
+      target.style.left = `${Math.max(0, moveEvent.clientX - startX)}px`;
+      target.style.top = `${Math.max(0, moveEvent.clientY - startY)}px`;
+      target.style.bottom = "auto";
+      target.style.right = "auto";
+    };
+    const handleUp = () => {
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("mouseup", handleUp);
+    };
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("mouseup", handleUp);
+  }, []);
+
+  return (
+    <div className="pointer-events-none fixed inset-0 z-40">
+      <div
+        ref={panelRef}
+        className="pointer-events-auto absolute bottom-20 right-4 bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden border border-gray-200"
+        style={{ width: `${width}px`, height: `${height}px` }}
+        onMouseDown={handleDragStart}
+      >
+        <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-200 bg-gray-50 cursor-move select-none">
+          <h2 className="text-xs font-semibold text-gray-800">Desmos Calculator</h2>
+          <button type="button" onClick={onClose} className="text-[10px] text-gray-500 hover:text-gray-800">
+            Close
+          </button>
+        </div>
+        <div className="flex-1 bg-black/5 min-h-0 relative">
+          <iframe
+            src="https://www.desmos.com/calculator"
+            title="Desmos Calculator"
+            className="w-full h-full border-0 absolute inset-0"
+          />
+          <div
+            data-desmos-resize
+            onMouseDown={handleResizeStart}
+            className="absolute bottom-0 right-0 w-5 h-5 cursor-se-resize bg-gray-300 hover:bg-gray-400 rounded-tl border-t border-l border-gray-400"
+            aria-label="Resize"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function TestTakingPage() {
   const router = useRouter();
@@ -81,6 +178,7 @@ export default function TestTakingPage() {
   const [showFullscreenWarning, setShowFullscreenWarning] = useState(false);
   const [countdown, setCountdown] = useState(10);
   const [showCalculator, setShowCalculator] = useState(false);
+  const [desmosSize, setDesmosSize] = useState({ width: 480, height: 420 });
   const [showNavigator, setShowNavigator] = useState(false);
   const [isMarkupEnabled, setIsMarkupEnabled] = useState(false);
   const [isTimerHidden, setIsTimerHidden] = useState(false);
@@ -152,6 +250,8 @@ export default function TestTakingPage() {
   const loadTestStateInFlightRef = useRef(false);
   /** Next/Prev/Jump davomida ikkinchi so‘rov ketmasin – 1 so‘rov, keyin 2 kelmasin */
   const navigationInFlightRef = useRef(false);
+  /** Faqat so‘nggi so‘ralgan jump indexiga mos javobni state ga yozamiz – kechikkan/aralash javoblar e’tiborsiz */
+  const latestRequestedJumpRef = useRef<number | null>(null);
 
   // Resizable 2-column layout state
   const [splitPosition, setSplitPosition] = useState(50); // percentage for left pane
@@ -171,14 +271,15 @@ export default function TestTakingPage() {
     return `s${s}_m${m}_`;
   }, [testState?.currentSection?.orderIndex, testState?.currentModule?.moduleNumber]);
 
-  // sessionStorage: savollarni backenddan olgach saqlash (tez o‘tish uchun)
+  // sessionStorage: savollarni backenddan olgach saqlash (tez o‘tish uchun). Section+module bo‘yicha ajratamiz – Module 2 da Module 1 savollari chiqmasin.
   const getQuestionsStorageKey = useCallback(
-    () => `test_questions_${attemptId}`,
-    [attemptId]
+    () =>
+      `test_questions_${attemptId}_s${testState?.currentSection?.orderIndex ?? 0}_m${testState?.currentModule?.moduleNumber ?? 1}`,
+    [attemptId, testState?.currentSection?.orderIndex, testState?.currentModule?.moduleNumber]
   );
 
   const saveQuestionToLocal = useCallback(
-    (index: number, question: Question) => {
+    (index: number, question: Question, storageKeyOverride?: string) => {
       setQuestionsCache((prev) => {
         const next = new Map(prev);
         next.set(index, question);
@@ -186,7 +287,7 @@ export default function TestTakingPage() {
       });
       if (typeof window === "undefined") return;
       try {
-        const key = getQuestionsStorageKey();
+        const key = storageKeyOverride ?? getQuestionsStorageKey();
         const raw = sessionStorage.getItem(key);
         const data: Record<string, Question> = raw ? JSON.parse(raw) : {};
         data[String(index)] = question;
@@ -223,6 +324,16 @@ export default function TestTakingPage() {
     },
     [getQuestionsStorageKey, questionsCache]
   );
+
+  // Modul o‘zgarganda (Module 1 → Module 2) in-memory cache’ni tozalash – eski modul savollari ko‘rinmasin
+  const moduleKeyRef = useRef<string>("");
+  useEffect(() => {
+    const key = `${testState?.currentSection?.orderIndex ?? ""}_${testState?.currentModule?.moduleNumber ?? ""}`;
+    if (moduleKeyRef.current !== "" && moduleKeyRef.current !== key) {
+      setQuestionsCache(new Map());
+    }
+    moduleKeyRef.current = key;
+  }, [testState?.currentSection?.orderIndex, testState?.currentModule?.moduleNumber]);
 
   // localStorage key for highlights
   const getHighlightsStorageKey = useCallback(
@@ -272,8 +383,8 @@ export default function TestTakingPage() {
       if (rect.width <= 0) return;
       const relativeX = e.clientX - rect.left;
       let next = (relativeX / rect.width) * 100;
-      // Clamp between 20% and 80%
-      next = Math.max(20, Math.min(80, next));
+      // Clamp between 30% and 70% so question and buttons stay visible (min 280px each)
+      next = Math.max(30, Math.min(70, next));
       setSplitPosition(next);
     }
 
@@ -641,26 +752,6 @@ export default function TestTakingPage() {
     };
   }, []);
 
-  // Agar module-review sahifasidan ma'lum bir savolga qaytish kerak bo'lsa – faqat index hozirgi savoldan farq qilsa goto
-  useEffect(() => {
-    if (!testState?.question) return;
-    if (typeof window === "undefined") return;
-    const key = `test_jump_${attemptId}`;
-    const stored = sessionStorage.getItem(key);
-    if (!stored) return;
-    const index = parseInt(stored, 10);
-    if (!Number.isFinite(index) || index < 0) {
-      sessionStorage.removeItem(key);
-      return;
-    }
-    sessionStorage.removeItem(key);
-    // Allaqachon shu savolda bo‘lsak – qayta goto so‘rov yubormaymiz (dublikat 1/0 so‘rovlari kamayadi)
-    if (index === testState.currentQuestionIndex) return;
-    handleJumpToQuestion(index).catch((err) =>
-      console.error("[Test Page] Failed to jump from module review:", err)
-    );
-  }, [attemptId, handleJumpToQuestion, testState]);
-
   useEffect(() => {
     loadTestState();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -796,12 +887,12 @@ export default function TestTakingPage() {
     };
   }, [startCountdown]);
 
-  /** Goto so‘rovini ketma-ketlashtirish – 429 kamayadi */
+  /** Goto so‘rovini ketma-ketlashtirish – 429 kamayadi. Backend modul ichidagi local index kutadi (0..totalQuestions-1). */
   const runGoto = useCallback(
-    (index: number): Promise<StartTestResponse> => {
+    (localIndex: number): Promise<StartTestResponse> => {
       const prev = gotoMutexRef.current;
       const p = prev
-        .then(() => practiceService.jumpToQuestion(attemptId, index))
+        .then(() => practiceService.jumpToQuestion(attemptId, localIndex))
         .catch((err) => {
           throw err;
         });
@@ -811,7 +902,7 @@ export default function TestTakingPage() {
     [attemptId]
   );
 
-  // Keyingi savolni faqat cache'ga yuklash – runGoto(currentIndex) chaqirmaymiz, chunki u state'ni ustiga yozadi va 429 oshadi
+  // Keyingi savolni faqat cache'ga yuklash – runGoto modul ichidagi local index bilan
   const preloadNextQuestions = useCallback(
     (currentIndex: number, totalQuestions: number) => {
       const nextIndex = currentIndex + 1;
@@ -828,8 +919,14 @@ export default function TestTakingPage() {
         preloadInFlightRef.current = true;
         runGoto(nextIndex)
           .then((nextState) => {
-            if (nextState?.question && nextState.currentQuestionIndex === nextIndex)
-              saveQuestionToLocal(nextIndex, nextState.question);
+            if (
+              nextState?.question &&
+              nextState.currentQuestionIndex === nextIndex
+            )
+              saveQuestionToLocal(
+                nextState.currentQuestionIndex,
+                nextState.question
+              );
           })
           .catch(() => {})
           .finally(() => {
@@ -850,7 +947,10 @@ export default function TestTakingPage() {
       const state = loadStateCache.state;
       setTestState(state);
       setEliminatedChoices(new Set());
-      if (state.question) saveQuestionToLocal(state.currentQuestionIndex, state.question);
+      if (state.question) {
+        const qKey = `test_questions_${attemptId}_s${state.currentSection.orderIndex}_m${state.currentModule.moduleNumber}`;
+        saveQuestionToLocal(state.currentQuestionIndex, state.question, qKey);
+      }
       const statePrefix = `s${state.currentSection.orderIndex}_m${state.currentModule.moduleNumber}_`;
       const key = getStorageKey();
       const raw = typeof window !== "undefined" ? localStorage.getItem(key) : null;
@@ -885,6 +985,14 @@ export default function TestTakingPage() {
         } else setAnsweredQuestions(new Set());
       } catch {
         setAnsweredQuestions(new Set());
+      }
+      const cacheTimerKey = `test_timer_${attemptId}_s${state.currentSection.orderIndex}_m${state.currentModule.moduleNumber}`;
+      const cacheSavedTime = typeof window !== "undefined" ? sessionStorage.getItem(cacheTimerKey) : null;
+      const cacheSavedSeconds = cacheSavedTime != null ? Number(cacheSavedTime) : NaN;
+      if (typeof window !== "undefined" && !Number.isNaN(cacheSavedSeconds) && cacheSavedSeconds > 0) {
+        setRemainingTimeSeconds(cacheSavedSeconds);
+      } else if (state?.currentModule?.duration && remainingTimeSeconds === null) {
+        setRemainingTimeSeconds(state.currentModule.duration * 60);
       }
       setLoading(false);
       return;
@@ -923,7 +1031,8 @@ export default function TestTakingPage() {
       setTestState(state);
       loadStateCache = { attemptId, state, ts: Date.now() };
       setEliminatedChoices(new Set()); // Clear eliminations when loading new question
-      saveQuestionToLocal(state.currentQuestionIndex, state.question);
+      const qKey = `test_questions_${attemptId}_s${state.currentSection.orderIndex}_m${state.currentModule.moduleNumber}`;
+      saveQuestionToLocal(state.currentQuestionIndex, state.question, qKey);
 
       // Load saved answer for current question from current module only (use state prefix, not testState)
       const statePrefix = `s${state.currentSection.orderIndex}_m${state.currentModule.moduleNumber}_`;
@@ -966,9 +1075,14 @@ export default function TestTakingPage() {
         );
       }
 
-      // Initialize timer if module duration is available
-      if (state?.currentModule?.duration && remainingTimeSeconds === null) {
-        const durationSeconds = state.currentModule.duration * 60; // Convert minutes to seconds
+      // Initialize timer: restore from sessionStorage if returning from module review, else set from module duration
+      const timerKey = `test_timer_${attemptId}_s${state.currentSection.orderIndex}_m${state.currentModule.moduleNumber}`;
+      const savedTime = typeof window !== "undefined" ? sessionStorage.getItem(timerKey) : null;
+      const savedSeconds = savedTime != null ? Number(savedTime) : NaN;
+      if (typeof window !== "undefined" && !Number.isNaN(savedSeconds) && savedSeconds > 0) {
+        setRemainingTimeSeconds(savedSeconds);
+      } else if (state?.currentModule?.duration && remainingTimeSeconds === null) {
+        const durationSeconds = state.currentModule.duration * 60;
         setRemainingTimeSeconds(durationSeconds);
       }
 
@@ -1133,11 +1247,14 @@ export default function TestTakingPage() {
     eliminatedChoices,
   ]);
 
-  // Navigate to module review page (no server calls, only local state)
+  // Navigate to module review page (no server calls, only local state). Persist timer so it is not reset on return.
   const handleGoToModuleReview = useCallback(() => {
     if (!testState?.currentModule || totalQuestions === null) return;
-    // Make sure current answer is persisted to localStorage
     handleAnswer();
+    if (typeof window !== "undefined" && remainingTimeSeconds != null) {
+      const key = `test_timer_${attemptId}_s${testState.currentSection.orderIndex}_m${testState.currentModule.moduleNumber}`;
+      sessionStorage.setItem(key, String(remainingTimeSeconds));
+    }
     const sectionNum = testState.currentSection.orderIndex + 1;
     const moduleNum = testState.currentModule.moduleNumber;
     const type = testState.currentSection.type;
@@ -1145,7 +1262,7 @@ export default function TestTakingPage() {
     router.push(
       `/dashboard/practice/test/${attemptId}/module-review?section=${sectionNum}&module=${moduleNum}&type=${type}&total=${total}`
     );
-  }, [attemptId, handleAnswer, router, testState, totalQuestions]);
+  }, [attemptId, handleAnswer, router, testState, totalQuestions, remainingTimeSeconds]);
 
   async function handleNext() {
     if (!testState?.question) return;
@@ -1160,6 +1277,10 @@ export default function TestTakingPage() {
     }
 
     try {
+      if (preloadTimeoutRef.current !== null) {
+        window.clearTimeout(preloadTimeoutRef.current);
+        preloadTimeoutRef.current = null;
+      }
       navigationInFlightRef.current = true;
       setIsQuestionLoading(true);
       setSubmitting(true);
@@ -1167,12 +1288,12 @@ export default function TestTakingPage() {
       handleAnswer();
       setIsMarkupEnabled(false);
 
-      // Har doim API'dan yangi savolni olish – faqat javob so'ralgan indexga mos bo'lsa state yangilaymiz
+      // Har doim API'dan yangi savolni olish – backend modul ichidagi local index kutadi
       const nextState = await runGoto(nextIndex);
       if (nextState.currentQuestionIndex !== nextIndex) return;
       setTestState(nextState);
       if (nextState.question)
-        saveQuestionToLocal(nextIndex, nextState.question);
+        saveQuestionToLocal(nextState.currentQuestionIndex, nextState.question);
       applySavedAnswerForIndex(nextIndex);
       if (totalQuestions) preloadNextQuestions(nextIndex, totalQuestions);
     } catch (err) {
@@ -1191,6 +1312,10 @@ export default function TestTakingPage() {
     if (navigationInFlightRef.current) return;
 
     try {
+      if (preloadTimeoutRef.current !== null) {
+        window.clearTimeout(preloadTimeoutRef.current);
+        preloadTimeoutRef.current = null;
+      }
       navigationInFlightRef.current = true;
       setIsQuestionLoading(true);
       setSubmitting(true);
@@ -1204,12 +1329,12 @@ export default function TestTakingPage() {
       const currentIndex = testState.currentQuestionIndex;
       const prevIndex = currentIndex - 1;
 
-      // Har doim API'dan yangi savolni olish – faqat javob so'ralgan indexga mos bo'lsa state yangilaymiz
+      // Har doim API'dan yangi savolni olish – backend modul ichidagi local index kutadi
       const prevState = await runGoto(prevIndex);
       if (prevState.currentQuestionIndex !== prevIndex) return;
       setTestState(prevState);
       if (prevState.question)
-        saveQuestionToLocal(prevIndex, prevState.question);
+        saveQuestionToLocal(prevState.currentQuestionIndex, prevState.question);
       applySavedAnswerForIndex(prevIndex);
     } catch (err) {
       setError(
@@ -1222,41 +1347,89 @@ export default function TestTakingPage() {
     }
   }
 
-  async function handleJumpToQuestion(index: number) {
-    if (!testState?.question) return;
-    if (navigationInFlightRef.current) return;
+  const handleJumpToQuestion = useCallback(
+    async (index: number) => {
+      if (!testState?.question) return;
+      if (navigationInFlightRef.current) return;
 
-    const cap = totalQuestions ?? QUESTIONS_PER_MODULE[testState.currentSection?.type ?? "ENGLISH"] ?? 27;
-    if (index < 0 || index >= cap) return;
+      const cap =
+        totalQuestions ??
+        QUESTIONS_PER_MODULE[testState.currentSection?.type ?? "ENGLISH"] ??
+        27;
+      if (index < 0 || index >= cap) return;
 
-    try {
-      navigationInFlightRef.current = true;
-      setIsQuestionLoading(true);
-      setSubmitting(true);
+      latestRequestedJumpRef.current = index;
+      try {
+        if (preloadTimeoutRef.current !== null) {
+          window.clearTimeout(preloadTimeoutRef.current);
+          preloadTimeoutRef.current = null;
+        }
+        navigationInFlightRef.current = true;
+        setIsQuestionLoading(true);
+        setSubmitting(true);
 
-      handleAnswer();
-      setIsMarkupEnabled(false);
+        handleAnswer();
+        setIsMarkupEnabled(false);
 
-      // Har doim API'dan yangi savolni olish – faqat so'ralgan index bo'lsa state yangilaymiz (eski javob ustiga yozilmasin)
-      const state = await runGoto(index);
-      if (state.currentQuestionIndex !== index) {
-        setError("Savol indexi mos kelmadi. Qayta urinib ko'ring.");
-        return;
+        const state = await runGoto(index);
+        // Faqat shu jump uchun so‘ralgan index bo‘lsa state yangilaymiz (kechikkan/boshqa savol javobini e’tiborsiz qilamiz)
+        if (state.currentQuestionIndex !== index) {
+          setError("Savol indexi mos kelmadi. Qayta urinib ko'ring.");
+          return;
+        }
+        if (latestRequestedJumpRef.current !== index) return;
+        setTestState(state);
+        if (state.question)
+          saveQuestionToLocal(state.currentQuestionIndex, state.question);
+        applySavedAnswerForIndex(index);
+        if (totalQuestions) preloadNextQuestions(index, totalQuestions);
+      } catch (err) {
+        if (latestRequestedJumpRef.current === index) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Failed to go to selected question"
+          );
+        }
+      } finally {
+        if (latestRequestedJumpRef.current === index) {
+          latestRequestedJumpRef.current = null;
+        }
+        setSubmitting(false);
+        setIsQuestionLoading(false);
+        navigationInFlightRef.current = false;
       }
-      setTestState(state);
-      if (state.question) saveQuestionToLocal(index, state.question);
-      applySavedAnswerForIndex(index);
-      if (totalQuestions) preloadNextQuestions(index, totalQuestions);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to go to selected question"
-      );
-    } finally {
-      setSubmitting(false);
-      setIsQuestionLoading(false);
-      navigationInFlightRef.current = false;
+    },
+    [
+      testState?.question,
+      testState?.currentSection?.type,
+      totalQuestions,
+      runGoto,
+      handleAnswer,
+      applySavedAnswerForIndex,
+      preloadNextQuestions,
+      saveQuestionToLocal,
+    ]
+  );
+
+  // Agar module-review sahifasidan ma'lum bir savolga qaytish kerak bo'lsa – faqat index hozirgi savoldan farq qilsa goto
+  useEffect(() => {
+    if (!testState?.question) return;
+    if (typeof window === "undefined") return;
+    const key = `test_jump_${attemptId}`;
+    const stored = sessionStorage.getItem(key);
+    if (!stored) return;
+    const index = parseInt(stored, 10);
+    if (!Number.isFinite(index) || index < 0) {
+      sessionStorage.removeItem(key);
+      return;
     }
-  }
+    sessionStorage.removeItem(key);
+    if (index === testState.currentQuestionIndex) return;
+    handleJumpToQuestion(index).catch((err) =>
+      console.error("[Test Page] Failed to jump from module review:", err)
+    );
+  }, [attemptId, handleJumpToQuestion, testState]);
 
   async function handleToggleFlag() {
     if (!testState?.question) return;
@@ -1571,60 +1744,14 @@ export default function TestTakingPage() {
 
   return (
     <div className="flex min-h-screen w-full bg-gray-50 px-[20px]">
-      {/* Desmos Calculator Panel (Math only, non-blocking, draggable) */}
+      {/* Desmos Calculator Panel (Math only, non-blocking, draggable, resizable from corner) */}
       {showCalculator && testState.currentSection.type === "MATH" && (
-        <div className="pointer-events-none fixed inset-0 z-40">
-          <div
-            className="pointer-events-auto absolute bottom-20 right-4 bg-white rounded-xl shadow-2xl w-[480px] h-[420px] flex flex-col overflow-hidden border border-gray-200 cursor-move"
-            // Simple draggable behavior
-            onMouseDown={(e) => {
-              const target = e.currentTarget as HTMLDivElement;
-              const startX = e.clientX - target.offsetLeft;
-              const startY = e.clientY - target.offsetTop;
-
-              const handleMove = (moveEvent: MouseEvent) => {
-                target.style.left = `${Math.max(
-                  0,
-                  moveEvent.clientX - startX
-                )}px`;
-                target.style.top = `${Math.max(
-                  0,
-                  moveEvent.clientY - startY
-                )}px`;
-                target.style.bottom = "auto";
-                target.style.right = "auto";
-              };
-
-              const handleUp = () => {
-                window.removeEventListener("mousemove", handleMove);
-                window.removeEventListener("mouseup", handleUp);
-              };
-
-              window.addEventListener("mousemove", handleMove);
-              window.addEventListener("mouseup", handleUp);
-            }}
-          >
-            <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-200 bg-gray-50 cursor-default">
-              <h2 className="text-xs font-semibold text-gray-800">
-                Desmos Calculator
-              </h2>
-              <button
-                type="button"
-                onClick={() => setShowCalculator(false)}
-                className="text-[10px] text-gray-500 hover:text-gray-800"
-              >
-                Close
-              </button>
-            </div>
-            <div className="flex-1 bg-black/5">
-              <iframe
-                src="https://www.desmos.com/calculator"
-                title="Desmos Calculator"
-                className="w-full h-full border-0"
-              />
-            </div>
-          </div>
-        </div>
+        <DesmosCalculatorPanel
+          width={desmosSize.width}
+          height={desmosSize.height}
+          onSizeChange={setDesmosSize}
+          onClose={() => setShowCalculator(false)}
+        />
       )}
       {/* Fullscreen Exit Warning Modal */}
       {showFullscreenWarning && (
@@ -1828,18 +1955,13 @@ export default function TestTakingPage() {
 
             {/* Markaz – chap: image+passage; o‘ng: savol+choices; ustunlar orasida gap, matn dividerga yopishmasin */}
             <div className="flex-1 min-h-0 flex flex-col relative">
-              {isQuestionLoading && (
-                <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/80 transition-opacity duration-200" aria-hidden="true">
-                  <Loading size="lg" />
-                </div>
-              )}
-              <div className={`relative flex flex-1 min-h-0 overflow-hidden gap-0 transition-opacity duration-150 ${isQuestionLoading ? "opacity-60 pointer-events-none" : ""}`} ref={layoutContainerRef}>
+              <div className="relative flex flex-1 min-h-0 overflow-hidden gap-0 transition-opacity duration-150" ref={layoutContainerRef}>
                 {/* Left Column: question + image (ustma ust) */}
                 <div
                   className="content-pane flex flex-col min-h-0 flex-shrink-0 pr-2"
                   style={{
                     width: `calc(${splitPosition}% - 6px)`,
-                    minWidth: 120,
+                    minWidth: 280,
                   }}
                 >
                   <div
@@ -1863,7 +1985,7 @@ export default function TestTakingPage() {
                             <span className="ml-1">Mark for Review</span>
                           </button>
                         </div>
-                        {question.questionType === "MULTIPLE_CHOICE" && (
+                        {hasChoiceOptions(question) && (
                           <button
                             type="button"
                             onClick={() => {
@@ -1914,15 +2036,14 @@ export default function TestTakingPage() {
                           }}
                         />
                       </div>
-                      {question.imageUrl && (
+                      {getQuestionImageUrl(question) && (
                         <div className="mt-4 bg-gray-100 rounded-lg min-h-[120px] flex items-center justify-center overflow-hidden">
-                          <Image
-                            src={question.imageUrl}
+                          {/* Oddiy img – GCS rasmlari ishonchli yuklansin */}
+                          <img
+                            src={getQuestionImageUrl(question)!}
                             alt="Savol rasmi"
-                            width={400}
-                            height={300}
                             className="w-full h-auto rounded-lg object-contain max-h-[320px] bg-gray-100"
-                            unoptimized={question.imageUrl.startsWith("data:")}
+                            loading="lazy"
                           />
                         </div>
                       )}
@@ -1940,7 +2061,7 @@ export default function TestTakingPage() {
                 {/* Right Column: passage ustida, variantlar pastda */}
                 <div
                   className="content-pane flex flex-col min-h-0 flex-1 min-w-0 pl-2"
-                  style={{ width: `calc(${100 - splitPosition}% - 6px)` }}
+                  style={{ width: `calc(${100 - splitPosition}% - 6px)`, minWidth: 280 }}
                 >
                   <div
                     className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-hide pl-3"
@@ -1956,16 +2077,14 @@ export default function TestTakingPage() {
                     )}
 
                     {/* Choices */}
-                  {question.questionType === "MULTIPLE_CHOICE" &&
-                    question.choices &&
-                    question.choices.length > 0 && (
+                  {hasChoiceOptions(question) && (
                       <div className="space-y-2">
-                        {question.choices.map((choice, index) => {
+                        {(question.choices ?? []).map((choice, index) => {
                           const isSelected =
                             currentAnswer.choiceId === choice.id;
                           const letter = String.fromCharCode(65 + index);
                           const isEliminated = eliminatedChoices.has(choice.id);
-                          const choiceImageUrl = choice.imageUrl?.trim();
+                          const choiceImageUrl = getChoiceImageUrl(choice as Record<string, unknown>);
 
                           return (
                             <div
@@ -2016,20 +2135,17 @@ export default function TestTakingPage() {
                                       : ""
                                   }`}
                                 >
-                                  {(choice.choiceText || `Choice ${letter}`) && (
-                                    <span className="block">
-                                      {choice.choiceText || `Choice ${letter}`}
-                                    </span>
-                                  )}
+                                  <span className="block">
+                                    {getChoiceText(choice) || `Choice ${letter}`}
+                                  </span>
                                   {choiceImageUrl && (
                                     <span className="block mt-2 bg-gray-100 rounded border border-gray-200 overflow-hidden">
-                                      <Image
+                                      {/* Oddiy img – GCS rasmlari ishonchli yuklansin (Next/Image baʼzan tashqi URL da muammo qiladi) */}
+                                      <img
                                         src={choiceImageUrl}
                                         alt={`Variant ${letter}`}
-                                        width={280}
-                                        height={160}
-                                        className="rounded object-contain max-h-40 w-full bg-gray-100"
-                                        unoptimized={choiceImageUrl.startsWith("data:")}
+                                        className="rounded object-contain max-h-40 w-full bg-gray-100 min-h-[80px]"
+                                        loading="lazy"
                                       />
                                     </span>
                                   )}
@@ -2041,8 +2157,11 @@ export default function TestTakingPage() {
                       </div>
                     )}
 
-                  {question.questionType === "STUDENT_PRODUCED" && (
-                    <div className="space-y-4">
+                  {isOpenAnswerQuestion(question) && (
+                    <div className="mt-3 pt-2 space-y-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Javobingizni yozing
+                      </label>
                       <input
                         type="text"
                         value={currentAnswer.textAnswer || ""}
@@ -2052,9 +2171,9 @@ export default function TestTakingPage() {
                             choiceId: currentAnswer.choiceId,
                           })
                         }
-                        placeholder="Type your answer"
+                        placeholder="Javobni kiriting"
                         pattern="[0-9.\\-/]+"
-                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
+                        className="max-w-[140px] px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
                       />
                     </div>
                   )}
@@ -2101,7 +2220,7 @@ export default function TestTakingPage() {
                 <Button
                   variant="outline"
                   onClick={handlePrevious}
-                  disabled={testState.currentQuestionIndex === 0 || submitting}
+                  disabled={testState.currentQuestionIndex === 0 || submitting || isQuestionLoading}
                   className="px-4 py-2 text-white transition-opacity duration-200 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
                     backgroundColor: "rgb(51, 76, 199)",
@@ -2114,7 +2233,7 @@ export default function TestTakingPage() {
                 {!isLastQuestion ? (
                   <Button
                     onClick={handleNext}
-                    disabled={submitting}
+                    disabled={submitting || isQuestionLoading}
                     className="px-4 py-2 text-white transition-opacity duration-200 rounded-md cursor-pointer"
                     style={{
                       backgroundColor: "rgb(51, 76, 199)",
@@ -2126,7 +2245,7 @@ export default function TestTakingPage() {
                 ) : (
                   <Button
                     onClick={handleFinishSection}
-                    disabled={submitting}
+                    disabled={submitting || isQuestionLoading}
                     className="px-4 py-2 text-white transition-opacity duration-200 rounded-md cursor-pointer"
                     style={{
                       backgroundColor: "rgb(51, 76, 199)",

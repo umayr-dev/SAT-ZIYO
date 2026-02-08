@@ -278,6 +278,7 @@ export default function PracticePage() {
                           fill
                           className="object-contain"
                           sizes="224px"
+                          priority
                         />
                       </div>
                     </div>
