@@ -137,7 +137,6 @@ export function getChoiceImageUrl(c: Record<string, unknown>): string | undefine
   }
   return undefined;
 }
-
 /** Next/Image: tashqi URL (GCS, data:) – unoptimized ishlatish kerak, aks holda render bo‘lmasligi mumkin */
 export function shouldUnoptimizeImage(url: string): boolean {
   return url.startsWith("data:") || url.includes("storage.googleapis.com");
