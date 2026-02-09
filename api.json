@@ -1,0 +1,2607 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/": {
+      "get": {
+        "operationId": "AppController_getHello",
+        "parameters": [],
+        "responses": { "200": { "description": "" } },
+        "tags": ["App"]
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "description": "Create a new student account. Role is automatically set to STUDENT.",
+        "operationId": "AuthController_register",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RegisterDto" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User successfully registered. OTP sent to email."
+          },
+          "400": { "description": "Invalid input or email already exists" },
+          "429": { "description": "Too many requests" }
+        },
+        "summary": "Register a new user",
+        "tags": ["Authentication"]
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "description": "Authenticate user and send OTP to email for verification",
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Login successful. OTP sent to email." },
+          "401": { "description": "Invalid credentials" },
+          "429": { "description": "Too many requests" }
+        },
+        "summary": "Login with email and password",
+        "tags": ["Authentication"]
+      }
+    },
+    "/auth/verify-otp": {
+      "post": {
+        "description": "Verify the OTP code sent to email and receive JWT access token",
+        "operationId": "AuthController_verifyOtp",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/VerifyOtpDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "OTP verified. Returns JWT access token." },
+          "401": { "description": "Invalid or expired OTP" },
+          "429": { "description": "Too many requests" }
+        },
+        "summary": "Verify OTP code",
+        "tags": ["Authentication"]
+      }
+    },
+    "/auth/google": {
+      "get": {
+        "description": "Redirects to Google OAuth consent screen",
+        "operationId": "AuthController_googleAuth",
+        "parameters": [],
+        "responses": { "302": { "description": "Redirects to Google" } },
+        "summary": "Initiate Google OAuth login",
+        "tags": ["Authentication"]
+      }
+    },
+    "/auth/google/callback": {
+      "get": {
+        "description": "Handles Google OAuth callback and redirects to frontend with token",
+        "operationId": "AuthController_googleAuthCallback",
+        "parameters": [],
+        "responses": {
+          "302": { "description": "Redirects to frontend with token" }
+        },
+        "summary": "Google OAuth callback",
+        "tags": ["Authentication"]
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "description": "Get the currently authenticated user information",
+        "operationId": "AuthController_getMe",
+        "parameters": [],
+        "responses": {
+          "200": { "description": "Returns current user data" },
+          "401": { "description": "Unauthorized" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Get current authenticated user",
+        "tags": ["Authentication"]
+      }
+    },
+    "/auth/profile": {
+      "patch": {
+        "description": "Update the authenticated user's profile (name, password, goals)",
+        "operationId": "AuthController_updateProfile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateProfileDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Profile updated successfully" },
+          "400": {
+            "description": "Invalid input or incorrect current password"
+          },
+          "401": { "description": "Unauthorized" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Update user profile",
+        "tags": ["Authentication"]
+      }
+    },
+    "/auth/progress": {
+      "get": {
+        "description": "Get progress towards target score, exam countdown, and test statistics",
+        "operationId": "AuthController_getProgress",
+        "parameters": [],
+        "responses": {
+          "200": { "description": "Returns user progress data" },
+          "401": { "description": "Unauthorized" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Get user progress and countdown",
+        "tags": ["Authentication"]
+      }
+    },
+    "/auth/users": {
+      "get": {
+        "description": "Owner endpoint to retrieve all users in the system",
+        "operationId": "AuthController_getAllUsers",
+        "parameters": [],
+        "responses": {
+          "200": { "description": "Returns list of all users" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Requires OWNER role" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Get all users (Owner only)",
+        "tags": ["Authentication"]
+      },
+      "delete": {
+        "description": "Owner endpoint to permanently delete a user and all their data",
+        "operationId": "AuthController_deleteUser",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/DeleteUserDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "User deleted successfully" },
+          "400": { "description": "Cannot delete yourself or an OWNER" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Requires OWNER role" },
+          "404": { "description": "User not found" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Delete user (Owner only)",
+        "tags": ["Authentication"]
+      }
+    },
+    "/auth/users/{userId}": {
+      "get": {
+        "description": "Owner endpoint to retrieve a specific user by ID",
+        "operationId": "AuthController_getUserById",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Returns user data" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Requires OWNER role" },
+          "404": { "description": "User not found" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Get user by ID (Owner only)",
+        "tags": ["Authentication"]
+      }
+    },
+    "/auth/users/role": {
+      "patch": {
+        "description": "Owner endpoint to change user role between STUDENT and ADMIN. Cannot assign OWNER role.",
+        "operationId": "AuthController_changeUserRole",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ChangeRoleDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Role changed successfully" },
+          "400": {
+            "description": "Cannot change own role or assign OWNER role"
+          },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Requires OWNER role" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Change user role (Owner only)",
+        "tags": ["Authentication"]
+      }
+    },
+    "/auth/users/ban": {
+      "patch": {
+        "description": "Owner endpoint to ban (deactivate) or unban (activate) a user",
+        "operationId": "AuthController_banUser",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/BanUserDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "User banned/unbanned successfully" },
+          "400": { "description": "Cannot ban yourself or an OWNER" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Requires OWNER role" },
+          "404": { "description": "User not found" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Ban or unban user (Owner only)",
+        "tags": ["Authentication"]
+      }
+    },
+    "/tests": {
+      "post": {
+        "description": "Create a new practice test with optional questions",
+        "operationId": "TestsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateTestDto" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Test created successfully" },
+          "400": { "description": "Invalid input" },
+          "403": { "description": "Forbidden - Requires ADMIN or OWNER role" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Create a new test (Admin/Owner)",
+        "tags": ["Tests (Admin/Owner)"]
+      },
+      "get": {
+        "description": "Retrieve all tests with question count and attempt statistics",
+        "operationId": "TestsController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": { "description": "Returns array of tests" },
+          "403": { "description": "Forbidden - Requires ADMIN or OWNER role" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Get all tests (Admin/Owner)",
+        "tags": ["Tests (Admin/Owner)"]
+      }
+    },
+    "/tests/{id}": {
+      "get": {
+        "description": "Retrieve full test details including questions and correct answers",
+        "operationId": "TestsController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Test ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Returns test details" },
+          "403": { "description": "Forbidden - Requires ADMIN or OWNER role" },
+          "404": { "description": "Test not found" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Get test by ID (Admin/Owner)",
+        "tags": ["Tests (Admin/Owner)"]
+      },
+      "patch": {
+        "description": "Update test details. Cannot update if active attempts exist.",
+        "operationId": "TestsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Test ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateTestDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Test updated successfully" },
+          "400": { "description": "Cannot update test with active attempts" },
+          "403": { "description": "Forbidden - Requires ADMIN or OWNER role" },
+          "404": { "description": "Test not found" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Update test (Admin/Owner)",
+        "tags": ["Tests (Admin/Owner)"]
+      },
+      "delete": {
+        "description": "Soft delete test (sets isActive to false). Cannot delete if completed attempts exist.",
+        "operationId": "TestsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Test ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Test deleted successfully" },
+          "400": {
+            "description": "Cannot delete test with completed attempts"
+          },
+          "403": { "description": "Forbidden - Requires ADMIN or OWNER role" },
+          "404": { "description": "Test not found" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Delete test (Admin/Owner)",
+        "tags": ["Tests (Admin/Owner)"]
+      }
+    },
+    "/tests/modules/{moduleId}/questions": {
+      "post": {
+        "description": "Add a new question with choices to an existing module",
+        "operationId": "TestsController_addQuestion",
+        "parameters": [
+          {
+            "name": "moduleId",
+            "required": true,
+            "in": "path",
+            "description": "Module ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AddQuestionDto" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Question added successfully" },
+          "400": {
+            "description": "Invalid input or exactly one correct answer required"
+          },
+          "403": { "description": "Forbidden - Requires ADMIN or OWNER role" },
+          "404": { "description": "Module not found" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Add question to module (Admin/Owner)",
+        "tags": ["Tests (Admin/Owner)"]
+      }
+    },
+    "/tests/modules/{moduleId}/questions/{questionId}": {
+      "patch": {
+        "description": "Update question text and choices. Cannot update if attempts reference this question.",
+        "operationId": "TestsController_updateQuestion",
+        "parameters": [
+          {
+            "name": "moduleId",
+            "required": true,
+            "in": "path",
+            "description": "Module ID (UUID)",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "questionId",
+            "required": true,
+            "in": "path",
+            "description": "Question ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AddQuestionDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Question updated successfully" },
+          "400": {
+            "description": "Cannot update question with active attempts"
+          },
+          "403": { "description": "Forbidden - Requires ADMIN or OWNER role" },
+          "404": { "description": "Module or question not found" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Update question (Admin/Owner)",
+        "tags": ["Tests (Admin/Owner)"]
+      },
+      "delete": {
+        "description": "Delete question and cascade delete choices. Checks for active attempts.",
+        "operationId": "TestsController_removeQuestion",
+        "parameters": [
+          {
+            "name": "moduleId",
+            "required": true,
+            "in": "path",
+            "description": "Module ID (UUID)",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "questionId",
+            "required": true,
+            "in": "path",
+            "description": "Question ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Question deleted successfully" },
+          "400": {
+            "description": "Cannot delete question with active attempts"
+          },
+          "403": { "description": "Forbidden - Requires ADMIN or OWNER role" },
+          "404": { "description": "Module or question not found" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Delete question (Admin/Owner)",
+        "tags": ["Tests (Admin/Owner)"]
+      }
+    },
+    "/tests/sat-template": {
+      "post": {
+        "description": "Creates a complete Digital SAT test structure with:\n    - 2 Sections: English (Reading/Writing) and Math\n    - 3 Modules per section: Module 1 (EASY), Module 2 EASY, Module 2 HARD\n    - English: 27 questions per module, 32 minutes each\n    - Math: 22 questions per module, 35 minutes each\n    - 10-minute break after English section\n\n    After creation, add questions to each module using POST /tests/modules/:moduleId/questions",
+        "operationId": "TestsController_createSatTemplate",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateSatTemplateDto" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "SAT test template created successfully with module IDs for adding questions"
+          },
+          "403": { "description": "Forbidden - Requires ADMIN or OWNER role" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Create SAT test template (Admin/Owner)",
+        "tags": ["Tests (Admin/Owner)"]
+      }
+    },
+    "/tests/{id}/validate": {
+      "get": {
+        "description": "Check if all modules have the required number of questions and the test is ready for students",
+        "operationId": "TestsController_validateSatTest",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Test ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns validation status with details about each module"
+          },
+          "403": { "description": "Forbidden - Requires ADMIN or OWNER role" },
+          "404": { "description": "Test not found" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Validate SAT test structure (Admin/Owner)",
+        "tags": ["Tests (Admin/Owner)"]
+      }
+    },
+    "/tests/{id}/analytics": {
+      "get": {
+        "description": "Get analytics for a test including view count, attempt count, completion rate, average score, and average completion time",
+        "operationId": "TestsController_getTestAnalytics",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Test ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Returns test analytics data" },
+          "403": { "description": "Forbidden - Requires ADMIN or OWNER role" },
+          "404": { "description": "Test not found" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Get test analytics (Admin/Owner)",
+        "tags": ["Tests (Admin/Owner)"]
+      }
+    },
+    "/storage/upload/question-image": {
+      "post": {
+        "description": "Upload an image to be used with a question (e.g., math diagrams, graphs, charts).\n\n**Supported formats:** JPEG, PNG, GIF, WebP, SVG\n**Maximum size:** 5MB\n\nAfter uploading, use the returned URL in the `imageUrl` field when creating or updating a question.",
+        "operationId": "StorageController_uploadQuestionImage",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Image file to upload"
+                  }
+                },
+                "required": ["file"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Image uploaded successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UploadResponseDto" }
+              }
+            }
+          },
+          "400": { "description": "Invalid file type or size" },
+          "403": { "description": "Forbidden - Requires ADMIN or OWNER role" },
+          "500": { "description": "Storage service error" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Upload question image (Admin/Owner)",
+        "tags": ["Storage (Admin/Owner)"]
+      }
+    },
+    "/storage/upload/choice-image": {
+      "post": {
+        "description": "Upload an image to be used with an answer choice (e.g., math expressions, diagrams as options).\n\n**Supported formats:** JPEG, PNG, GIF, WebP, SVG\n**Maximum size:** 5MB\n\nAfter uploading, use the returned URL in the `imageUrl` field when creating or updating a choice.",
+        "operationId": "StorageController_uploadChoiceImage",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Image file to upload"
+                  }
+                },
+                "required": ["file"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Image uploaded successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UploadResponseDto" }
+              }
+            }
+          },
+          "400": { "description": "Invalid file type or size" },
+          "403": { "description": "Forbidden - Requires ADMIN or OWNER role" },
+          "500": { "description": "Storage service error" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Upload choice/answer image (Admin/Owner)",
+        "tags": ["Storage (Admin/Owner)"]
+      }
+    },
+    "/storage/delete": {
+      "delete": {
+        "description": "Delete a previously uploaded image from storage. Use this when removing or replacing question/choice images.",
+        "operationId": "StorageController_deleteImage",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "description": "The full URL of the image to delete",
+                    "example": "https://storage.googleapis.com/your-bucket/questions/1706547890-abc123.png"
+                  }
+                },
+                "required": ["url"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Image deleted successfully" },
+          "400": { "description": "Invalid URL" },
+          "403": { "description": "Forbidden - Requires ADMIN or OWNER role" },
+          "500": { "description": "Storage service error" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Delete uploaded image (Admin/Owner)",
+        "tags": ["Storage (Admin/Owner)"]
+      }
+    },
+    "/practice/tests": {
+      "get": {
+        "description": "Retrieve list of active tests available for practice",
+        "operationId": "PracticeController_getAvailableTests",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Returns array of available tests with question counts"
+          },
+          "401": { "description": "Unauthorized" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Get available tests",
+        "tags": ["Practice (Student)"]
+      }
+    },
+    "/practice/my-attempts": {
+      "get": {
+        "description": "Retrieve all test attempts for the authenticated user",
+        "operationId": "PracticeController_getUserAttempts",
+        "parameters": [
+          {
+            "name": "testId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by test ID (optional)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Returns array of user attempts" },
+          "401": { "description": "Unauthorized" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Get user attempt history",
+        "tags": ["Practice (Student)"]
+      }
+    },
+    "/practice/start/{testId}": {
+      "post": {
+        "description": "Start a new test attempt or resume an existing IN_PROGRESS attempt. Returns first question without correct answer.",
+        "operationId": "PracticeController_startTest",
+        "parameters": [
+          {
+            "name": "testId",
+            "required": true,
+            "in": "path",
+            "description": "Test ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Test started/resumed successfully. Returns attempt ID and first question."
+          },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Test not found or not active" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Start or resume test",
+        "tags": ["Practice (Student)"]
+      }
+    },
+    "/practice/attempts/{attemptId}/current": {
+      "get": {
+        "description": "Retrieve the current question for an active attempt. SECURITY: Does not include correct answer flag.",
+        "operationId": "PracticeController_getCurrentQuestion",
+        "parameters": [
+          {
+            "name": "attemptId",
+            "required": true,
+            "in": "path",
+            "description": "Attempt ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns current question with choices (no correct answer information)"
+          },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Not your attempt" },
+          "404": { "description": "Attempt not found" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Get current question",
+        "tags": ["Practice (Student)"]
+      }
+    },
+    "/practice/attempts/{attemptId}/next": {
+      "post": {
+        "description": "Move to the next question in the test",
+        "operationId": "PracticeController_nextQuestion",
+        "parameters": [
+          {
+            "name": "attemptId",
+            "required": true,
+            "in": "path",
+            "description": "Attempt ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Returns next question" },
+          "400": { "description": "Already at last question" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Not your attempt" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Navigate to next question",
+        "tags": ["Practice (Student)"]
+      }
+    },
+    "/practice/attempts/{attemptId}/previous": {
+      "post": {
+        "description": "Move to the previous question in the test",
+        "operationId": "PracticeController_previousQuestion",
+        "parameters": [
+          {
+            "name": "attemptId",
+            "required": true,
+            "in": "path",
+            "description": "Attempt ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Returns previous question" },
+          "400": { "description": "Already at first question" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Not your attempt" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Navigate to previous question",
+        "tags": ["Practice (Student)"]
+      }
+    },
+    "/practice/attempts/{attemptId}/goto/{questionIndex}": {
+      "post": {
+        "description": "Navigate to a specific question by index (0-based)",
+        "operationId": "PracticeController_gotoQuestion",
+        "parameters": [
+          {
+            "name": "attemptId",
+            "required": true,
+            "in": "path",
+            "description": "Attempt ID (UUID)",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "questionIndex",
+            "required": true,
+            "in": "path",
+            "description": "Question index (0-based)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Returns question at specified index" },
+          "400": { "description": "Invalid question index" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Not your attempt" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Jump to specific question",
+        "tags": ["Practice (Student)"]
+      }
+    },
+    "/practice/attempts/{attemptId}/answer": {
+      "post": {
+        "description": "Submit answer for current question. SECURITY: Answer saved immediately to database, no correctness feedback until test submission.",
+        "operationId": "PracticeController_submitAnswer",
+        "parameters": [
+          {
+            "name": "attemptId",
+            "required": true,
+            "in": "path",
+            "description": "Attempt ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SubmitAnswerDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Answer submitted successfully. Does NOT return correctness."
+          },
+          "400": { "description": "Invalid question or choice ID" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Not your attempt" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Submit answer for question",
+        "tags": ["Practice (Student)"]
+      }
+    },
+    "/practice/attempts/{attemptId}/answers": {
+      "get": {
+        "description": "Retrieve list of answered question IDs for UI state. SECURITY: Does not include correct answers or scoring.",
+        "operationId": "PracticeController_getAttemptAnswers",
+        "parameters": [
+          {
+            "name": "attemptId",
+            "required": true,
+            "in": "path",
+            "description": "Attempt ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns list of answered questions (no correctness information)"
+          },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Not your attempt" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Get answered questions",
+        "tags": ["Practice (Student)"]
+      }
+    },
+    "/practice/attempts/{attemptId}/finish-module": {
+      "post": {
+        "description": "Complete current module and proceed to next step (Module 2, Break, or Next Section). Adaptive logic applies for Module 2 selection.",
+        "operationId": "PracticeController_finishModule",
+        "parameters": [
+          {
+            "name": "attemptId",
+            "required": true,
+            "in": "path",
+            "description": "Attempt ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Module completed. Returns next step information."
+          },
+          "400": { "description": "Invalid module state" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Not your attempt" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Finish current module",
+        "tags": ["Practice (Student)"]
+      }
+    },
+    "/practice/attempts/{attemptId}/break-status": {
+      "get": {
+        "description": "Check if break is in progress and when it ends. Automatically starts next section if break is complete.",
+        "operationId": "PracticeController_checkBreakStatus",
+        "parameters": [
+          {
+            "name": "attemptId",
+            "required": true,
+            "in": "path",
+            "description": "Attempt ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns break status and remaining time or starts next section"
+          },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Not your attempt" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Check break status",
+        "tags": ["Practice (Student)"]
+      }
+    },
+    "/practice/attempts/{attemptId}/abandon": {
+      "post": {
+        "description": "Mark attempt as ABANDONED. Allows user to start a fresh attempt later.",
+        "operationId": "PracticeController_abandonAttempt",
+        "parameters": [
+          {
+            "name": "attemptId",
+            "required": true,
+            "in": "path",
+            "description": "Attempt ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Attempt abandoned successfully" },
+          "400": { "description": "Attempt not in progress" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Not your attempt" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Abandon test attempt",
+        "tags": ["Practice (Student)"]
+      }
+    },
+    "/practice/attempts/{attemptId}/submit": {
+      "post": {
+        "description": "SECURITY: Submit test and calculate score on backend. This is the ONLY endpoint that reveals correct answers and scoring.",
+        "operationId": "PracticeController_submitTest",
+        "parameters": [
+          {
+            "name": "attemptId",
+            "required": true,
+            "in": "path",
+            "description": "Attempt ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Test submitted successfully. Returns score and detailed results with correct answers."
+          },
+          "400": { "description": "Attempt not in progress" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Not your attempt" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Submit test for scoring",
+        "tags": ["Practice (Student)"]
+      }
+    },
+    "/practice/attempts/{attemptId}/results": {
+      "get": {
+        "description": "Retrieve full results for a completed test attempt. Only available after test submission.",
+        "operationId": "PracticeController_getAttemptResults",
+        "parameters": [
+          {
+            "name": "attemptId",
+            "required": true,
+            "in": "path",
+            "description": "Attempt ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns complete test results with SAT scaled scores (200-800 per section, 400-1600 total)"
+          },
+          "400": { "description": "Attempt not completed yet" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Not your attempt" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Get test results",
+        "tags": ["Practice (Student)"]
+      }
+    },
+    "/practice/attempts/{attemptId}/questions/{questionId}/mark": {
+      "post": {
+        "description": "Bookmark a question for later review (like official Bluebook app)",
+        "operationId": "PracticeController_toggleMarkForReview",
+        "parameters": [
+          {
+            "name": "attemptId",
+            "required": true,
+            "in": "path",
+            "description": "Attempt ID (UUID)",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "questionId",
+            "required": true,
+            "in": "path",
+            "description": "Question ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Returns updated mark for review status" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Not your attempt" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Toggle mark for review",
+        "tags": ["Practice (Student)"]
+      }
+    },
+    "/practice/attempts/{attemptId}/marked-questions": {
+      "get": {
+        "description": "Get list of questions marked for review in current module",
+        "operationId": "PracticeController_getMarkedForReview",
+        "parameters": [
+          {
+            "name": "attemptId",
+            "required": true,
+            "in": "path",
+            "description": "Attempt ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns list of marked question IDs and indices"
+          },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Not your attempt" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Get marked questions",
+        "tags": ["Practice (Student)"]
+      }
+    },
+    "/practice/attempts/{attemptId}/questions/{questionId}/eliminate": {
+      "patch": {
+        "description": "Cross out answer choices (like official Bluebook app option eliminator)",
+        "operationId": "PracticeController_updateEliminatedChoices",
+        "parameters": [
+          {
+            "name": "attemptId",
+            "required": true,
+            "in": "path",
+            "description": "Attempt ID (UUID)",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "questionId",
+            "required": true,
+            "in": "path",
+            "description": "Question ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "eliminatedChoices": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Returns updated eliminated choices" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Not your attempt" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Update eliminated choices",
+        "tags": ["Practice (Student)"]
+      }
+    },
+    "/practice/attempts/{attemptId}/time-remaining": {
+      "get": {
+        "description": "Get remaining time for current module with 5-minute warning flag",
+        "operationId": "PracticeController_getTimeRemaining",
+        "parameters": [
+          {
+            "name": "attemptId",
+            "required": true,
+            "in": "path",
+            "description": "Attempt ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns remaining seconds, time expired flag, and 5-minute warning"
+          },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Not your attempt" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Get remaining time",
+        "tags": ["Practice (Student)"]
+      }
+    },
+    "/practice/attempts/{attemptId}/skip-break": {
+      "post": {
+        "description": "End break early and continue to next section (like official SAT)",
+        "operationId": "PracticeController_skipBreak",
+        "parameters": [
+          {
+            "name": "attemptId",
+            "required": true,
+            "in": "path",
+            "description": "Attempt ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Break skipped, returns next section info" },
+          "400": { "description": "No active break to skip" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Not your attempt" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Skip break early",
+        "tags": ["Practice (Student)"]
+      }
+    },
+    "/practice/attempts/{attemptId}/score-report": {
+      "get": {
+        "description": "Get College Board-style score report with section breakdowns and percentile",
+        "operationId": "PracticeController_getScoreReport",
+        "parameters": [
+          {
+            "name": "attemptId",
+            "required": true,
+            "in": "path",
+            "description": "Attempt ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns detailed score report with percentile, strengths, and areas for improvement"
+          },
+          "400": { "description": "Attempt not completed yet" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Not your attempt" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Get detailed score report",
+        "tags": ["Practice (Student)"]
+      }
+    },
+    "/practice/attempts/{attemptId}/questions/{questionId}/highlights": {
+      "post": {
+        "description": "Create a highlight annotation on a passage (like official Bluebook app)",
+        "operationId": "PracticeController_createHighlight",
+        "parameters": [
+          {
+            "name": "attemptId",
+            "required": true,
+            "in": "path",
+            "description": "Attempt ID (UUID)",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "questionId",
+            "required": true,
+            "in": "path",
+            "description": "Question ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "startOffset": {
+                    "type": "number",
+                    "description": "Character start position"
+                  },
+                  "endOffset": {
+                    "type": "number",
+                    "description": "Character end position"
+                  },
+                  "color": {
+                    "type": "string",
+                    "enum": ["YELLOW", "GREEN", "BLUE", "PINK", "ORANGE"]
+                  },
+                  "note": {
+                    "type": "string",
+                    "description": "Optional annotation note"
+                  }
+                },
+                "required": ["startOffset", "endOffset"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Highlight created successfully" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Not your attempt" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Create highlight",
+        "tags": ["Practice (Student)"]
+      },
+      "get": {
+        "description": "Get all highlights for a question",
+        "operationId": "PracticeController_getHighlights",
+        "parameters": [
+          {
+            "name": "attemptId",
+            "required": true,
+            "in": "path",
+            "description": "Attempt ID (UUID)",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "questionId",
+            "required": true,
+            "in": "path",
+            "description": "Question ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Returns list of highlights" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Not your attempt" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Get highlights",
+        "tags": ["Practice (Student)"]
+      }
+    },
+    "/practice/attempts/{attemptId}/highlights/{highlightId}": {
+      "patch": {
+        "description": "Update highlight color or note",
+        "operationId": "PracticeController_updateHighlight",
+        "parameters": [
+          {
+            "name": "attemptId",
+            "required": true,
+            "in": "path",
+            "description": "Attempt ID (UUID)",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "highlightId",
+            "required": true,
+            "in": "path",
+            "description": "Highlight ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "type": "string",
+                    "enum": ["YELLOW", "GREEN", "BLUE", "PINK", "ORANGE"]
+                  },
+                  "note": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Highlight updated successfully" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Not your attempt" },
+          "404": { "description": "Highlight not found" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Update highlight",
+        "tags": ["Practice (Student)"]
+      },
+      "delete": {
+        "description": "Delete a highlight annotation",
+        "operationId": "PracticeController_deleteHighlight",
+        "parameters": [
+          {
+            "name": "attemptId",
+            "required": true,
+            "in": "path",
+            "description": "Attempt ID (UUID)",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "highlightId",
+            "required": true,
+            "in": "path",
+            "description": "Highlight ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Highlight deleted successfully" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Not your attempt" },
+          "404": { "description": "Highlight not found" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Delete highlight",
+        "tags": ["Practice (Student)"]
+      }
+    },
+    "/scoring/percentile/{score}": {
+      "get": {
+        "description": "Get the percentile rank for a given SAT score (400-1600)",
+        "operationId": "ScoringController_getPercentile",
+        "parameters": [
+          {
+            "name": "score",
+            "required": true,
+            "in": "path",
+            "description": "SAT score (400-1600)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "Returns percentile rank" } },
+        "summary": "Get percentile for score",
+        "tags": ["Scoring"]
+      }
+    },
+    "/scoring/seed": {
+      "post": {
+        "description": "Seed score conversion tables and percentile data",
+        "operationId": "ScoringController_seedScoringData",
+        "parameters": [],
+        "responses": {
+          "201": { "description": "Scoring data seeded successfully" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Admin/Owner role required" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Seed scoring data (Admin only)",
+        "tags": ["Scoring"]
+      }
+    },
+    "/scoring/seed/conversion-tables": {
+      "post": {
+        "description": "Seed raw-to-scaled score conversion tables",
+        "operationId": "ScoringController_seedConversionTables",
+        "parameters": [],
+        "responses": {
+          "201": { "description": "Conversion tables seeded successfully" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Admin/Owner role required" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Seed conversion tables (Admin only)",
+        "tags": ["Scoring"]
+      }
+    },
+    "/scoring/seed/percentiles": {
+      "post": {
+        "description": "Seed SAT score percentile distribution data",
+        "operationId": "ScoringController_seedPercentiles",
+        "parameters": [],
+        "responses": {
+          "201": { "description": "Percentile data seeded successfully" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Admin/Owner role required" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Seed percentile data (Admin only)",
+        "tags": ["Scoring"]
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "description": "Admin endpoint to retrieve users with filtering, sorting, and pagination",
+        "operationId": "AdminController_getUsers",
+        "parameters": [
+          {
+            "name": "role",
+            "required": false,
+            "in": "query",
+            "description": "Filter by user role",
+            "schema": {
+              "type": "string",
+              "enum": ["STUDENT", "ADMIN", "OWNER"]
+            }
+          },
+          {
+            "name": "isActive",
+            "required": false,
+            "in": "query",
+            "description": "Filter by active status",
+            "schema": { "example": true, "type": "boolean" }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Search by email or name",
+            "schema": { "example": "john", "type": "string" }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (1-indexed)",
+            "schema": { "default": 1, "example": 1, "type": "number" }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Number of items per page",
+            "schema": { "default": 10, "example": 10, "type": "number" }
+          },
+          {
+            "name": "sortBy",
+            "required": false,
+            "in": "query",
+            "description": "Sort field",
+            "schema": {
+              "default": "createdAt",
+              "example": "createdAt",
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "required": false,
+            "in": "query",
+            "description": "Sort order",
+            "schema": {
+              "default": "desc",
+              "type": "string",
+              "enum": ["asc", "desc"]
+            }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Returns paginated list of users" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Requires ADMIN or OWNER role" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Get all users with pagination and filters",
+        "tags": ["Admin - User Management"]
+      }
+    },
+    "/admin/users/stats": {
+      "get": {
+        "description": "Admin endpoint to retrieve user statistics and counts",
+        "operationId": "AdminController_getUserStats",
+        "parameters": [],
+        "responses": {
+          "200": { "description": "Returns user statistics" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Requires ADMIN or OWNER role" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Get user statistics",
+        "tags": ["Admin - User Management"]
+      }
+    },
+    "/admin/users/{userId}": {
+      "get": {
+        "description": "Admin endpoint to retrieve detailed user information including recent attempts",
+        "operationId": "AdminController_getUserById",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "description": "User ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Returns user details" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Requires ADMIN or OWNER role" },
+          "404": { "description": "User not found" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Get user by ID",
+        "tags": ["Admin - User Management"]
+      }
+    },
+    "/admin/users/{userId}/attempts": {
+      "get": {
+        "description": "Admin endpoint to retrieve all test attempts for a specific user",
+        "operationId": "AdminController_getUserAttempts",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "description": "User ID (UUID)",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number",
+            "schema": { "example": 1, "type": "number" }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Items per page",
+            "schema": { "example": 10, "type": "number" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Returns paginated list of user attempts" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Requires ADMIN or OWNER role" },
+          "404": { "description": "User not found" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Get user attempts",
+        "tags": ["Admin - User Management"]
+      }
+    },
+    "/reference/math-formulas": {
+      "get": {
+        "description": "Get all SAT math reference sheet formulas grouped by category. Available during Math section like official Bluebook app.",
+        "operationId": "ReferenceController_getMathFormulas",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Returns formulas grouped by category (Area, Volume, Triangles, etc.)"
+          }
+        },
+        "summary": "Get math reference formulas",
+        "tags": ["Reference"]
+      }
+    },
+    "/reference/math-formulas/{category}": {
+      "get": {
+        "description": "Get math formulas for a specific category (e.g., Area, Volume, Triangles)",
+        "operationId": "ReferenceController_getFormulasByCategory",
+        "parameters": [
+          {
+            "name": "category",
+            "required": true,
+            "in": "path",
+            "description": "Formula category (e.g., Area, Volume, Triangles, Algebra)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Returns formulas in the specified category" }
+        },
+        "summary": "Get formulas by category",
+        "tags": ["Reference"]
+      }
+    },
+    "/reference/seed-formulas": {
+      "post": {
+        "description": "Seed the database with official SAT math reference formulas",
+        "operationId": "ReferenceController_seedDefaultFormulas",
+        "parameters": [],
+        "responses": {
+          "201": { "description": "Default formulas seeded successfully" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Admin/Owner role required" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Seed default formulas (Admin only)",
+        "tags": ["Reference"]
+      }
+    },
+    "/tests/{testId}/comments": {
+      "get": {
+        "description": "Get paginated top-level comments for a test with reply counts",
+        "operationId": "CommentsController_getTestComments",
+        "parameters": [
+          {
+            "name": "testId",
+            "required": true,
+            "in": "path",
+            "description": "Test ID (UUID)",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (default: 1)",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Items per page (default: 20, max: 50)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns paginated comments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedCommentsResponseDto"
+                }
+              }
+            }
+          },
+          "404": { "description": "Test not found" }
+        },
+        "summary": "Get test comments",
+        "tags": ["Comments"]
+      },
+      "post": {
+        "description": "Create a new top-level comment on a test",
+        "operationId": "CommentsController_createComment",
+        "parameters": [
+          {
+            "name": "testId",
+            "required": true,
+            "in": "path",
+            "description": "Test ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateCommentDto" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Comment created successfully" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Test not found" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Create comment",
+        "tags": ["Comments"]
+      }
+    },
+    "/comments/{commentId}/replies": {
+      "get": {
+        "description": "Get paginated replies to a comment",
+        "operationId": "CommentsController_getReplies",
+        "parameters": [
+          {
+            "name": "commentId",
+            "required": true,
+            "in": "path",
+            "description": "Comment ID (UUID)",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (default: 1)",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Items per page (default: 20, max: 50)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Returns paginated replies" },
+          "404": { "description": "Comment not found" }
+        },
+        "summary": "Get comment replies",
+        "tags": ["Comments"]
+      },
+      "post": {
+        "description": "Reply to an existing comment (supports infinite nesting)",
+        "operationId": "CommentsController_replyToComment",
+        "parameters": [
+          {
+            "name": "commentId",
+            "required": true,
+            "in": "path",
+            "description": "Parent comment ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateCommentDto" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Reply created successfully" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Comment not found" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Reply to comment",
+        "tags": ["Comments"]
+      }
+    },
+    "/comments/{commentId}/thread": {
+      "get": {
+        "description": "Get full comment thread with nested replies (max depth: 10)",
+        "operationId": "CommentsController_getThread",
+        "parameters": [
+          {
+            "name": "commentId",
+            "required": true,
+            "in": "path",
+            "description": "Comment ID (UUID)",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "maxDepth",
+            "required": false,
+            "in": "query",
+            "description": "Maximum depth of replies (default: 10, max: 20)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Returns full comment thread" },
+          "404": { "description": "Comment not found" }
+        },
+        "summary": "Get comment thread",
+        "tags": ["Comments"]
+      }
+    },
+    "/comments/{commentId}": {
+      "patch": {
+        "description": "Update your own comment content",
+        "operationId": "CommentsController_updateComment",
+        "parameters": [
+          {
+            "name": "commentId",
+            "required": true,
+            "in": "path",
+            "description": "Comment ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateCommentDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Comment updated successfully" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Not your comment" },
+          "404": { "description": "Comment not found" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Update comment",
+        "tags": ["Comments"]
+      },
+      "delete": {
+        "description": "Delete your own comment (admins can delete any). Replies are cascade deleted.",
+        "operationId": "CommentsController_deleteComment",
+        "parameters": [
+          {
+            "name": "commentId",
+            "required": true,
+            "in": "path",
+            "description": "Comment ID (UUID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Comment deleted successfully" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Not your comment" },
+          "404": { "description": "Comment not found" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Delete comment",
+        "tags": ["Comments"]
+      }
+    },
+    "/exams/dates": {
+      "get": {
+        "description": "Returns all active SAT exam dates sorted by date",
+        "operationId": "ExamsController_getAllDates",
+        "parameters": [],
+        "responses": { "200": { "description": "List of exam dates" } },
+        "summary": "Get all exam dates",
+        "tags": ["Exams"]
+      },
+      "post": {
+        "description": "Add a new SAT exam date",
+        "operationId": "ExamsController_createDate",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateExamDateDto" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Exam date created successfully" },
+          "409": { "description": "Exam date already exists" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Create exam date (Admin)",
+        "tags": ["Exams"]
+      }
+    },
+    "/exams/dates/admin": {
+      "get": {
+        "description": "Returns all exam dates including inactive ones",
+        "operationId": "ExamsController_getAllDatesAdmin",
+        "parameters": [],
+        "responses": { "200": { "description": "List of all exam dates" } },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Get all exam dates (Admin)",
+        "tags": ["Exams"]
+      }
+    },
+    "/exams/dates/{id}": {
+      "get": {
+        "description": "Returns a specific exam date by ID",
+        "operationId": "ExamsController_getDateById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Exam date details" },
+          "404": { "description": "Exam date not found" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Get exam date by ID (Admin)",
+        "tags": ["Exams"]
+      },
+      "patch": {
+        "description": "Update an existing exam date",
+        "operationId": "ExamsController_updateDate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateExamDateDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Exam date updated successfully" },
+          "404": { "description": "Exam date not found" },
+          "409": { "description": "Exam date already exists for this date" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Update exam date (Admin)",
+        "tags": ["Exams"]
+      },
+      "delete": {
+        "description": "Delete an exam date",
+        "operationId": "ExamsController_deleteDate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Exam date deleted successfully" },
+          "404": { "description": "Exam date not found" }
+        },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "Delete exam date (Admin)",
+        "tags": ["Exams"]
+      }
+    }
+  },
+  "info": {
+    "title": "SAT Practice Platform API",
+    "description": "Backend API for SAT practice test platform with secure authentication, role-based access control, and backend-driven test logic",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "Authentication",
+      "description": "User registration, login, and profile management"
+    },
+    {
+      "name": "Tests (Admin)",
+      "description": "Admin-only endpoints for managing tests, questions, and choices"
+    },
+    {
+      "name": "Practice (Student)",
+      "description": "Student endpoints for taking practice tests"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "JWT-auth": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http",
+        "name": "JWT",
+        "description": "Enter JWT token",
+        "in": "header"
+      }
+    },
+    "schemas": {
+      "RegisterDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "User email address",
+            "example": "user@example.com"
+          },
+          "password": {
+            "type": "string",
+            "description": "User password (minimum 6 characters)",
+            "example": "password123",
+            "minLength": 6
+          },
+          "name": {
+            "type": "string",
+            "description": "User full name",
+            "example": "John Doe"
+          }
+        },
+        "required": ["email", "password", "name"]
+      },
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "User email address",
+            "example": "user@example.com"
+          },
+          "password": {
+            "type": "string",
+            "description": "User password",
+            "example": "password123"
+          }
+        },
+        "required": ["email", "password"]
+      },
+      "VerifyOtpDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "User email address",
+            "example": "user@example.com"
+          },
+          "otp": {
+            "type": "string",
+            "description": "6-digit OTP code sent to email",
+            "example": "123456"
+          }
+        },
+        "required": ["email", "otp"]
+      },
+      "UpdateProfileDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "User display name",
+            "example": "John Doe",
+            "minLength": 2,
+            "maxLength": 100
+          },
+          "currentPassword": {
+            "type": "string",
+            "description": "Current password (required when changing password)",
+            "example": "currentPassword123"
+          },
+          "newPassword": {
+            "type": "string",
+            "description": "New password (8-50 characters)",
+            "example": "newSecurePassword456",
+            "minLength": 8,
+            "maxLength": 50
+          },
+          "targetScore": {
+            "type": "number",
+            "description": "Target SAT score (400-1600)",
+            "example": 1400,
+            "minimum": 400,
+            "maximum": 1600
+          },
+          "examDate": {
+            "type": "string",
+            "description": "Scheduled exam date (ISO 8601 format)",
+            "example": "2026-06-15"
+          }
+        }
+      },
+      "ChangeRoleDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "description": "User ID to change role for",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "role": {
+            "type": "string",
+            "description": "New role for the user",
+            "enum": ["STUDENT", "ADMIN", "OWNER"],
+            "example": "ADMIN"
+          }
+        },
+        "required": ["userId", "role"]
+      },
+      "BanUserDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "description": "User ID to ban/unban",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "ban": {
+            "type": "boolean",
+            "description": "Set to true to ban (deactivate) user, false to unban (activate)",
+            "example": true
+          }
+        },
+        "required": ["userId", "ban"]
+      },
+      "DeleteUserDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "description": "User ID to delete",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          }
+        },
+        "required": ["userId"]
+      },
+      "CreateSectionDto": { "type": "object", "properties": {} },
+      "CreateTestDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Test title",
+            "example": "SAT Practice Test 1"
+          },
+          "description": {
+            "type": "string",
+            "description": "Test description",
+            "example": "Full-length Digital SAT practice test with adaptive modules"
+          },
+          "sections": {
+            "description": "Array of sections (English and Math) to create with the test (optional)",
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CreateSectionDto" }
+          }
+        },
+        "required": ["title"]
+      },
+      "UpdateTestDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Test title",
+            "example": "SAT Practice Test 1"
+          },
+          "description": {
+            "type": "string",
+            "description": "Test description",
+            "example": "Full-length Digital SAT practice test with adaptive modules"
+          },
+          "sections": {
+            "description": "Array of sections (English and Math) to create with the test (optional)",
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CreateSectionDto" }
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "Whether the test is active and available to students",
+            "example": true
+          }
+        }
+      },
+      "CreateChoiceDto": {
+        "type": "object",
+        "properties": {
+          "choiceText": {
+            "type": "string",
+            "description": "The text of the answer choice",
+            "example": "Paris"
+          },
+          "isCorrect": {
+            "type": "boolean",
+            "description": "Whether this choice is the correct answer",
+            "example": true
+          },
+          "orderIndex": {
+            "type": "number",
+            "description": "Display order of this choice (0-indexed)",
+            "example": 0,
+            "minimum": 0
+          },
+          "imageBase64": {
+            "type": "string",
+            "description": "Base64 encoded image data for this answer choice. Include the data URI prefix (e.g., \"data:image/png;base64,iVBOR...\"). Supported formats: JPEG, PNG, GIF, WebP, SVG. Max 5MB.",
+            "example": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+          },
+          "imageUrl": {
+            "type": "string",
+            "description": "URL for image (auto-populated after upload, or provide existing URL)",
+            "example": "https://storage.googleapis.com/your-bucket/choices/1706547890-abc123.png"
+          }
+        },
+        "required": ["choiceText", "isCorrect", "orderIndex"]
+      },
+      "AddQuestionDto": {
+        "type": "object",
+        "properties": {
+          "questionText": {
+            "type": "string",
+            "description": "The question text",
+            "example": "What is 2 + 2?"
+          },
+          "questionType": {
+            "type": "string",
+            "description": "Question type - MULTIPLE_CHOICE or STUDENT_PRODUCED (grid-in)",
+            "enum": ["MULTIPLE_CHOICE", "STUDENT_PRODUCED"],
+            "example": "MULTIPLE_CHOICE",
+            "default": "MULTIPLE_CHOICE"
+          },
+          "orderIndex": {
+            "type": "number",
+            "description": "Display order of this question (0-indexed)",
+            "example": 0,
+            "minimum": 0
+          },
+          "difficulty": {
+            "type": "string",
+            "description": "Difficulty level for adaptive Module 2 selection",
+            "enum": ["EASY", "MEDIUM", "HARD"],
+            "example": "MEDIUM"
+          },
+          "correctAnswer": {
+            "type": "string",
+            "description": "Correct answer for STUDENT_PRODUCED questions (numeric or text)",
+            "example": "4"
+          },
+          "passage": {
+            "type": "string",
+            "description": "Reading passage for Reading/Writing questions",
+            "example": "The experiment showed that..."
+          },
+          "explanation": {
+            "type": "string",
+            "description": "Explanation shown after test completion",
+            "example": "2 + 2 = 4 because..."
+          },
+          "contentDomain": {
+            "type": "string",
+            "description": "Content domain for categorization and analytics",
+            "enum": [
+              "INFORMATION_AND_IDEAS",
+              "CRAFT_AND_STRUCTURE",
+              "EXPRESSION_OF_IDEAS",
+              "STANDARD_ENGLISH_CONVENTIONS",
+              "ALGEBRA",
+              "ADVANCED_MATH",
+              "PROBLEM_SOLVING_DATA",
+              "GEOMETRY_TRIGONOMETRY"
+            ],
+            "example": "ALGEBRA"
+          },
+          "imageBase64": {
+            "type": "string",
+            "description": "Base64 encoded image data for this question. Include the data URI prefix (e.g., \"data:image/png;base64,iVBOR...\"). Supported formats: JPEG, PNG, GIF, WebP, SVG. Max 5MB.",
+            "example": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+          },
+          "imageUrl": {
+            "type": "string",
+            "description": "URL for charts, graphs, tables, or images (auto-populated after upload, or provide existing URL)",
+            "example": "https://storage.googleapis.com/your-bucket/questions/chart1.png"
+          },
+          "choices": {
+            "description": "Array of answer choices (required for MULTIPLE_CHOICE, optional for STUDENT_PRODUCED)",
+            "example": [
+              { "choiceText": "3", "isCorrect": false, "orderIndex": 0 },
+              { "choiceText": "4", "isCorrect": true, "orderIndex": 1 },
+              { "choiceText": "5", "isCorrect": false, "orderIndex": 2 },
+              { "choiceText": "6", "isCorrect": false, "orderIndex": 3 }
+            ],
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CreateChoiceDto" }
+          }
+        },
+        "required": [
+          "questionText",
+          "questionType",
+          "orderIndex",
+          "difficulty",
+          "choices"
+        ]
+      },
+      "CreateSatTemplateDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Title of the SAT practice test",
+            "example": "SAT Practice Test 1"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the test",
+            "example": "Full-length SAT practice test with Reading/Writing and Math sections"
+          }
+        },
+        "required": ["title"]
+      },
+      "UploadResponseDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Public URL of the uploaded file",
+            "example": "https://storage.googleapis.com/your-bucket/questions/1706547890-abc123.png"
+          },
+          "filename": {
+            "type": "string",
+            "description": "Generated filename in storage",
+            "example": "questions/1706547890-abc123.png"
+          },
+          "originalName": {
+            "type": "string",
+            "description": "Original filename uploaded by user",
+            "example": "math-equation.png"
+          },
+          "size": {
+            "type": "number",
+            "description": "File size in bytes",
+            "example": 125432
+          },
+          "contentType": {
+            "type": "string",
+            "description": "MIME type of the file",
+            "example": "image/png"
+          }
+        },
+        "required": ["url", "filename", "originalName", "size", "contentType"]
+      },
+      "SubmitAnswerDto": {
+        "type": "object",
+        "properties": {
+          "questionId": {
+            "type": "string",
+            "description": "Question ID",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "choiceId": {
+            "type": "string",
+            "description": "Selected choice ID (required for MULTIPLE_CHOICE questions)",
+            "example": "123e4567-e89b-12d3-a456-426614174001"
+          },
+          "textAnswer": {
+            "type": "string",
+            "description": "Text answer for STUDENT_PRODUCED (grid-in) questions",
+            "example": "42"
+          }
+        },
+        "required": ["questionId"]
+      },
+      "CommentUserDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "User ID",
+            "example": "uuid-string"
+          },
+          "name": {
+            "type": "string",
+            "description": "User display name",
+            "example": "John Doe"
+          }
+        },
+        "required": ["id", "name"]
+      },
+      "CommentResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Comment ID",
+            "example": "uuid-string"
+          },
+          "content": {
+            "type": "string",
+            "description": "Comment text content",
+            "example": "This was a great test!"
+          },
+          "isEdited": {
+            "type": "boolean",
+            "description": "Whether comment has been edited",
+            "example": false
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Creation timestamp",
+            "example": "2024-01-15T10:30:00.000Z"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Last update timestamp",
+            "example": "2024-01-15T10:30:00.000Z"
+          },
+          "user": {
+            "description": "Comment author",
+            "allOf": [{ "$ref": "#/components/schemas/CommentUserDto" }]
+          },
+          "replyCount": {
+            "type": "number",
+            "description": "Number of replies to this comment",
+            "example": 5
+          },
+          "parentId": {
+            "type": "string",
+            "description": "Parent comment ID (for replies)",
+            "example": "uuid-string"
+          }
+        },
+        "required": [
+          "id",
+          "content",
+          "isEdited",
+          "createdAt",
+          "updatedAt",
+          "user",
+          "replyCount"
+        ]
+      },
+      "PaginationMetaDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number",
+            "description": "Total number of items",
+            "example": 47
+          },
+          "page": {
+            "type": "number",
+            "description": "Current page number",
+            "example": 1
+          },
+          "limit": {
+            "type": "number",
+            "description": "Items per page",
+            "example": 20
+          },
+          "totalPages": {
+            "type": "number",
+            "description": "Total number of pages",
+            "example": 3
+          }
+        },
+        "required": ["total", "page", "limit", "totalPages"]
+      },
+      "PaginatedCommentsResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "description": "List of comments",
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CommentResponseDto" }
+          },
+          "meta": {
+            "description": "Pagination metadata",
+            "allOf": [{ "$ref": "#/components/schemas/PaginationMetaDto" }]
+          }
+        },
+        "required": ["data", "meta"]
+      },
+      "CommentThreadDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Comment ID",
+            "example": "uuid-string"
+          },
+          "content": {
+            "type": "string",
+            "description": "Comment text content",
+            "example": "This was a great test!"
+          },
+          "isEdited": {
+            "type": "boolean",
+            "description": "Whether comment has been edited",
+            "example": false
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Creation timestamp"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Last update timestamp"
+          },
+          "parentId": {
+            "type": "string",
+            "description": "Parent comment ID",
+            "example": "uuid-string"
+          },
+          "user": {
+            "description": "Comment author",
+            "allOf": [{ "$ref": "#/components/schemas/CommentUserDto" }]
+          },
+          "replies": {
+            "description": "Nested replies (recursive structure)",
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CommentThreadDto" }
+          }
+        },
+        "required": [
+          "id",
+          "content",
+          "isEdited",
+          "createdAt",
+          "updatedAt",
+          "user",
+          "replies"
+        ]
+      },
+      "DeleteCommentResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether deletion was successful",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "description": "Deletion message",
+            "example": "Comment and 3 replies deleted"
+          }
+        },
+        "required": ["success", "message"]
+      },
+      "CreateCommentDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "Comment content",
+            "example": "This was a great test! The math section was challenging.",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "required": ["content"]
+      },
+      "UpdateCommentDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "Updated comment content",
+            "example": "Updated: This was a great test!",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "required": ["content"]
+      },
+      "CreateExamDateDto": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "The exam date in ISO 8601 format",
+            "example": "2026-03-08"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional description for the exam date",
+            "example": "Regular SAT"
+          }
+        },
+        "required": ["date"]
+      },
+      "UpdateExamDateDto": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "The exam date in ISO 8601 format",
+            "example": "2026-03-08"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional description for the exam date",
+            "example": "Regular SAT"
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "Whether the exam date is active",
+            "example": true
+          }
+        }
+      }
+    }
+  }
+}

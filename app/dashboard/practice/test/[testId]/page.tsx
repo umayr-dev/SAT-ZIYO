@@ -891,12 +891,11 @@ export default function TestTakingPage() {
   const runGoto = useCallback(
     (localIndex: number): Promise<StartTestResponse> => {
       const prev = gotoMutexRef.current;
+      // Use catch(() => {}) before then so a failed previous request doesn't break the entire chain
       const p = prev
-        .then(() => practiceService.jumpToQuestion(attemptId, localIndex))
-        .catch((err) => {
-          throw err;
-        });
-      gotoMutexRef.current = p;
+        .catch(() => {})
+        .then(() => practiceService.jumpToQuestion(attemptId, localIndex));
+      gotoMutexRef.current = p.catch(() => {});
       return p as Promise<StartTestResponse>;
     },
     [attemptId]
@@ -1067,7 +1066,7 @@ export default function TestTakingPage() {
         const total = Math.min(state.currentModule.totalQuestions, cap);
         setTotalQuestions(total);
 
-        preloadNextQuestions(state.currentQuestionIndex, total);
+        // Preloading disabled: it uses goto which advances server cursor and breaks /next//previous navigation
       } else {
         console.warn(
           "[Test Page] No totalQuestions in currentModule:",
@@ -1288,14 +1287,12 @@ export default function TestTakingPage() {
       handleAnswer();
       setIsMarkupEnabled(false);
 
-      // Har doim API'dan yangi savolni olish – backend modul ichidagi local index kutadi
-      const nextState = await runGoto(nextIndex);
-      if (nextState.currentQuestionIndex !== nextIndex) return;
+      // Use /next endpoint for reliable sequential navigation (avoids goto index mismatch bugs)
+      const nextState = await practiceService.nextQuestion(attemptId);
       setTestState(nextState);
       if (nextState.question)
         saveQuestionToLocal(nextState.currentQuestionIndex, nextState.question);
-      applySavedAnswerForIndex(nextIndex);
-      if (totalQuestions) preloadNextQuestions(nextIndex, totalQuestions);
+      applySavedAnswerForIndex(nextState.currentQuestionIndex);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to go to next question"
@@ -1320,22 +1317,15 @@ export default function TestTakingPage() {
       setIsQuestionLoading(true);
       setSubmitting(true);
 
-      // Save current answer (no server request)
       handleAnswer();
-
-      // Clear markup when moving to previous question
       setIsMarkupEnabled(false);
 
-      const currentIndex = testState.currentQuestionIndex;
-      const prevIndex = currentIndex - 1;
-
-      // Har doim API'dan yangi savolni olish – backend modul ichidagi local index kutadi
-      const prevState = await runGoto(prevIndex);
-      if (prevState.currentQuestionIndex !== prevIndex) return;
+      // Use /previous endpoint for reliable sequential navigation
+      const prevState = await practiceService.previousQuestion(attemptId);
       setTestState(prevState);
       if (prevState.question)
         saveQuestionToLocal(prevState.currentQuestionIndex, prevState.question);
-      applySavedAnswerForIndex(prevIndex);
+      applySavedAnswerForIndex(prevState.currentQuestionIndex);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to go to previous question"
@@ -1382,7 +1372,6 @@ export default function TestTakingPage() {
         if (state.question)
           saveQuestionToLocal(state.currentQuestionIndex, state.question);
         applySavedAnswerForIndex(index);
-        if (totalQuestions) preloadNextQuestions(index, totalQuestions);
       } catch (err) {
         if (latestRequestedJumpRef.current === index) {
           setError(
@@ -2005,6 +1994,7 @@ export default function TestTakingPage() {
                       </div>
                       <div className="prose max-w-none mt-2">
                         <QuestionDisplay
+                          key={question.id}
                           question={question}
                           selectedChoiceId={undefined}
                           textAnswer={undefined}
