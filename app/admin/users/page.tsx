@@ -32,12 +32,9 @@ interface User {
   name?: string;
   role?: string;
   createdAt?: string;
+  targetScore?: number;
+  examDate?: string | null;
   isPremium?: boolean;
-  hasUnlimitedTests?: boolean;
-  hasAdvancedAnalytics?: boolean;
-  hasDetailedExplanations?: boolean;
-  hasPrioritySupport?: boolean;
-  hasMobileAppAccess?: boolean;
 }
 
 export default function UsersPage() {
@@ -116,41 +113,67 @@ export default function UsersPage() {
     }
   }
 
-  async function updateUser(userId: string, updates: Partial<User>) {
+  async function updateUser(
+    userId: string,
+    updates: Partial<User> & { password?: string },
+  ) {
     try {
-      // Send all updates in a single request (features + name/email/role)
-      const response = await fetch(`/api/admin/users/${userId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify(updates),
-      });
+      // Premium flagni PATCH orqali yubormaymiz – subscription API alohida ishlaydi
+      const { isPremium, ...rest } = updates;
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.message || errorData.error || "Failed to update user",
+      // Agar faqat isPremium kelsa – bu faqat lokal state yangilash (backendga so‘rov yo‘q)
+      const hasOtherFields = Object.keys(rest).length > 0;
+
+      if (hasOtherFields) {
+        const response = await fetch(`/api/admin/users/${userId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify(rest),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(
+            errorData.message || errorData.error || "Failed to update user",
+          );
+        }
+
+        const responseData = await response.json().catch(() => ({}));
+
+        const updatedUserData: Partial<User> & { password?: string } = {
+          ...rest,
+          ...(responseData.user || responseData),
+        };
+
+        // Parol UI stateida saqlanmasin
+        if ("password" in updatedUserData) {
+          delete (updatedUserData as any).password;
+        }
+
+        setUsers((prevUsers) =>
+          prevUsers.map((user) =>
+            user.id === userId ? { ...user, ...updatedUserData } : user,
+          ),
         );
+
+        if (selectedUser && selectedUser.id === userId) {
+          setSelectedUser({ ...selectedUser, ...updatedUserData });
+        }
       }
 
-      const responseData = await response.json().catch(() => ({}));
-
-      // Update state with the response data (includes updated role)
-      const updatedUserData = {
-        ...updates,
-        ...(responseData.user || responseData),
-      };
-
-      setUsers((prevUsers) =>
-        prevUsers.map((user) =>
-          user.id === userId ? { ...user, ...updatedUserData } : user,
-        ),
-      );
-
-      if (selectedUser && selectedUser.id === userId) {
-        setSelectedUser({ ...selectedUser, ...updatedUserData });
+      // Premium lokali – agar kelsa, faqat React state yangilanadi
+      if (typeof isPremium === "boolean") {
+        setUsers((prevUsers) =>
+          prevUsers.map((user) =>
+            user.id === userId ? { ...user, isPremium } : user,
+          ),
+        );
+        if (selectedUser && selectedUser.id === userId) {
+          setSelectedUser({ ...selectedUser, isPremium });
+        }
       }
     } catch (err) {
       console.error("Failed to update user:", err);
@@ -275,21 +298,32 @@ export default function UsersPage() {
 
       {/* Search and Filter */}
       <Card className="p-4">
-        <div className="flex items-center gap-3">
+        {/* Brauzer autofill'ini o‘chirish uchun alohida form */}
+        <form
+          className="flex items-center gap-3"
+          autoComplete="off"
+          onSubmit={(e) => e.preventDefault()}
+        >
           {/* Search */}
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <Input
-              type="text"
-              placeholder="Search by email or name..."
+              type="search"
+              placeholder="Search users..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              name="admin-user-search-query"
+              id="admin-user-search-query"
               className="w-full pl-10"
             />
           </div>
 
           {/* Filter Button */}
           <Button
+            type="button"
             variant="outline"
             onClick={() => setIsFilterModalOpen(true)}
             className="flex items-center gap-2"
@@ -306,7 +340,7 @@ export default function UsersPage() {
               </span>
             )}
           </Button>
-        </div>
+        </form>
       </Card>
 
       {error && (

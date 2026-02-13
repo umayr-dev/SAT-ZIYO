@@ -197,13 +197,13 @@ export default function PracticePage() {
     <div className="w-full max-w-5xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <p className="text-xs font-semibold tracking-[0.2em] uppercase text-gray-500 mb-2">
+        <p className="text-xs font-semibold tracking-[0.2em] uppercase text-brand-blue/70 mb-2">
           Official practice
         </p>
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
+        <h1 className="text-3xl md:text-4xl font-bold text-brand-blue mb-2">
           Official Practice Tests
         </h1>
-        <p className="text-sm md:text-base text-gray-600">
+        <p className="text-sm md:text-base text-brand-blue/80">
           Real SAT-style tests from your dashboard. Jump back into your latest
           attempt in one click.
         </p>
@@ -219,8 +219,8 @@ export default function PracticePage() {
 
       {/* Test Cards Grid */}
       {filteredAndSortedTests.length === 0 ? (
-        <Card className="p-12 text-center border border-dashed border-gray-300 bg-gray-50/60">
-          <p className="text-gray-700 text-base mb-2">
+        <Card className="p-12 text-center border border-dashed border-brand-blue/30 bg-brand-blue-50/60">
+          <p className="text-brand-blue text-base mb-2">
             No practice tests available
           </p>
         </Card>
@@ -242,10 +242,10 @@ export default function PracticePage() {
             const totalPeopleTook = allAttemptsForTest.length;
 
             const statusBadge = inProgressAttempt
-              ? { label: "In progress", color: "bg-blue-50 text-blue-700" }
+              ? { label: "In progress", color: "bg-brand-blue-50 text-brand-blue" }
               : completedAttempts.length > 0
-              ? { label: "Completed", color: "bg-emerald-50 text-emerald-700" }
-              : { label: "Unsolved", color: "bg-gray-100 text-gray-700" };
+              ? { label: "Completed", color: "bg-brand-orange-light text-brand-orange" }
+              : { label: "Unsolved", color: "bg-brand-blue-light text-brand-blue" };
 
             const hasAttempts = totalPeopleTook > 0;
             const title =
@@ -258,17 +258,17 @@ export default function PracticePage() {
               accessType === "PREMIUM" ? "Premium" : "Free";
             const accessClasses =
               accessType === "PREMIUM"
-                ? "bg-amber-50 text-amber-700 border border-amber-200"
-                : "bg-emerald-50 text-emerald-700 border border-emerald-200";
+                ? "bg-brand-orange-light text-brand-orange border border-brand-orange/30"
+                : "bg-brand-blue-50 text-brand-blue border border-brand-blue/30";
 
             return (
               <Card
                 key={test.id}
-                className="p-4 md:p-5 bg-white border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 rounded-2xl"
+                className="p-4 md:p-5 bg-white border border-brand-blue-light hover:border-brand-blue/40 hover:shadow-md transition-all duration-200 rounded-2xl"
               >
                 <div className="space-y-3">
                   {/* Top: tile with logo + glass effect, test name centered */}
-                  <div className="relative overflow-hidden rounded-2xl h-44 md:h-52 bg-gradient-to-br from-orange-200 via-orange-300 to-orange-500">
+                  <div className="relative overflow-hidden rounded-2xl h-44 md:h-52 bg-gradient-to-br from-brand-orange-light via-brand-orange/20 to-brand-blue">
                     {/* Logo: larger so more visible */}
                     <div className="absolute inset-0 flex items-center justify-center opacity-40">
                       <div className="relative w-44 h-44 md:w-56 md:h-56">
@@ -284,8 +284,8 @@ export default function PracticePage() {
                     </div>
                     {/* Glass effect overlays */}
                     <div className="absolute inset-0 pointer-events-none">
-                      <div className="absolute -top-10 left-0 w-40 h-32 bg-orange-300/70 rounded-full blur-3xl" />
-                      <div className="absolute bottom-0 right-[-40px] w-48 h-32 bg-orange-700/60 rounded-full blur-3xl" />
+                      <div className="absolute -top-10 left-0 w-40 h-32 bg-brand-orange/50 rounded-full blur-3xl" />
+                      <div className="absolute bottom-0 right-[-40px] w-48 h-32 bg-brand-blue/60 rounded-full blur-3xl" />
                     </div>
                     {/* Test name centered */}
                     <div className="absolute inset-0 flex items-center justify-center">
@@ -296,13 +296,13 @@ export default function PracticePage() {
                   </div>
 
                   {/* Middle: meta + attempts */}
-                  <div className="flex items-center justify-between text-[11px] md:text-xs text-gray-600">
+                  <div className="flex items-center justify-between text-[11px] md:text-xs text-brand-blue/80">
                     <div className="flex items-center gap-2">
                       <div className="flex items-center gap-1.5">
                         <Clock className="w-3.5 h-3.5" />
                         <span>{totalDuration} min</span>
                       </div>
-                      <span className="h-1 w-1 rounded-full bg-gray-300" />
+                      <span className="h-1 w-1 rounded-full bg-brand-blue/40" />
                       <span>{totalQuestions} questions</span>
                     </div>
                     <span
@@ -311,7 +311,7 @@ export default function PracticePage() {
                       {statusBadge.label}
                     </span>
                   </div>
-                  <div className="text-[11px] md:text-xs text-gray-500 flex items-center justify-between">
+                  <div className="text-[11px] md:text-xs text-brand-blue/70 flex items-center justify-between">
                     <span
                       className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${accessClasses}`}
                     >
@@ -340,7 +340,7 @@ export default function PracticePage() {
                             : `/dashboard/practice/test/${test.id}/start`,
                         )
                       }
-                      className="flex-1 bg-gray-900 hover:bg-gray-800 text-white rounded-xl py-2.5 text-sm font-semibold"
+                      className="flex-1 bg-brand-blue hover:bg-brand-blue/90 text-white rounded-xl py-2.5 text-sm font-semibold"
                     >
                       {inProgressAttempt ? (
                         <>
@@ -362,7 +362,7 @@ export default function PracticePage() {
                           `/dashboard/practice/test/${test.id}/comments`,
                         )
                       }
-                      className="bg-white border-gray-200 hover:bg-gray-50 rounded-xl px-3 py-2"
+                      className="bg-white border-brand-blue-light hover:bg-brand-orange-light rounded-xl px-3 py-2"
                       title="Comments / Discussion"
                     >
                       <MessageCircle className="w-4 h-4" />

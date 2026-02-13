@@ -6,11 +6,15 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
 
+// Satashkent-style: Results, Why us, Courses, Platform, Teachers, FAQ, Vacancy
 const NAV_LINKS = [
-  { id: "programs", label: "Programs" },
-  { id: "how-it-works", label: "How It Works" },
-  { id: "pricing", label: "Pricing" },
-  { id: "testimonials", label: "Testimonials" },
+  { id: "results", label: "Results" },
+  { id: "why-us", label: "Why us" },
+  { id: "courses", label: "Courses" },
+  { id: "platform", label: "Platform" },
+  { id: "teachers", label: "Teachers" },
+  { id: "faq", label: "FAQ" },
+  { id: "vacancy", label: "Vacancy" },
 ];
 
 export default function Header() {
@@ -34,23 +38,24 @@ export default function Header() {
 
   return (
     <header
-      className={`sticky top-0 z-50 w-full transition-all duration-300 ${
-        scrolled ? "bg-white/95 backdrop-blur border-b border-slate-200/80" : "bg-transparent"
+      className={`sticky top-0 z-50 w-full bg-white transition-all duration-300 border-b ${
+        scrolled ? "border-slate-200 shadow-sm" : "border-slate-100"
       }`}
     >
       <nav className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 lg:h-18 items-center justify-between">
+        <div className="flex h-16 lg:h-[72px] items-center justify-between gap-8">
+          {/* Logo – Satashkent: left, logo + brand name */}
           <Link
             href="/"
-            className="flex items-center gap-2.5"
+            className="flex items-center gap-3 shrink-0"
             onClick={(e) => isHomePage && scrollTo(e, "home")}
           >
             <Image
               src="/logo.png"
               alt="SAT Ziyo"
-              width={40}
-              height={40}
-              className="object-contain rounded-lg"
+              width={44}
+              height={44}
+              className="object-contain"
               priority
             />
             <span className="text-xl font-bold tracking-tight text-slate-900">
@@ -58,26 +63,22 @@ export default function Header() {
             </span>
           </Link>
 
-          <div className="hidden md:flex items-center gap-1">
-            {NAV_LINKS.map(({ id, label }) => (
+          {/* Center nav – Satashkent: Results, Why us, Courses, Platform, Teachers, FAQ, Vacancy */}
+          <div className="hidden lg:flex items-center gap-6 xl:gap-8 flex-1 justify-center flex-wrap">
+            {NAV_LINKS.map((item) => (
               <a
-                key={id}
-                href={`#${id}`}
-                onClick={(e) => scrollTo(e, id)}
-                className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors"
+                key={item.id}
+                href={`#${item.id}`}
+                onClick={(e) => scrollTo(e, item.id)}
+                className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors whitespace-nowrap"
               >
-                {label}
+                {item.label}
               </a>
             ))}
-            <Link
-              href="/score-calculator"
-              className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors"
-            >
-              Score Calculator
-            </Link>
           </div>
 
-          <div className="flex items-center gap-3">
+          {/* Right – Sign In + CTA like "Enroll for a class" */}
+          <div className="flex items-center gap-4 shrink-0">
             <Link
               href="/auth/login"
               className="hidden sm:inline-flex text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
@@ -86,14 +87,14 @@ export default function Header() {
             </Link>
             <Link
               href="/auth/register"
-              className="inline-flex items-center justify-center px-5 py-2.5 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors shadow-sm"
+              className="inline-flex items-center justify-center px-5 py-2.5 text-sm font-semibold text-white bg-brand-orange hover:bg-brand-orange/90 rounded-lg transition-colors shadow-sm"
             >
               Get Started
             </Link>
             <button
               type="button"
               onClick={() => setMobileOpen((o) => !o)}
-              className="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg"
+              className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg"
               aria-label="Menu"
             >
               {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -101,26 +102,20 @@ export default function Header() {
           </div>
         </div>
 
+        {/* Mobile menu */}
         {mobileOpen && (
-          <div className="md:hidden py-4 border-t border-slate-200">
+          <div className="lg:hidden py-4 border-t border-slate-100 bg-white">
             <div className="flex flex-col gap-1">
-              {NAV_LINKS.map(({ id, label }) => (
+              {NAV_LINKS.map((item) => (
                 <a
-                  key={id}
-                  href={`#${id}`}
-                  onClick={(e) => scrollTo(e, id)}
+                  key={item.id}
+                  href={`#${item.id}`}
+                  onClick={(e) => scrollTo(e, item.id)}
                   className="px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg"
                 >
-                  {label}
+                  {item.label}
                 </a>
               ))}
-              <Link
-                href="/score-calculator"
-                onClick={() => setMobileOpen(false)}
-                className="px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg"
-              >
-                Score Calculator
-              </Link>
               <Link
                 href="/auth/login"
                 onClick={() => setMobileOpen(false)}

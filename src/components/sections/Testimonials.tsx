@@ -40,7 +40,7 @@ export default function Testimonials() {
           }`}
         >
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
-            What students say
+            Hear from Our Students
           </h2>
           <p className="mt-4 text-lg text-slate-600">
             Join students who improved their scores with full-length mocks and clear feedback.

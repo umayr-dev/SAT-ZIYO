@@ -13,6 +13,8 @@ interface User {
   name?: string;
   role?: string;
   createdAt?: string;
+  targetScore?: number;
+  examDate?: string | null;
   isPremium?: boolean;
   hasUnlimitedTests?: boolean;
   hasAdvancedAnalytics?: boolean;
@@ -25,7 +27,10 @@ interface UserEditModalProps {
   user: User | null;
   isOpen: boolean;
   onClose: () => void;
-  onUpdate: (userId: string, updates: Partial<User>) => Promise<void>;
+  onUpdate: (
+    userId: string,
+    updates: Partial<User> & { password?: string },
+  ) => Promise<void>;
   availableRoles?: string[]; // Roles from database
 }
 
@@ -41,6 +46,9 @@ export function UserEditModal({
   availableRoles = [],
 }: UserEditModalProps) {
   const [formData, setFormData] = useState<Partial<User>>({});
+  const [password, setPassword] = useState("");
+  const [targetScoreInput, setTargetScoreInput] = useState("");
+  const [examDateInput, setExamDateInput] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -51,12 +59,14 @@ export function UserEditModal({
         email: user.email || "",
         role: user.role || "",
         isPremium: user.isPremium || false,
-        hasUnlimitedTests: user.hasUnlimitedTests || false,
-        hasAdvancedAnalytics: user.hasAdvancedAnalytics || false,
-        hasDetailedExplanations: user.hasDetailedExplanations || false,
-        hasPrioritySupport: user.hasPrioritySupport || false,
-        hasMobileAppAccess: user.hasMobileAppAccess || false,
       });
+      setPassword("");
+      setTargetScoreInput(
+        typeof user.targetScore === "number" ? String(user.targetScore) : "",
+      );
+      setExamDateInput(
+        user.examDate ? user.examDate.slice(0, 10) : "",
+      );
       setError("");
     }
   }, [user]);
@@ -82,7 +92,44 @@ export function UserEditModal({
     try {
       setIsSaving(true);
       setError("");
-      await onUpdate(user.id, formData);
+      const updates: Partial<User> & { password?: string } = {};
+
+      // Faqat ruxsat berilgan maydonlar: name, email, role, password, targetScore, examDate
+      if (typeof formData.name === "string") {
+        updates.name = formData.name;
+      }
+      if (typeof formData.email === "string") {
+        updates.email = formData.email;
+      }
+      if (typeof formData.role === "string" && formData.role) {
+        updates.role = formData.role;
+      }
+
+      // Parol faqat kiritilganda yuboriladi
+      if (password.trim()) {
+        updates.password = password.trim();
+      }
+
+      // Target score – bo‘sh bo‘lsa yubormaymiz
+      if (targetScoreInput.trim()) {
+        const n = Number(targetScoreInput.trim());
+        if (!Number.isNaN(n)) {
+          updates.targetScore = n;
+        }
+      }
+
+      // Exam date – bo‘sh bo‘lsa:
+      //  - avval bor bo‘lsa -> null (tozalash)
+      //  - bo‘lmasa umuman yubormaymiz
+      if (examDateInput === "") {
+        if (user.examDate) {
+          updates.examDate = null;
+        }
+      } else {
+        updates.examDate = examDateInput;
+      }
+
+      await onUpdate(user.id, updates);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update user");
@@ -91,14 +138,41 @@ export function UserEditModal({
     }
   };
 
-  const handleFeatureToggle = async (feature: string, value: boolean) => {
-    const updatedData = { ...formData, [feature]: value };
-    setFormData(updatedData);
+  // Faqat Premium Access – backendda subscription endpoint orqali boshqariladi
+  const handlePremiumToggle = async (value: boolean) => {
+    const previous = formData.isPremium || false;
+    setFormData((prev) => ({ ...prev, isPremium: value }));
     try {
-      await onUpdate(user.id, { [feature]: value });
+      const response = await fetch(
+        `/api/admin/users/${user.id}/subscription`,
+        {
+          method: value ? "POST" : "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: value ? JSON.stringify({ days: 30 }) : undefined,
+        },
+      );
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(
+          data.message || data.error || "Failed to update subscription",
+        );
+      }
+
+      // Lokal user ro‘yxatini yangilash uchun faqat isPremium ni yuboramiz
+      await onUpdate(user.id, { isPremium: value });
     } catch (err) {
       console.error("Failed to update feature:", err);
-      setFormData({ ...formData });
+      setFormData((prev) => ({ ...prev, isPremium: previous }));
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to update premium access",
+      );
+      throw err;
     }
   };
 
@@ -209,6 +283,40 @@ export function UserEditModal({
                     />
                   </div>
                 )}
+                <div className="space-y-2">
+                  <Label htmlFor="password">New Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="Leave empty to keep current"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={isSaving}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="targetScore">Target SAT Score</Label>
+                  <Input
+                    id="targetScore"
+                    type="number"
+                    min={400}
+                    max={1600}
+                    placeholder="e.g. 1400"
+                    value={targetScoreInput}
+                    onChange={(e) => setTargetScoreInput(e.target.value)}
+                    disabled={isSaving}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="examDate">Planned Exam Date</Label>
+                  <Input
+                    id="examDate"
+                    type="date"
+                    value={examDateInput}
+                    onChange={(e) => setExamDateInput(e.target.value)}
+                    disabled={isSaving}
+                  />
+                </div>
               </div>
             </div>
 
@@ -219,49 +327,9 @@ export function UserEditModal({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <UserFeatureToggle
                   label="Premium Access"
-                  description="Full premium features access"
+                  description="Enable or disable premium access for this user"
                   enabled={formData.isPremium || false}
-                  onToggle={(value) => handleFeatureToggle("isPremium", value)}
-                />
-                <UserFeatureToggle
-                  label="Unlimited Tests"
-                  description="Access to unlimited test simulations"
-                  enabled={formData.hasUnlimitedTests || false}
-                  onToggle={(value) =>
-                    handleFeatureToggle("hasUnlimitedTests", value)
-                  }
-                />
-                <UserFeatureToggle
-                  label="Advanced Analytics"
-                  description="Detailed performance analytics"
-                  enabled={formData.hasAdvancedAnalytics || false}
-                  onToggle={(value) =>
-                    handleFeatureToggle("hasAdvancedAnalytics", value)
-                  }
-                />
-                <UserFeatureToggle
-                  label="Detailed Explanations"
-                  description="Detailed question explanations"
-                  enabled={formData.hasDetailedExplanations || false}
-                  onToggle={(value) =>
-                    handleFeatureToggle("hasDetailedExplanations", value)
-                  }
-                />
-                <UserFeatureToggle
-                  label="Priority Support"
-                  description="Priority customer support"
-                  enabled={formData.hasPrioritySupport || false}
-                  onToggle={(value) =>
-                    handleFeatureToggle("hasPrioritySupport", value)
-                  }
-                />
-                <UserFeatureToggle
-                  label="Mobile App Access"
-                  description="Access to mobile application"
-                  enabled={formData.hasMobileAppAccess || false}
-                  onToggle={(value) =>
-                    handleFeatureToggle("hasMobileAppAccess", value)
-                  }
+                  onToggle={handlePremiumToggle}
                 />
               </div>
             </div>

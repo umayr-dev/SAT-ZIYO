@@ -52,6 +52,18 @@ export default function Footer() {
               </li>
             </ul>
           </div>
+          <div>
+            <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">
+              Legal
+            </h3>
+            <ul className="space-y-3">
+              <li>
+                <Link href="/oferta" className="text-sm hover:text-white transition-colors">
+                  Public offer (Oferta)
+                </Link>
+              </li>
+            </ul>
+          </div>
         </div>
         <div className="mt-12 pt-8 border-t border-slate-800 text-center text-sm text-slate-500">
           © {new Date().getFullYear()} SAT Ziyo. All rights reserved.

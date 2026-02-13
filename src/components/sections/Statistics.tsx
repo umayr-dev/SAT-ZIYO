@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+// Freshman-style stats band: big numbers + label + sub (light bg)
 const STATS = [
   { value: "8", label: "Free full-length mocks", sub: "No card required" },
   { value: "98", label: "Questions per test", sub: "Real Digital SAT format" },
@@ -13,7 +14,7 @@ export default function Statistics() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const el = document.getElementById("statistics");
+    const el = document.getElementById("results");
     if (!el) return;
     const obs = new IntersectionObserver(([e]) => e.isIntersecting && setVisible(true), { threshold: 0.15 });
     obs.observe(el);
@@ -21,7 +22,7 @@ export default function Statistics() {
   }, []);
 
   return (
-    <section id="statistics" className="py-16 sm:py-20 bg-slate-900 text-white">
+    <section id="results" className="py-16 sm:py-20 bg-white border-y border-slate-100">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
           {STATS.map((stat, i) => (
@@ -32,10 +33,10 @@ export default function Statistics() {
               }`}
               style={{ transitionDelay: `${i * 80}ms` }}
             >
-              <div className="text-3xl sm:text-4xl font-bold text-white">
+              <div className="text-3xl sm:text-4xl font-bold text-brand-blue">
                 {stat.value}
               </div>
-              <div className="mt-1 text-sm font-medium text-slate-300">
+              <div className="mt-1 text-sm font-medium text-slate-600">
                 {stat.label}
               </div>
               <div className="mt-0.5 text-xs text-slate-500">{stat.sub}</div>

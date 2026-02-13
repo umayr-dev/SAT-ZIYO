@@ -4,6 +4,11 @@
 
 @layer base {
   :root {
+    /* Brand (logo): och orange, och blue */
+    --brand-orange: #E77E4D;
+    --brand-orange-light: #FAE8E0;
+    --brand-blue: #3C507F;
+    --brand-blue-light: #E8EEF4;
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;

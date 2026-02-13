@@ -253,17 +253,17 @@ export function ProgressOverview() {
   return (
     <div className="space-y-6">
       {/* Progress stats from API: last score, tests completed, accuracy */}
-      <Card className="border border-gray-200 shadow-sm bg-white overflow-hidden rounded-2xl">
+      <Card className="border border-brand-blue-light shadow-sm bg-white overflow-hidden rounded-2xl">
         <CardHeader className="pb-4">
           <div className="flex items-center gap-3">
-            <div className="w-14 h-14 bg-gray-900 rounded-2xl flex items-center justify-center shadow-sm">
+            <div className="w-14 h-14 bg-brand-blue rounded-2xl flex items-center justify-center shadow-sm">
               <Award className="h-7 w-7 text-white" />
             </div>
             <div>
-              <CardTitle className="text-xl font-bold text-gray-900">
+              <CardTitle className="text-xl font-bold text-brand-blue">
                 Your Progress
               </CardTitle>
-              <p className="text-sm text-gray-600 mt-0.5">
+              <p className="text-sm text-brand-blue/70 mt-0.5">
                 Real stats from your practice
               </p>
             </div>
@@ -272,45 +272,48 @@ export function ProgressOverview() {
         <CardContent>
           {isLoadingProgress ? (
             <div className="text-center py-6">
-              <p className="text-sm text-gray-500">Loading progress...</p>
+              <p className="text-sm text-brand-blue/70">Loading progress...</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
+              {/* Last score */}
+              <div className="p-4 bg-white border border-brand-blue-light rounded-xl">
                 <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp className="h-4 w-4 text-gray-500" />
-                  <span className="text-sm text-gray-600">Oxirgi ball</span>
+                  <TrendingUp className="h-4 w-4 text-brand-blue/70" />
+                  <span className="text-sm text-brand-blue/80">Oxirgi ball</span>
                 </div>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-2xl font-bold text-brand-blue">
                   {progressStats?.lastScore != null
                     ? progressStats.lastScore
                     : "—"}
                 </p>
-                <p className="text-xs text-gray-500 mt-0.5">out of 1600</p>
+                <p className="text-xs text-brand-blue/70 mt-0.5">out of 1600</p>
               </div>
-              <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
+              {/* Completed tests - subtle orange accent */}
+              <div className="p-4 bg-white border border-brand-orange/40 rounded-xl">
                 <div className="flex items-center gap-2 mb-2">
-                  <ClipboardCheck className="h-4 w-4 text-gray-500" />
-                  <span className="text-sm text-gray-600">
+                  <ClipboardCheck className="h-4 w-4 text-brand-orange/80" />
+                  <span className="text-sm text-brand-orange/90">
                     Ishlagan testlar
                   </span>
                 </div>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-2xl font-bold text-brand-orange">
                   {progressStats?.testsCompleted ?? 0}
                 </p>
-                <p className="text-xs text-gray-500 mt-0.5">tugatilgan</p>
+                <p className="text-xs text-brand-orange/70 mt-0.5">tugatilgan</p>
               </div>
-              <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
+              {/* Accuracy */}
+              <div className="p-4 bg-white border border-brand-blue-light rounded-xl">
                 <div className="flex items-center gap-2 mb-2">
-                  <Percent className="h-4 w-4 text-gray-500" />
-                  <span className="text-sm text-gray-600">Accuracy</span>
+                  <Percent className="h-4 w-4 text-brand-blue/70" />
+                  <span className="text-sm text-brand-blue/80">Accuracy</span>
                 </div>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-2xl font-bold text-brand-blue">
                   {progressStats?.accuracy != null
                     ? `${progressStats.accuracy}%`
                     : "—"}
                 </p>
-                <p className="text-xs text-gray-500 mt-0.5">oxirgi test</p>
+                <p className="text-xs text-brand-blue/70 mt-0.5">oxirgi test</p>
               </div>
             </div>
           )}
@@ -319,17 +322,17 @@ export function ProgressOverview() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Exam Countdown Card */}
-        <Card className="border border-gray-200 shadow-sm bg-white overflow-hidden rounded-2xl">
+        <Card className="border border-brand-blue-light shadow-sm bg-white overflow-hidden rounded-2xl">
           <CardHeader className="pb-5">
             <div className="flex items-center gap-3">
-              <div className="w-14 h-14 bg-gray-900 rounded-2xl flex items-center justify-center shadow-sm">
+              <div className="w-14 h-14 bg-brand-blue rounded-2xl flex items-center justify-center shadow-sm">
                 <Calendar className="h-7 w-7 text-white" />
               </div>
               <div>
-                <CardTitle className="text-xl font-bold text-gray-900">
+                <CardTitle className="text-xl font-bold text-brand-blue">
                   Exam Countdown
                 </CardTitle>
-                <p className="text-sm text-gray-600 mt-0.5">
+                <p className="text-sm text-brand-blue/70 mt-0.5">
                   Time until your SAT test
                 </p>
               </div>
@@ -338,13 +341,13 @@ export function ProgressOverview() {
           <CardContent className="space-y-6">
             {!examDate ? (
               <>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-brand-blue/80">
                   Select your official SAT test date to activate a personalized
                   countdown timer.
                 </p>
                 <div className="relative">
                   {isLoadingExamDates ? (
-                    <div className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-500">
+                    <div className="w-full bg-brand-blue-50 border border-brand-blue-light rounded-xl px-4 py-3 text-sm text-brand-blue/70">
                       Loading exam dates...
                     </div>
                   ) : (
@@ -352,7 +355,7 @@ export function ProgressOverview() {
                       value={selectedExamDateId}
                       onChange={(e) => handleExamDateChange(e.target.value)}
                       disabled={isLoading}
-                      className="w-full appearance-none bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-medium"
+                      className="w-full appearance-none bg-brand-blue-50 border border-brand-blue-light rounded-xl px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-medium"
                     >
                       <option value="">
                         {availableExamDates.length === 0
@@ -371,7 +374,7 @@ export function ProgressOverview() {
                       ))}
                     </select>
                   )}
-                  <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
+                  <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-brand-blue/60 pointer-events-none" />
                 </div>
                 {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
               </>
@@ -381,41 +384,41 @@ export function ProgressOverview() {
               <div>
                 <div className="grid grid-cols-4 gap-3 mb-6">
                   <div className="text-center">
-                    <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 mb-2 transition-all duration-300 hover:shadow-md hover:border-gray-300 min-h-[100px] flex flex-col items-center justify-center">
-                      <p className="text-4xl md:text-5xl font-bold text-gray-900 leading-none mb-1">
+                    <div className="bg-brand-blue-50 border border-brand-blue-light rounded-2xl p-4 mb-2 transition-all duration-300 hover:shadow-md hover:border-brand-blue/30 min-h-[100px] flex flex-col items-center justify-center">
+                      <p className="text-4xl md:text-5xl font-bold text-brand-blue leading-none mb-1">
                         {countdown.days}
                       </p>
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <p className="text-xs font-medium text-brand-blue/70 uppercase tracking-wider">
                         Days
                       </p>
                     </div>
                   </div>
                   <div className="text-center">
-                    <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 mb-2 transition-all duration-300 hover:shadow-md hover:border-gray-300 min-h-[100px] flex flex-col items-center justify-center">
-                      <p className="text-4xl md:text-5xl font-bold text-gray-900 leading-none mb-1">
+                    <div className="bg-brand-blue-50 border border-brand-blue-light rounded-2xl p-4 mb-2 transition-all duration-300 hover:shadow-md hover:border-brand-blue/30 min-h-[100px] flex flex-col items-center justify-center">
+                      <p className="text-4xl md:text-5xl font-bold text-brand-blue leading-none mb-1">
                         {String(countdown.hours).padStart(2, "0")}
                       </p>
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <p className="text-xs font-medium text-brand-blue/70 uppercase tracking-wider">
                         Hours
                       </p>
                     </div>
                   </div>
                   <div className="text-center">
-                    <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 mb-2 transition-all duration-300 hover:shadow-md hover:border-gray-300 min-h-[100px] flex flex-col items-center justify-center">
-                      <p className="text-4xl md:text-5xl font-bold text-gray-900 leading-none mb-1">
+                    <div className="bg-brand-blue-50 border border-brand-blue-light rounded-2xl p-4 mb-2 transition-all duration-300 hover:shadow-md hover:border-brand-blue/30 min-h-[100px] flex flex-col items-center justify-center">
+                      <p className="text-4xl md:text-5xl font-bold text-brand-blue leading-none mb-1">
                         {String(countdown.minutes).padStart(2, "0")}
                       </p>
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <p className="text-xs font-medium text-brand-blue/70 uppercase tracking-wider">
                         Minutes
                       </p>
                     </div>
                   </div>
                   <div className="text-center">
-                    <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 mb-2 transition-all duration-200 relative overflow-hidden min-h-[100px] flex flex-col items-center justify-center hover:shadow-md hover:border-gray-300">
-                      <p className="text-4xl md:text-5xl font-bold text-gray-900 leading-none mb-1 transition-all duration-200">
+                    <div className="bg-brand-blue-50 border border-brand-blue-light rounded-2xl p-4 mb-2 transition-all duration-200 relative overflow-hidden min-h-[100px] flex flex-col items-center justify-center hover:shadow-md hover:border-brand-blue/30">
+                      <p className="text-4xl md:text-5xl font-bold text-brand-blue leading-none mb-1 transition-all duration-200">
                         {String(countdown.seconds).padStart(2, "0")}
                       </p>
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <p className="text-xs font-medium text-brand-blue/70 uppercase tracking-wider">
                         Seconds
                       </p>
                     </div>
@@ -429,13 +432,13 @@ export function ProgressOverview() {
                       Exam date has passed
                     </p>
                   )}
-                <div className="text-center pt-4 border-t border-gray-200">
+                <div className="text-center pt-4 border-t border-brand-blue-light">
                   <button
                     onClick={() => {
                       setSelectedExamDateId("");
                       setExamDate("");
                     }}
-                    className="text-sm text-gray-600 hover:text-gray-900 transition-colors duration-200 underline-offset-2 hover:underline font-medium"
+                    className="text-sm text-brand-blue/80 hover:text-brand-blue transition-colors duration-200 underline-offset-2 hover:underline font-medium"
                   >
                     Change Date
                   </button>
@@ -446,17 +449,17 @@ export function ProgressOverview() {
         </Card>
 
         {/* Target Score Card */}
-        <Card className="border border-gray-200 shadow-sm bg-white overflow-hidden rounded-2xl">
+        <Card className="border border-brand-blue-light shadow-sm bg-white overflow-hidden rounded-2xl">
           <CardHeader className="pb-5">
             <div className="flex items-center gap-3">
-              <div className="w-14 h-14 bg-gray-900 rounded-2xl flex items-center justify-center shadow-sm">
+              <div className="w-14 h-14 bg-brand-orange rounded-2xl flex items-center justify-center shadow-sm">
                 <TrendingUp className="h-7 w-7 text-white" />
               </div>
               <div>
-                <CardTitle className="text-xl font-bold text-gray-900">
+                <CardTitle className="text-xl font-bold text-brand-blue">
                   Your Target Score
                 </CardTitle>
-                <p className="text-sm text-gray-600 mt-0.5">
+                <p className="text-sm text-brand-blue/70 mt-0.5">
                   Set your SAT goal
                 </p>
               </div>
@@ -465,22 +468,22 @@ export function ProgressOverview() {
           <CardContent className="space-y-6">
             {isLoadingInitial ? (
               <div className="text-center py-8">
-                <p className="text-sm text-gray-500">Loading...</p>
+                <p className="text-sm text-brand-blue/70">Loading...</p>
               </div>
             ) : !isEditing ? (
               <>
-                <div className="text-center p-6 bg-gray-50 border border-gray-200 rounded-2xl">
-                  <p className="text-sm text-gray-600 mb-2">Current Target</p>
-                  <p className="text-6xl font-bold text-gray-900 mb-2">
+                <div className="text-center p-6 bg-brand-blue-50 border border-brand-blue-light rounded-2xl">
+                  <p className="text-sm text-brand-blue/80 mb-2">Current Target</p>
+                  <p className="text-6xl font-bold text-brand-blue mb-2">
                     {targetScore || "Not set"}
                   </p>
-                  <p className="text-xs text-gray-500">out of 1600</p>
+                  <p className="text-xs text-brand-blue/70">out of 1600</p>
                 </div>
-                <p className="text-sm text-gray-600 text-center">
+                <p className="text-sm text-brand-blue/80 text-center">
                   This appears on your{" "}
                   <Link
                     href="/results"
-                    className="text-gray-900 hover:text-gray-700 hover:underline font-medium transition-colors"
+                    className="text-brand-blue hover:text-brand-blue/80 hover:underline font-medium transition-colors"
                   >
                     Results
                   </Link>{" "}
@@ -488,7 +491,7 @@ export function ProgressOverview() {
                 </p>
                 <Button
                   onClick={() => setIsEditing(true)}
-                  className="w-full bg-gray-900 hover:bg-gray-800 text-white shadow-sm hover:shadow-md transition-all duration-200 rounded-xl py-3 font-semibold"
+                  className="w-full bg-brand-blue hover:bg-brand-blue/90 text-white shadow-sm hover:shadow-md transition-all duration-200 rounded-xl py-3 font-semibold"
                 >
                   Change Target Score
                 </Button>
@@ -496,7 +499,7 @@ export function ProgressOverview() {
             ) : (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <p className="text-sm font-semibold text-gray-900">
+                  <p className="text-sm font-semibold text-brand-blue">
                     Current Target
                   </p>
                   <Input
@@ -508,7 +511,7 @@ export function ProgressOverview() {
                       setTempTargetScore(e.target.value);
                       setError(null);
                     }}
-                    className="text-3xl font-bold bg-gray-50 border-gray-200 focus:border-gray-900 focus:ring-gray-900/20 rounded-xl py-4 text-center"
+                    className="text-3xl font-bold bg-brand-blue-50 border-brand-blue-light focus:border-brand-blue focus:ring-brand-blue/20 rounded-xl py-4 text-center"
                     placeholder="Enter target score (400-1600)"
                     disabled={isLoading}
                   />
@@ -520,14 +523,14 @@ export function ProgressOverview() {
                   <Button
                     onClick={handleSave}
                     disabled={isLoading}
-                    className="flex-1 bg-gray-900 hover:bg-gray-800 text-white disabled:opacity-50 shadow-sm hover:shadow-md rounded-xl py-3 font-semibold"
+                    className="flex-1 bg-brand-blue hover:bg-brand-blue/90 text-white disabled:opacity-50 shadow-sm hover:shadow-md rounded-xl py-3 font-semibold"
                   >
                     {isLoading ? "Saving..." : "Save"}
                   </Button>
                   <Button
                     onClick={handleCancel}
                     variant="outline"
-                    className="flex-1 rounded-xl border-gray-200 hover:bg-gray-50 py-3"
+                    className="flex-1 rounded-xl border-brand-blue-light hover:bg-brand-blue-light py-3"
                     disabled={isLoading}
                   >
                     Cancel

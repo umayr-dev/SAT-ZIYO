@@ -42,7 +42,7 @@ export default function HowItWorks() {
   }, []);
 
   return (
-    <section id="how-it-works" className="py-20 sm:py-28 bg-slate-50">
+    <section id="how-it-works" className="py-20 sm:py-28 bg-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div
           className={`max-w-2xl mx-auto text-center mb-16 transition-all duration-600 ${
@@ -67,11 +67,11 @@ export default function HowItWorks() {
                 }`}
                 style={{ transitionDelay: `${100 + i * 100}ms` }}
               >
-                <div className="bg-white rounded-2xl border border-slate-200 p-6 h-full shadow-sm">
-                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-900 text-white text-sm font-bold">
+                <div className="bg-slate-50 rounded-2xl border border-slate-200 p-6 h-full shadow-sm hover:border-brand-blue-light hover:shadow-md transition-all">
+                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-brand-blue text-white text-sm font-bold">
                     {s.step}
                   </span>
-                  <div className="mt-4 w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700">
+                  <div className="mt-4 w-10 h-10 rounded-xl bg-brand-blue/10 flex items-center justify-center text-brand-blue">
                     <Icon className="h-5 w-5" />
                   </div>
                   <h3 className="mt-4 text-lg font-semibold text-slate-900">{s.title}</h3>

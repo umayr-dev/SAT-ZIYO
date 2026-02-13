@@ -53,7 +53,7 @@ export default function Pricing() {
   }, []);
 
   return (
-    <section id="pricing" className="py-20 sm:py-28 bg-white">
+    <section id="pricing" className="py-20 sm:py-28 bg-slate-50">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div
           className={`max-w-2xl mx-auto text-center mb-16 transition-all duration-600 ${
@@ -77,15 +77,15 @@ export default function Pricing() {
               style={{ transitionDelay: `${80 + i * 120}ms` }}
             >
               {plan.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 text-xs font-semibold text-white bg-slate-900 rounded-full">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 text-xs font-semibold text-white bg-brand-orange rounded-full">
                   Most popular
                 </div>
               )}
               <div
                 className={`h-full rounded-2xl border-2 p-8 flex flex-col ${
                   plan.accent
-                    ? "border-slate-900 bg-slate-900 text-white shadow-xl shadow-slate-900/10"
-                    : "border-slate-200 bg-slate-50/50"
+                    ? "border-brand-blue bg-brand-blue text-white shadow-xl shadow-brand-blue/20"
+                    : "border-slate-200 bg-white"
                 }`}
               >
                 <h3 className={`text-xl font-bold ${plan.accent ? "text-white" : "text-slate-900"}`}>{plan.name}</h3>
@@ -105,7 +105,7 @@ export default function Pricing() {
                     <li key={f} className="flex items-start gap-3">
                       <Check
                         className={`h-5 w-5 flex-shrink-0 mt-0.5 ${
-                          plan.accent ? "text-emerald-400" : "text-slate-600"
+                          plan.accent ? "text-white" : "text-slate-600"
                         }`}
                       />
                       <span className={plan.accent ? "text-slate-200" : "text-slate-700"}>{f}</span>
@@ -116,8 +116,8 @@ export default function Pricing() {
                   href={plan.href}
                   className={`mt-8 inline-flex items-center justify-center w-full py-3.5 px-6 rounded-xl text-base font-semibold transition-colors ${
                     plan.accent
-                      ? "bg-white text-slate-900 hover:bg-slate-100"
-                      : "bg-slate-900 text-white hover:bg-slate-800"
+                      ? "bg-white text-brand-blue hover:bg-white/90"
+                      : "bg-brand-blue text-white hover:bg-brand-blue/90"
                   }`}
                 >
                   {plan.cta}
@@ -126,6 +126,14 @@ export default function Pricing() {
             </div>
           ))}
         </div>
+        <p className="mt-8 text-center text-sm text-slate-600 max-w-xl mx-auto">
+          To‘lov AQSh dollarida ($) bo‘yicha ko‘rsatiladi; so‘mda to‘lash Markaziy bank kursi bo‘yicha
+          to‘lov kuni kursiga qirqiladi.{" "}
+          <Link href="/oferta" className="text-brand-blue hover:underline font-medium">
+            Oferta
+          </Link>
+          .
+        </p>
       </div>
     </section>
   );

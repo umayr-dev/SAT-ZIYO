@@ -20,20 +20,20 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
     .slice(0, 2);
 
   return (
-    <div className="mb-6 bg-white rounded-2xl p-5 shadow-sm border border-gray-200">
+    <div className="mb-6 bg-white rounded-2xl p-5 shadow-sm border border-brand-blue-light">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         {/* Welcome Section */}
         <div className="flex items-center gap-4">
           <div className="relative">
-            <div className="w-12 h-12 bg-gray-900 rounded-2xl flex items-center justify-center shadow-sm">
+            <div className="w-12 h-12 bg-brand-blue rounded-2xl flex items-center justify-center shadow-sm">
               <span className="text-base font-bold text-white">{initials}</span>
             </div>
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">
+            <h1 className="text-xl font-bold text-brand-blue">
               Welcome back, {displayName}
             </h1>
-            <p className="text-sm text-gray-500 mt-0.5">
+            <p className="text-sm text-brand-blue/70 mt-0.5">
               Ready to ace your SAT? Let&apos;s get started!
             </p>
           </div>
@@ -43,11 +43,11 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
         <div className="flex items-center gap-3 w-full md:w-auto">
           {/* Search Bar */}
           <div className="relative flex-1 md:flex-initial md:w-64">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-brand-blue/60" />
             <Input
               type="search"
               placeholder="Search..."
-              className="pl-10 pr-4 py-2 w-full bg-gray-50 border-gray-200 focus:bg-white focus:border-gray-300 rounded-xl text-sm transition-all duration-200"
+              className="pl-10 pr-4 py-2 w-full bg-brand-blue-50 border-brand-blue-light focus:bg-white focus:border-brand-blue rounded-xl text-sm transition-all duration-200"
             />
           </div>
 
@@ -55,9 +55,9 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
           <Button
             variant="ghost"
             size="icon"
-            className="relative h-10 w-10 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-all duration-200"
+            className="relative h-10 w-10 rounded-xl bg-brand-blue-light hover:bg-brand-blue-50 border border-brand-blue-light transition-all duration-200"
           >
-            <Bell className="h-5 w-5 text-gray-600" />
+            <Bell className="h-5 w-5 text-brand-blue" />
             <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
           </Button>
 
@@ -65,12 +65,12 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
           <Link href="/settings">
             <Button
               variant="ghost"
-              className="h-10 px-3 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-all duration-200 gap-2"
+              className="h-10 px-3 rounded-xl bg-brand-blue-light hover:bg-brand-blue-50 border border-brand-blue-light transition-all duration-200 gap-2"
             >
-              <div className="w-7 h-7 bg-gray-900 rounded-lg flex items-center justify-center">
+              <div className="w-7 h-7 bg-brand-blue rounded-lg flex items-center justify-center">
                 <User className="h-4 w-4 text-white" />
               </div>
-              <span className="hidden sm:block text-sm font-medium text-gray-700">
+              <span className="hidden sm:block text-sm font-medium text-brand-blue">
                 Profile
               </span>
             </Button>

@@ -67,7 +67,7 @@ export function DashboardSidebar() {
       {/* Mobile Menu Button */}
       <button
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2.5 rounded-xl bg-white text-gray-700 shadow-lg hover:shadow-xl border border-gray-200 transition-all duration-200"
+        className="lg:hidden fixed top-4 left-4 z-50 p-2.5 rounded-xl bg-white text-brand-blue shadow-lg hover:shadow-xl border border-brand-blue-light transition-all duration-200"
         aria-label="Toggle menu"
       >
         {isMobileMenuOpen ? (
@@ -80,7 +80,7 @@ export function DashboardSidebar() {
       {/* Sidebar */}
       <div
         className={cn(
-          "bg-white border-r border-gray-200 h-screen fixed left-0 top-0 flex flex-col overflow-hidden transition-all duration-300 z-40 shadow-sm",
+          "bg-white border-r border-brand-blue-light h-screen fixed left-0 top-0 flex flex-col overflow-hidden transition-all duration-300 z-40 shadow-sm",
           isCollapsed ? "w-20" : "w-72",
           "lg:translate-x-0",
           isMobileMenuOpen
@@ -91,7 +91,7 @@ export function DashboardSidebar() {
         {/* Logo Section */}
         <div
           className={cn(
-            "border-b border-gray-100 flex-shrink-0 relative bg-white",
+            "border-b border-brand-blue-light flex-shrink-0 relative bg-white",
             isCollapsed ? "p-4 pb-3" : "p-6 pr-16",
           )}
         >
@@ -101,7 +101,7 @@ export function DashboardSidebar() {
                 href="/dashboard"
                 className="flex items-center flex-shrink-0"
               >
-                <div className="relative bg-white p-2 rounded-xl border border-gray-200 shadow-sm">
+                <div className="relative bg-white p-2 rounded-xl border border-brand-blue-light shadow-sm">
                   <Image
                     src="/logo.png"
                     alt="SAT Ziyo Logo"
@@ -113,10 +113,10 @@ export function DashboardSidebar() {
                 </div>
               </Link>
               <div className="flex flex-col">
-                <span className="text-lg font-bold text-gray-900 leading-tight">
+                <span className="text-lg font-bold text-brand-blue leading-tight">
                   SAT Ziyo
                 </span>
-                <span className="text-xs text-gray-500 leading-tight">
+                <span className="text-xs text-brand-blue/70 leading-tight">
                   Digital SAT Prep
                 </span>
               </div>
@@ -128,7 +128,7 @@ export function DashboardSidebar() {
                 href="/dashboard"
                 className="flex items-center justify-center"
               >
-                <div className="relative bg-white p-2 rounded-xl border border-gray-200 shadow-sm">
+                <div className="relative bg-white p-2 rounded-xl border border-brand-blue-light shadow-sm">
                   <Image
                     src="/logo.png"
                     alt="SAT Ziyo Logo"
@@ -142,7 +142,7 @@ export function DashboardSidebar() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="w-9 h-9 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-all duration-200 flex items-center justify-center"
+                className="w-9 h-9 rounded-xl bg-brand-blue-light hover:bg-brand-blue-50 border border-brand-blue-light transition-all duration-200 flex items-center justify-center"
                 onClick={toggleSidebar}
                 aria-label="Expand sidebar"
               >
@@ -154,11 +154,11 @@ export function DashboardSidebar() {
             <Button
               variant="ghost"
               size="icon"
-              className="absolute top-1/2 -translate-y-1/2 right-3 w-9 h-9 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-all duration-200 flex items-center justify-center"
+              className="absolute top-1/2 -translate-y-1/2 right-3 w-9 h-9 rounded-xl bg-brand-blue-light hover:bg-brand-blue-50 border border-brand-blue-light transition-all duration-200 flex items-center justify-center"
               onClick={toggleSidebar}
               aria-label="Collapse sidebar"
             >
-              <X className="h-4 w-4 text-gray-600" />
+              <X className="h-4 w-4 text-brand-blue" />
             </Button>
           )}
         </div>
@@ -168,7 +168,7 @@ export function DashboardSidebar() {
           {/* Menu */}
           <div className={cn("p-4", isCollapsed && "px-2")}>
             {!isCollapsed && (
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4 px-2">
+              <h3 className="text-xs font-semibold text-brand-blue/60 uppercase tracking-wider mb-4 px-2">
                 Navigation
               </h3>
             )}
@@ -189,8 +189,8 @@ export function DashboardSidebar() {
                           ? "justify-center px-2 py-3"
                           : "justify-between px-4 py-3",
                         isActive
-                          ? "bg-gray-900 text-white shadow-md"
-                          : "text-gray-700 hover:bg-gray-50 hover:text-gray-900",
+                          ? "bg-brand-blue text-white shadow-md"
+                          : "text-brand-blue hover:bg-brand-blue-light hover:text-brand-blue",
                       )}
                       title={isCollapsed ? item.label : undefined}
                     >
@@ -200,7 +200,7 @@ export function DashboardSidebar() {
                             "transition-colors duration-200",
                             isActive
                               ? "text-white"
-                              : "text-gray-500 group-hover:text-gray-900",
+                              : "text-brand-blue/70 group-hover:text-brand-blue",
                           )}
                         >
                           {item.icon}
@@ -243,25 +243,25 @@ export function DashboardSidebar() {
           {/* Daily Streak Card — gray, inactive */}
           {!isCollapsed && (
             <div className="px-4 pb-4">
-              <Card className="bg-gray-100 border border-gray-200 overflow-hidden relative">
+              <Card className="bg-brand-blue-50 border border-brand-blue-light overflow-hidden relative">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2 mb-3">
-                    <div className="p-2 bg-gray-400 rounded-lg">
+                    <div className="p-2 bg-brand-blue/60 rounded-lg">
                       <Zap className="h-4 w-4 text-white" />
                     </div>
-                    <span className="text-sm font-semibold text-gray-500">
+                    <span className="text-sm font-semibold text-brand-blue/80">
                       Daily Streak
                     </span>
-                    <span className="ml-auto text-xs px-2 py-1 bg-gray-200 text-gray-500 rounded-full font-medium border border-gray-300">
+                    <span className="ml-auto text-xs px-2 py-1 bg-brand-blue-light text-brand-blue/70 rounded-full font-medium border border-brand-blue/20">
                       Inactive
                     </span>
                   </div>
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-2xl font-bold text-gray-400">0</span>
-                    <ChevronRight className="h-4 w-4 text-gray-400" />
-                    <span className="text-2xl font-bold text-gray-400">0</span>
+                    <span className="text-2xl font-bold text-brand-blue/60">0</span>
+                    <ChevronRight className="h-4 w-4 text-brand-blue/60" />
+                    <span className="text-2xl font-bold text-brand-blue/60">0</span>
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-brand-blue/70">
                     Not active yet
                   </div>
                 </CardContent>
@@ -274,7 +274,7 @@ export function DashboardSidebar() {
             <div className="px-4 pb-4">
               <Button
                 disabled
-                className="w-full bg-gray-300 text-gray-500 font-semibold rounded-xl cursor-not-allowed hover:bg-gray-300 hover:shadow-none"
+                className="w-full bg-brand-blue/20 text-brand-blue/60 font-semibold rounded-xl cursor-not-allowed hover:bg-brand-blue/20 hover:shadow-none"
               >
                 Upgrade to Pro
               </Button>
@@ -283,7 +283,7 @@ export function DashboardSidebar() {
         </div>
 
         {/* Fixed Bottom Section */}
-        <div className="flex-shrink-0 border-t border-gray-100 bg-white">
+        <div className="flex-shrink-0 border-t border-brand-blue-light bg-white">
           {/* Bottom Menu */}
           <div className={cn("px-4 pt-3 pb-3", isCollapsed && "px-2")}>
             <nav className="space-y-1">
@@ -303,8 +303,8 @@ export function DashboardSidebar() {
                           ? "justify-center px-2 py-3"
                           : "gap-3 px-4 py-3",
                         isActive
-                          ? "bg-gray-900 text-white shadow-md"
-                          : "text-gray-700 hover:bg-gray-50 hover:text-gray-900",
+                          ? "bg-brand-blue text-white shadow-md"
+                          : "text-brand-blue hover:bg-brand-blue-light hover:text-brand-blue",
                       )}
                       title={isCollapsed ? item.label : undefined}
                     >
@@ -313,7 +313,7 @@ export function DashboardSidebar() {
                           "transition-colors duration-200",
                           isActive
                             ? "text-white"
-                            : "text-gray-500 group-hover:text-gray-900",
+                            : "text-brand-blue/70 group-hover:text-brand-blue",
                         )}
                       >
                         {item.icon}

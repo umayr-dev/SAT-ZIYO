@@ -1942,9 +1942,13 @@ export default function TestTakingPage() {
               </div>
             </div>
 
-            {/* Markaz – chap: image+passage; o‘ng: savol+choices; ustunlar orasida gap, matn dividerga yopishmasin */}
+            {/* Markaz – katta ekranlarda ikki ustun, kichik ekranlarda bitta ustun (tablet/mobil uchun responsive) */}
             <div className="flex-1 min-h-0 flex flex-col relative">
-              <div className="relative flex flex-1 min-h-0 overflow-hidden gap-0 transition-opacity duration-150" ref={layoutContainerRef}>
+              {/* Desktop / large (>= lg) – 2 ustunli resizable layout */}
+              <div
+                className="relative hidden lg:flex flex-1 min-h-0 overflow-hidden gap-0 transition-opacity duration-150"
+                ref={layoutContainerRef}
+              >
                 {/* Left Column: question + image (ustma ust) */}
                 <div
                   className="content-pane flex flex-col min-h-0 flex-shrink-0 pr-2"
@@ -1969,7 +1973,11 @@ export default function TestTakingPage() {
                             className="flex items-center text-sm text-gray-600 hover:text-black mr-2 h-full px-2"
                           >
                             <Flag
-                              className={`w-5 h-5 text-gray-500 ${isFlagged ? "fill-orange-500 text-orange-500" : ""}`}
+                              className={`w-5 h-5 text-gray-500 ${
+                                isFlagged
+                                  ? "fill-orange-500 text-orange-500"
+                                  : ""
+                              }`}
                             />
                             <span className="ml-1">Mark for Review</span>
                           </button>
@@ -1979,14 +1987,29 @@ export default function TestTakingPage() {
                             type="button"
                             onClick={() => {
                               setIsEliminationMode((prev) => !prev);
-                              if (isEliminationMode) setEliminatedChoices(new Set());
+                              if (isEliminationMode)
+                                setEliminatedChoices(new Set());
                             }}
-                            className={`flex items-center text-sm text-gray-600 hover:text-black mr-2 h-full relative border border-gray-300 rounded-sm w-8 h-8 justify-center bg-transparent ${isEliminationMode ? "bg-blue-100" : ""}`}
+                            className={`hidden xl:flex items-center text-sm text-gray-600 hover:text-black mr-2 h-full relative border border-gray-300 rounded-sm w-8 h-8 justify-center bg-transparent ${
+                              isEliminationMode ? "bg-blue-100" : ""
+                            }`}
                           >
-                            <span className="text-[12px] font-medium text-gray-600">ABC</span>
+                            <span className="text-[12px] font-medium text-gray-600">
+                              ABC
+                            </span>
                             {isEliminationMode && (
-                              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="absolute w-8 h-8 text-gray-500">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M18 6L6 18" />
+                              <svg
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                className="absolute w-8 h-8 text-gray-500"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="1"
+                                  d="M18 6L6 18"
+                                />
                               </svg>
                             )}
                           </button>
@@ -2009,17 +2032,25 @@ export default function TestTakingPage() {
                             if (highlights.length > 0) {
                               saveHighlightsToStorage(question.id, highlights);
                             } else {
-                              const allHighlights = getAllHighlightsFromStorage();
+                              const allHighlights =
+                                getAllHighlightsFromStorage();
                               allHighlights.delete(question.id);
                               if (typeof window !== "undefined") {
                                 try {
-                                  const highlightsObj: Record<string, any> = {};
+                                  const highlightsObj: Record<string, any> =
+                                    {};
                                   allHighlights.forEach((value, key) => {
                                     highlightsObj[key] = value;
                                   });
-                                  localStorage.setItem(getHighlightsStorageKey(), JSON.stringify(highlightsObj));
+                                  localStorage.setItem(
+                                    getHighlightsStorageKey(),
+                                    JSON.stringify(highlightsObj),
+                                  );
                                 } catch (err) {
-                                  console.error("Failed to save highlights from localStorage:", err);
+                                  console.error(
+                                    "Failed to save highlights from localStorage:",
+                                    err,
+                                  );
                                 }
                               }
                             }
@@ -2051,7 +2082,10 @@ export default function TestTakingPage() {
                 {/* Right Column: passage ustida, variantlar pastda */}
                 <div
                   className="content-pane flex flex-col min-h-0 flex-1 min-w-0 pl-2"
-                  style={{ width: `calc(${100 - splitPosition}% - 6px)`, minWidth: 280 }}
+                  style={{
+                    width: `calc(${100 - splitPosition}% - 6px)`,
+                    minWidth: 280,
+                  }}
                 >
                   <div
                     className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-hide pl-3"
@@ -2067,14 +2101,17 @@ export default function TestTakingPage() {
                     )}
 
                     {/* Choices */}
-                  {hasChoiceOptions(question) && (
+                    {hasChoiceOptions(question) && (
                       <div className="space-y-2">
                         {(question.choices ?? []).map((choice, index) => {
                           const isSelected =
                             currentAnswer.choiceId === choice.id;
                           const letter = String.fromCharCode(65 + index);
-                          const isEliminated = eliminatedChoices.has(choice.id);
-                          const choiceImageUrl = getChoiceImageUrl(choice as Record<string, unknown>);
+                          const isEliminated =
+                            eliminatedChoices.has(choice.id);
+                          const choiceImageUrl = getChoiceImageUrl(
+                            choice as Record<string, unknown>,
+                          );
 
                           return (
                             <div
@@ -2147,27 +2184,112 @@ export default function TestTakingPage() {
                       </div>
                     )}
 
-                  {isOpenAnswerQuestion(question) && (
-                    <div className="mt-3 pt-2 space-y-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Javobingizni yozing
-                      </label>
-                      <input
-                        type="text"
-                        value={currentAnswer.textAnswer || ""}
-                        onChange={(e) =>
-                          handleAnswerChange({
-                            textAnswer: e.target.value,
-                            choiceId: currentAnswer.choiceId,
-                          })
+                    {isOpenAnswerQuestion(question) && (
+                      <div className="mt-3 pt-2 space-y-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Javobingizni yozing
+                        </label>
+                        <input
+                          type="text"
+                          value={currentAnswer.textAnswer || ""}
+                          onChange={(e) =>
+                            handleAnswerChange({
+                              textAnswer: e.target.value,
+                              choiceId: currentAnswer.choiceId,
+                            })
+                          }
+                          placeholder="Javobni kiriting"
+                          pattern="[0-9.\\-/]+"
+                          className="max-w-[140px] px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Mobil / planshet (< lg) – bitta ustun, scroll qilinadigan layout */}
+              <div className="flex lg:hidden flex-1 min-h-0 overflow-y-auto">
+                <div className="flex-1 min-h-0 px-1 pb-4">
+                  <div className="question-index-container flex items-center justify-between bg-gray-200 rounded mb-2">
+                    <div className="flex items-center h-full">
+                      <p className="question-index font-semibold bg-black text-white text-sm h-full px-3 py-2 rounded-l">
+                        {testState.currentQuestionIndex + 1}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleToggleFlag}
+                        className="flex items-center text-sm text-gray-600 hover:text-black mr-2 h-full px-2"
+                      >
+                        <Flag
+                          className={`w-5 h-5 text-gray-500 ${
+                            isFlagged ? "fill-orange-500 text-orange-500" : ""
+                          }`}
+                        />
+                        <span className="ml-1">Mark for Review</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div className="prose max-w-none mt-2">
+                    <QuestionDisplay
+                      key={question.id}
+                      question={question}
+                      selectedChoiceId={currentAnswer.choiceId}
+                      textAnswer={currentAnswer.textAnswer}
+                      onSelectChoice={(choiceId) =>
+                        handleAnswerChange({
+                          choiceId,
+                          textAnswer: currentAnswer.textAnswer,
+                        })
+                      }
+                      onTextAnswerChange={(text) =>
+                        handleAnswerChange({
+                          textAnswer: text,
+                          choiceId: currentAnswer.choiceId,
+                        })
+                      }
+                      isFlagged={isFlagged}
+                      hidePassage={false}
+                      isMarkupEnabled={isMarkupEnabled}
+                      attemptId={attemptId}
+                      onHighlightsChange={(highlights) => {
+                        if (highlights.length > 0) {
+                          saveHighlightsToStorage(question.id, highlights);
+                        } else {
+                          const allHighlights =
+                            getAllHighlightsFromStorage();
+                          allHighlights.delete(question.id);
+                          if (typeof window !== "undefined") {
+                            try {
+                              const highlightsObj: Record<string, any> = {};
+                              allHighlights.forEach((value, key) => {
+                                highlightsObj[key] = value;
+                              });
+                              localStorage.setItem(
+                                getHighlightsStorageKey(),
+                                JSON.stringify(highlightsObj),
+                              );
+                            } catch (err) {
+                              console.error(
+                                "Failed to save highlights from localStorage:",
+                                err,
+                              );
+                            }
+                          }
                         }
-                        placeholder="Javobni kiriting"
-                        pattern="[0-9.\\-/]+"
-                        className="max-w-[140px] px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                      }}
+                    />
+                  </div>
+                  {getQuestionImageUrl(question) && (
+                    <div className="mt-4 bg-gray-100 rounded-lg min-h-[120px] flex items-center justify-center overflow-hidden">
+                      <img
+                        src={getQuestionImageUrl(question)!}
+                        alt="Savol rasmi"
+                        className="w-full h-auto rounded-lg object-contain max-h-[320px] bg-gray-100"
+                        loading="lazy"
                       />
                     </div>
                   )}
-                  </div>
                 </div>
               </div>
             </div>

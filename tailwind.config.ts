@@ -21,6 +21,23 @@ const config: Config = {
     "text-gray-900",
     "border-gray-200",
     "border-gray-300",
+    // Brand (logo) colors
+    "bg-brand-orange",
+    "bg-brand-orange-light",
+    "bg-brand-orange-50",
+    "bg-brand-blue",
+    "bg-brand-blue-light",
+    "bg-brand-blue-50",
+    "text-brand-orange",
+    "text-brand-blue",
+    "border-brand-blue",
+    "border-brand-blue-light",
+    "border-brand-orange",
+    "border-brand-orange-light",
+    "hover:bg-brand-orange",
+    "hover:bg-brand-blue",
+    "hover:bg-brand-orange-light",
+    "hover:bg-brand-blue-light",
     // Orange theme colors
     "bg-orange-500",
     "bg-orange-600",
@@ -52,6 +69,15 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Brand (logo: muted orange #E77E4D, deep blue #3C507F)
+        brand: {
+          orange: "#E77E4D",
+          "orange-light": "#FAE8E0",
+          "orange-50": "#FFF5F0",
+          blue: "#3C507F",
+          "blue-light": "#E8EEF4",
+          "blue-50": "#F0F4FA",
+        },
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: {
