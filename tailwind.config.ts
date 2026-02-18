@@ -69,14 +69,14 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Brand (logo: muted orange #E77E4D, deep blue #3C507F)
+        // Brand: blue #261CC1, orange #e6712c
         brand: {
-          orange: "#E77E4D",
-          "orange-light": "#FAE8E0",
-          "orange-50": "#FFF5F0",
-          blue: "#3C507F",
-          "blue-light": "#E8EEF4",
-          "blue-50": "#F0F4FA",
+          orange: "#e6712c",
+          "orange-light": "#fce8dc",
+          "orange-50": "#fff6f0",
+          blue: "#261CC1",
+          "blue-light": "#e0ddf9",
+          "blue-50": "#f2f0fd",
         },
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",

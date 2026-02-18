@@ -38,7 +38,7 @@ function DashboardLayoutContent({ children }: DashboardLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-brand-blue-50">
+    <div className="min-h-screen bg-brand-orange-50">
       {/* Sidebar only for non-test routes */}
       {!isPracticeTestRoute && <DashboardSidebar />}
 

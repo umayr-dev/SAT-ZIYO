@@ -29,7 +29,7 @@ export default function Teachers() {
           }`}
         >
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
-            Teachers & methodology
+            Mentors & methodology
           </h2>
           <p className="mt-4 text-lg text-slate-600">
             Our platform is built with best practices from SAT experts. Clear explanations and strategies for every question.

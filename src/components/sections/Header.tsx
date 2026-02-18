@@ -2,23 +2,22 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
 
-// Satashkent-style: Results, Why us, Courses, Platform, Teachers, FAQ, Vacancy
 const NAV_LINKS = [
   { id: "results", label: "Results" },
-  { id: "why-us", label: "Why us" },
+  { id: "why-us", label: "About us" },
   { id: "courses", label: "Courses" },
-  { id: "platform", label: "Platform" },
-  { id: "teachers", label: "Teachers" },
+  { id: "platform", label: "Score calculator" },
+  { id: "teachers", label: "Mentors" },
   { id: "faq", label: "FAQ" },
-  { id: "vacancy", label: "Vacancy" },
 ];
 
 export default function Header() {
   const pathname = usePathname();
+  const router = useRouter();
   const isHomePage = pathname === "/";
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -63,18 +62,33 @@ export default function Header() {
             </span>
           </Link>
 
-          {/* Center nav – Satashkent: Results, Why us, Courses, Platform, Teachers, FAQ, Vacancy */}
+          {/* Center nav */}
           <div className="hidden lg:flex items-center gap-6 xl:gap-8 flex-1 justify-center flex-wrap">
-            {NAV_LINKS.map((item) => (
-              <a
-                key={item.id}
-                href={`#${item.id}`}
-                onClick={(e) => scrollTo(e, item.id)}
-                className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors whitespace-nowrap"
-              >
-                {item.label}
-              </a>
-            ))}
+            {NAV_LINKS.map((item) => {
+              const isScoreCalculator = item.id === "platform";
+              const href = isScoreCalculator ? "/score-calculator" : `#${item.id}`;
+
+              const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+                if (isScoreCalculator) {
+                  e.preventDefault();
+                  router.push("/score-calculator");
+                  setMobileOpen(false);
+                } else {
+                  scrollTo(e, item.id);
+                }
+              };
+
+              return (
+                <a
+                  key={item.id}
+                  href={href}
+                  onClick={handleClick}
+                  className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors whitespace-nowrap"
+                >
+                  {item.label}
+                </a>
+              );
+            })}
           </div>
 
           {/* Right – Sign In + CTA like "Enroll for a class" */}
@@ -106,16 +120,31 @@ export default function Header() {
         {mobileOpen && (
           <div className="lg:hidden py-4 border-t border-slate-100 bg-white">
             <div className="flex flex-col gap-1">
-              {NAV_LINKS.map((item) => (
-                <a
-                  key={item.id}
-                  href={`#${item.id}`}
-                  onClick={(e) => scrollTo(e, item.id)}
-                  className="px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg"
-                >
-                  {item.label}
-                </a>
-              ))}
+              {NAV_LINKS.map((item) => {
+                const isScoreCalculator = item.id === "platform";
+                const href = isScoreCalculator ? "/score-calculator" : `#${item.id}`;
+
+                const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+                  if (isScoreCalculator) {
+                    e.preventDefault();
+                    router.push("/score-calculator");
+                    setMobileOpen(false);
+                  } else {
+                    scrollTo(e, item.id);
+                  }
+                };
+
+                return (
+                  <a
+                    key={item.id}
+                    href={href}
+                    onClick={handleClick}
+                    className="px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg"
+                  >
+                    {item.label}
+                  </a>
+                );
+              })}
               <Link
                 href="/auth/login"
                 onClick={() => setMobileOpen(false)}

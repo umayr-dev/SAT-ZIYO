@@ -24,10 +24,10 @@ export default function PlatformSection() {
           }`}
         >
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
-            Platform
+            Score calculator
           </h2>
           <p className="mt-4 text-lg text-slate-600">
-            The first Digital SAT platform built for real exam practice. Timed tests, instant scoring, and detailed review.
+            Calculate your scaled SAT score (400–1600) from your practice tests, with section breakdown and detailed review.
           </p>
         </div>
         <div

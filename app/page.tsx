@@ -8,7 +8,6 @@ import HowItWorks from "@/src/components/sections/HowItWorks";
 import Teachers from "@/src/components/sections/Teachers";
 import Testimonials from "@/src/components/sections/Testimonials";
 import FAQ from "@/src/components/sections/FAQ";
-import Vacancy from "@/src/components/sections/Vacancy";
 import CTA from "@/src/components/sections/CTA";
 import Footer from "@/src/components/sections/Footer";
 
@@ -25,7 +24,6 @@ export default function Home() {
       <Teachers />
       <Testimonials />
       <FAQ />
-      <Vacancy />
       <CTA />
       <Footer />
     </main>

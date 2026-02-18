@@ -252,18 +252,18 @@ export function ProgressOverview() {
 
   return (
     <div className="space-y-6">
-      {/* Progress stats from API: last score, tests completed, accuracy */}
-      <Card className="border border-brand-blue-light shadow-sm bg-white overflow-hidden rounded-2xl">
+      {/* Progress stats from API: last score, tests completed, accuracy — orange theme */}
+      <Card className="border border-brand-orange-light shadow-sm bg-white overflow-hidden rounded-2xl">
         <CardHeader className="pb-4">
           <div className="flex items-center gap-3">
-            <div className="w-14 h-14 bg-brand-blue rounded-2xl flex items-center justify-center shadow-sm">
+            <div className="w-14 h-14 bg-brand-orange rounded-2xl flex items-center justify-center shadow-sm">
               <Award className="h-7 w-7 text-white" />
             </div>
             <div>
-              <CardTitle className="text-xl font-bold text-brand-blue">
+              <CardTitle className="text-xl font-bold text-brand-orange">
                 Your Progress
               </CardTitle>
-              <p className="text-sm text-brand-blue/70 mt-0.5">
+              <p className="text-sm text-brand-orange/70 mt-0.5">
                 Real stats from your practice
               </p>
             </div>
@@ -272,24 +272,24 @@ export function ProgressOverview() {
         <CardContent>
           {isLoadingProgress ? (
             <div className="text-center py-6">
-              <p className="text-sm text-brand-blue/70">Loading progress...</p>
+              <p className="text-sm text-brand-orange/70">Loading progress...</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {/* Last score */}
-              <div className="p-4 bg-white border border-brand-blue-light rounded-xl">
+              <div className="p-4 bg-white border border-brand-orange-light rounded-xl">
                 <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp className="h-4 w-4 text-brand-blue/70" />
-                  <span className="text-sm text-brand-blue/80">Oxirgi ball</span>
+                  <TrendingUp className="h-4 w-4 text-brand-orange/70" />
+                  <span className="text-sm text-brand-orange/80">Oxirgi ball</span>
                 </div>
-                <p className="text-2xl font-bold text-brand-blue">
+                <p className="text-2xl font-bold text-brand-orange">
                   {progressStats?.lastScore != null
                     ? progressStats.lastScore
                     : "—"}
                 </p>
-                <p className="text-xs text-brand-blue/70 mt-0.5">out of 1600</p>
+                <p className="text-xs text-brand-orange/70 mt-0.5">out of 1600</p>
               </div>
-              {/* Completed tests - subtle orange accent */}
+              {/* Completed tests */}
               <div className="p-4 bg-white border border-brand-orange/40 rounded-xl">
                 <div className="flex items-center gap-2 mb-2">
                   <ClipboardCheck className="h-4 w-4 text-brand-orange/80" />
@@ -303,17 +303,17 @@ export function ProgressOverview() {
                 <p className="text-xs text-brand-orange/70 mt-0.5">tugatilgan</p>
               </div>
               {/* Accuracy */}
-              <div className="p-4 bg-white border border-brand-blue-light rounded-xl">
+              <div className="p-4 bg-white border border-brand-orange-light rounded-xl">
                 <div className="flex items-center gap-2 mb-2">
-                  <Percent className="h-4 w-4 text-brand-blue/70" />
-                  <span className="text-sm text-brand-blue/80">Accuracy</span>
+                  <Percent className="h-4 w-4 text-brand-orange/70" />
+                  <span className="text-sm text-brand-orange/80">Accuracy</span>
                 </div>
-                <p className="text-2xl font-bold text-brand-blue">
+                <p className="text-2xl font-bold text-brand-orange">
                   {progressStats?.accuracy != null
                     ? `${progressStats.accuracy}%`
                     : "—"}
                 </p>
-                <p className="text-xs text-brand-blue/70 mt-0.5">oxirgi test</p>
+                <p className="text-xs text-brand-orange/70 mt-0.5">oxirgi test</p>
               </div>
             </div>
           )}
@@ -448,11 +448,11 @@ export function ProgressOverview() {
           </CardContent>
         </Card>
 
-        {/* Target Score Card */}
+        {/* Target Score Card — blue theme */}
         <Card className="border border-brand-blue-light shadow-sm bg-white overflow-hidden rounded-2xl">
           <CardHeader className="pb-5">
             <div className="flex items-center gap-3">
-              <div className="w-14 h-14 bg-brand-orange rounded-2xl flex items-center justify-center shadow-sm">
+              <div className="w-14 h-14 bg-brand-blue rounded-2xl flex items-center justify-center shadow-sm">
                 <TrendingUp className="h-7 w-7 text-white" />
               </div>
               <div>

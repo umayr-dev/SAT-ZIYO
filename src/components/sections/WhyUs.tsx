@@ -46,7 +46,7 @@ export default function WhyUs() {
           }`}
         >
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
-            Why us
+            About us
           </h2>
           <p className="mt-4 text-lg text-slate-600">
             Discover what sets us apart—our key strengths that drive your success.

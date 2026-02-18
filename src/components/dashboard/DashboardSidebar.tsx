@@ -116,7 +116,7 @@ export function DashboardSidebar() {
                 <span className="text-lg font-bold text-brand-blue leading-tight">
                   SAT Ziyo
                 </span>
-                <span className="text-xs text-brand-blue/70 leading-tight">
+                <span className="text-xs text-brand-blue/80 leading-tight">
                   Digital SAT Prep
                 </span>
               </div>
@@ -142,11 +142,11 @@ export function DashboardSidebar() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="w-9 h-9 rounded-xl bg-brand-blue-light hover:bg-brand-blue-50 border border-brand-blue-light transition-all duration-200 flex items-center justify-center"
+                className="w-9 h-9 rounded-xl bg-brand-blue-50 hover:bg-brand-blue-light border border-brand-blue-light transition-all duration-200 flex items-center justify-center"
                 onClick={toggleSidebar}
                 aria-label="Expand sidebar"
               >
-                <ChevronRight className="h-4 w-4 text-gray-600" />
+                <ChevronRight className="h-4 w-4 text-brand-blue" />
               </Button>
             </div>
           )}
@@ -154,7 +154,7 @@ export function DashboardSidebar() {
             <Button
               variant="ghost"
               size="icon"
-              className="absolute top-1/2 -translate-y-1/2 right-3 w-9 h-9 rounded-xl bg-brand-blue-light hover:bg-brand-blue-50 border border-brand-blue-light transition-all duration-200 flex items-center justify-center"
+              className="absolute top-1/2 -translate-y-1/2 right-3 w-9 h-9 rounded-xl bg-brand-blue-50 hover:bg-brand-blue-light border border-brand-blue-light transition-all duration-200 flex items-center justify-center"
               onClick={toggleSidebar}
               aria-label="Collapse sidebar"
             >
@@ -168,7 +168,7 @@ export function DashboardSidebar() {
           {/* Menu */}
           <div className={cn("p-4", isCollapsed && "px-2")}>
             {!isCollapsed && (
-              <h3 className="text-xs font-semibold text-brand-blue/60 uppercase tracking-wider mb-4 px-2">
+              <h3 className="text-xs font-semibold text-brand-blue/70 uppercase tracking-wider mb-4 px-2">
                 Navigation
               </h3>
             )}
@@ -190,7 +190,7 @@ export function DashboardSidebar() {
                           : "justify-between px-4 py-3",
                         isActive
                           ? "bg-brand-blue text-white shadow-md"
-                          : "text-brand-blue hover:bg-brand-blue-light hover:text-brand-blue",
+                          : "text-brand-blue hover:bg-brand-blue-50 hover:text-brand-blue",
                       )}
                       title={isCollapsed ? item.label : undefined}
                     >
@@ -249,19 +249,19 @@ export function DashboardSidebar() {
                     <div className="p-2 bg-brand-blue/60 rounded-lg">
                       <Zap className="h-4 w-4 text-white" />
                     </div>
-                    <span className="text-sm font-semibold text-brand-blue/80">
+                    <span className="text-sm font-semibold text-brand-blue/90">
                       Daily Streak
                     </span>
-                    <span className="ml-auto text-xs px-2 py-1 bg-brand-blue-light text-brand-blue/70 rounded-full font-medium border border-brand-blue/20">
+                    <span className="ml-auto text-xs px-2 py-1 bg-brand-blue-50 text-brand-blue/80 rounded-full font-medium border border-brand-blue/20">
                       Inactive
                     </span>
                   </div>
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-2xl font-bold text-brand-blue/60">0</span>
-                    <ChevronRight className="h-4 w-4 text-brand-blue/60" />
-                    <span className="text-2xl font-bold text-brand-blue/60">0</span>
+                    <span className="text-2xl font-bold text-brand-blue/70">0</span>
+                    <ChevronRight className="h-4 w-4 text-brand-blue/70" />
+                    <span className="text-2xl font-bold text-brand-blue/70">0</span>
                   </div>
-                  <div className="text-xs text-brand-blue/70">
+                  <div className="text-xs text-brand-blue/80">
                     Not active yet
                   </div>
                 </CardContent>
@@ -274,7 +274,7 @@ export function DashboardSidebar() {
             <div className="px-4 pb-4">
               <Button
                 disabled
-                className="w-full bg-brand-blue/20 text-brand-blue/60 font-semibold rounded-xl cursor-not-allowed hover:bg-brand-blue/20 hover:shadow-none"
+                className="w-full bg-brand-blue/20 text-brand-blue/70 font-semibold rounded-xl cursor-not-allowed hover:bg-brand-blue/20 hover:shadow-none"
               >
                 Upgrade to Pro
               </Button>
@@ -304,7 +304,7 @@ export function DashboardSidebar() {
                           : "gap-3 px-4 py-3",
                         isActive
                           ? "bg-brand-blue text-white shadow-md"
-                          : "text-brand-blue hover:bg-brand-blue-light hover:text-brand-blue",
+                          : "text-brand-blue hover:bg-brand-blue-50 hover:text-brand-blue",
                       )}
                       title={isCollapsed ? item.label : undefined}
                     >
