@@ -2117,8 +2117,97 @@ export default function TestTakingPage() {
                     style={{ WebkitOverflowScrolling: "touch" }}
                   >
                     <div className="pr-4 pb-6 pl-1">
-                      {/* Chap ustun: faqat passage (rasmdagidek) */}
-                      {(question.sharedPassage?.content || question.passage) ? (
+                      {/* Math + yozma javob (grid-in): chapda Student-Produced Response Directions */}
+                      {testState.currentSection.type === "MATH" &&
+                      isOpenAnswerQuestion(question) ? (
+                        <div className="p-5 bg-gray-50/80 rounded-lg text-base leading-relaxed">
+                          <h2 className="text-lg font-bold text-black mb-4">
+                            Student-Produced Response Directions
+                          </h2>
+                          <ul className="list-disc pl-5 space-y-2 mb-4 text-gray-800">
+                            <li>
+                              If you find more than one correct answer, enter
+                              only one answer.
+                            </li>
+                            <li>
+                              You can enter up to 5 characters for a positive
+                              answer and up to 6 characters (including the
+                              negative sign) for a negative answer.
+                            </li>
+                            <li>
+                              If your answer is a fraction that doesn&apos;t fit
+                              in the provided space, enter the decimal
+                              equivalent.
+                            </li>
+                            <li>
+                              If your answer is a decimal that doesn&apos;t fit
+                              in the provided space, enter it by truncating or
+                              rounding at the fourth digit.
+                            </li>
+                            <li>
+                              If your answer is a mixed number (such as 3½),
+                              enter it as an improper fraction (7/2) or its
+                              decimal equivalent (3.5).
+                            </li>
+                            <li>
+                              Don&apos;t enter symbols such as a percent sign,
+                              comma, or dollar sign.
+                            </li>
+                          </ul>
+                          <p className="font-semibold text-black mb-2">
+                            Examples
+                          </p>
+                          <div className="overflow-x-auto border border-gray-300 rounded-lg">
+                            <table className="w-full text-sm border-collapse">
+                              <thead>
+                                <tr className="bg-gray-100 border-b border-gray-300">
+                                  <th className="text-left p-2 font-semibold text-black border-r border-gray-300">
+                                    Answer
+                                  </th>
+                                  <th className="text-left p-2 font-semibold text-black border-r border-gray-300">
+                                    Acceptable ways to enter answer
+                                  </th>
+                                  <th className="text-left p-2 font-semibold text-black">
+                                    Unacceptable: will NOT receive credit
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody className="text-gray-800">
+                                <tr className="border-b border-gray-200">
+                                  <td className="p-2 border-r border-gray-200">
+                                    3.5
+                                  </td>
+                                  <td className="p-2 border-r border-gray-200">
+                                    3.5, 3.50, 7/2
+                                  </td>
+                                  <td className="p-2">3 1/2</td>
+                                </tr>
+                                <tr className="border-b border-gray-200">
+                                  <td className="p-2 border-r border-gray-200">
+                                    2/3
+                                  </td>
+                                  <td className="p-2 border-r border-gray-200">
+                                    2/3, .6666, .6667, 0.666, 0.667
+                                  </td>
+                                  <td className="p-2">
+                                    0.66, .66, 0.67, .67
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <td className="p-2 border-r border-gray-200">
+                                    -1/3
+                                  </td>
+                                  <td className="p-2 border-r border-gray-200">
+                                    -1/3, -.3333, -0.333
+                                  </td>
+                                  <td className="p-2">-.33, -0.33</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      ) : (question.sharedPassage?.content ||
+                      question.passage) ? (
                         <div className="p-5 bg-gray-50/80 rounded-lg">
                           <p className="text-base leading-relaxed whitespace-pre-wrap">
                             {question.sharedPassage?.content || question.passage}
@@ -2370,6 +2459,40 @@ export default function TestTakingPage() {
               {/* Mobil / planshet (< lg) – bitta ustun, scroll qilinadigan layout */}
               <div className="flex lg:hidden flex-1 min-h-0 overflow-y-auto">
                 <div className="flex-1 min-h-0 px-4 pb-6">
+                  {/* Math + grid-in: mobil da ham directions yuqorida */}
+                  {testState.currentSection.type === "MATH" &&
+                    isOpenAnswerQuestion(question) && (
+                      <div className="p-4 mb-5 bg-gray-50/80 rounded-lg text-base leading-relaxed">
+                        <h2 className="text-lg font-bold text-black mb-3">
+                          Student-Produced Response Directions
+                        </h2>
+                        <ul className="list-disc pl-5 space-y-1.5 mb-3 text-gray-800 text-sm">
+                          <li>If you find more than one correct answer, enter only one answer.</li>
+                          <li>You can enter up to 5 characters for a positive answer and up to 6 (including the negative sign) for a negative answer.</li>
+                          <li>If your answer is a fraction that doesn&apos;t fit, enter the decimal equivalent.</li>
+                          <li>If your answer is a decimal that doesn&apos;t fit, enter it by truncating or rounding at the fourth digit.</li>
+                          <li>If your answer is a mixed number (e.g. 3½), enter it as an improper fraction (7/2) or decimal (3.5).</li>
+                          <li>Don&apos;t enter symbols such as %, comma, or $.</li>
+                        </ul>
+                        <p className="font-semibold text-black mb-1.5 text-sm">Examples</p>
+                        <div className="overflow-x-auto border border-gray-300 rounded text-sm">
+                          <table className="w-full border-collapse">
+                            <thead>
+                              <tr className="bg-gray-100 border-b border-gray-300">
+                                <th className="text-left p-1.5 font-semibold border-r border-gray-300">Answer</th>
+                                <th className="text-left p-1.5 font-semibold border-r border-gray-300">Acceptable</th>
+                                <th className="text-left p-1.5 font-semibold">Unacceptable</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr className="border-b border-gray-200"><td className="p-1.5 border-r">3.5</td><td className="p-1.5 border-r">3.5, 3.50, 7/2</td><td className="p-1.5">3 1/2</td></tr>
+                              <tr className="border-b border-gray-200"><td className="p-1.5 border-r">2/3</td><td className="p-1.5 border-r">2/3, .6666, .6667, 0.666, 0.667</td><td className="p-1.5">0.66, .66, 0.67, .67</td></tr>
+                              <tr><td className="p-1.5 border-r">-1/3</td><td className="p-1.5 border-r">-1/3, -.3333, -0.333</td><td className="p-1.5">-.33, -0.33</td></tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
                   <div className="question-index-container flex items-center justify-between bg-gray-200 rounded-lg mb-5 py-1">
                     <div className="flex items-center h-full">
                       <p className="question-index font-semibold bg-black text-white text-sm h-full px-3 py-2 rounded-l">

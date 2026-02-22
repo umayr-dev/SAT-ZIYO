@@ -6,19 +6,19 @@ import { Input } from "@/src/ui/input";
 
 export function ExamCountdownCard() {
   return (
-    <Card className="h-full border border-brand-blue-light">
+    <Card className="h-full border border-brand-orange-light">
       <CardHeader>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-brand-blue-50 rounded-lg flex items-center justify-center">
-            <Calendar className="h-5 w-5 text-brand-blue" />
+          <div className="w-10 h-10 bg-brand-orange-50 rounded-lg flex items-center justify-center">
+            <Calendar className="h-5 w-5 text-brand-orange" />
           </div>
-          <CardTitle className="text-xl text-brand-blue">
+          <CardTitle className="text-xl font-bold !text-brand-orange">
             Exam Countdown
           </CardTitle>
         </div>
       </CardHeader>
       <CardContent>
-        <p className="text-brand-blue/80 mb-4">
+        <p className="text-brand-orange/80 mb-4">
           Set your official SAT test date to activate a personalized countdown
           timer.
         </p>
