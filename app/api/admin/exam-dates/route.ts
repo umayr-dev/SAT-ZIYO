@@ -1,58 +1,18 @@
 /**
- * Admin Exam Dates API
- * GET: list (same as /api/exams/dates, with admin auth)
- * POST: add new exam date (backend or local file fallback)
+ * Admin Exam Dates API (backend only)
+ * GET: list from backend
+ * POST: add new exam date via backend
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { API_CONFIG, API_ENDPOINTS } from "@/src/config/api";
-import { promises as fs } from "fs";
-import path from "path";
 
 const JWT_COOKIE_NAME = "token";
-const DATA_FILE = path.join(process.cwd(), "data", "exam-dates.json");
 
 export interface ExamDateItem {
   id: string;
   date: string;
   label: string;
-}
-
-interface StoredData {
-  dates: ExamDateItem[];
-  deletedIds: string[];
-}
-
-async function getStoredData(): Promise<StoredData> {
-  try {
-    const raw = await fs.readFile(DATA_FILE, "utf-8");
-    const data = JSON.parse(raw);
-    if (Array.isArray(data)) {
-      return { dates: data, deletedIds: [] };
-    }
-    return {
-      dates: data.dates || [],
-      deletedIds: Array.isArray(data.deletedIds) ? data.deletedIds : [],
-    };
-  } catch {
-    return { dates: [], deletedIds: [] };
-  }
-}
-
-async function getStoredDates(): Promise<ExamDateItem[]> {
-  const { dates } = await getStoredData();
-  return dates;
-}
-
-async function saveStoredDates(items: ExamDateItem[]): Promise<void> {
-  const current = await getStoredData();
-  await saveStoredData({ dates: items, deletedIds: current.deletedIds });
-}
-
-async function saveStoredData(data: StoredData): Promise<void> {
-  const dir = path.dirname(DATA_FILE);
-  await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2), "utf-8");
 }
 
 function getToken(request: NextRequest): string | undefined {
@@ -66,9 +26,17 @@ function getToken(request: NextRequest): string | undefined {
 function normalizeDates(data: unknown): ExamDateItem[] {
   if (Array.isArray(data)) {
     return data.map((d: any) => ({
-      id: d.id || d.date || String(d),
-      date: typeof d.date === "string" ? d.date.slice(0, 10) : String(d.date || d),
-      label: d.label || d.date || "",
+      id: String(d.id ?? d.date),
+      date:
+        typeof d.date === "string"
+          ? d.date.slice(0, 10)
+          : String(d.date ?? ""),
+      label:
+        typeof d.label === "string" && d.label.length > 0
+          ? d.label
+          : typeof d.date === "string"
+            ? d.date.slice(0, 10)
+            : String(d.date ?? ""),
     }));
   }
   if (data && typeof data === "object" && "dates" in data) {
@@ -83,42 +51,68 @@ function normalizeDates(data: unknown): ExamDateItem[] {
 export async function GET(request: NextRequest) {
   const token = getToken(request);
   if (!token) {
-    return NextResponse.json({ statusCode: 401, message: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { statusCode: 401, message: "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   try {
-    let fromBackend: ExamDateItem[] = [];
-    const backendRes = await fetch(`${API_CONFIG.baseURL}/exams/dates`, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    });
-    if (backendRes.ok) {
-      const data = await backendRes.json();
-      fromBackend = normalizeDates(data);
-    }
-
-    const { dates: fromFile, deletedIds } = await getStoredData();
-    const byDate = new Map<string, ExamDateItem>();
-    fromBackend.forEach((d) => {
-      if (!deletedIds.includes(d.id)) byDate.set(d.date, d);
-    });
-    fromFile.forEach((d) => byDate.set(d.date, d));
-    const merged = Array.from(byDate.values()).sort(
-      (a, b) => a.date.localeCompare(b.date)
+    const backendRes = await fetch(
+      `${API_CONFIG.baseURL}${API_ENDPOINTS.exams.dates}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
     );
 
-    return NextResponse.json(merged);
+    const text = await backendRes.text();
+    let body: any;
+    try {
+      body = text ? JSON.parse(text) : null;
+    } catch {
+      body = text;
+    }
+
+    if (!backendRes.ok) {
+      return NextResponse.json(
+        {
+          statusCode: backendRes.status,
+          message:
+            body?.message ||
+            body?.error ||
+            `Backend /exams/dates returned ${backendRes.status}`,
+          raw: body,
+        },
+        { status: backendRes.status }
+      );
+    }
+
+    const list = normalizeDates(body);
+    return NextResponse.json(list, { status: 200 });
   } catch (error) {
     console.error("Admin exam dates GET error:", error);
-    const { dates: fromFile } = await getStoredData().catch(() => ({ dates: [], deletedIds: [] }));
-    return NextResponse.json(fromFile);
+    return NextResponse.json(
+      {
+        statusCode: 500,
+        message: "Failed to fetch exam dates from backend",
+        error: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
   }
 }
 
 export async function POST(request: NextRequest) {
   const token = getToken(request);
   if (!token) {
-    return NextResponse.json({ statusCode: 401, message: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { statusCode: 401, message: "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   let body: { date?: string; label?: string };
@@ -126,13 +120,16 @@ export async function POST(request: NextRequest) {
     body = await request.json();
   } catch {
     return NextResponse.json(
-      { message: "Invalid JSON body; need { date, label }" },
+      { message: "Invalid JSON body; need { date, label? }" },
       { status: 400 }
     );
   }
 
   const dateStr = typeof body.date === "string" ? body.date.slice(0, 10) : "";
-  const label = typeof body.label === "string" ? body.label : dateStr || "Exam date";
+  const label =
+    typeof body.label === "string" && body.label.length > 0
+      ? body.label
+      : dateStr || "Exam date";
 
   if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
     return NextResponse.json(
@@ -141,60 +138,60 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Backend real response (when request was made)
-  let backendStatus: number | null = null;
-  let backendBody: string | object | null = null;
-
   try {
-    const backendRes = await fetch(`${API_CONFIG.baseURL}${API_ENDPOINTS.exams.dates}`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ date: dateStr, label }),
-    });
+    const backendRes = await fetch(
+      `${API_CONFIG.baseURL}${API_ENDPOINTS.exams.dates}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        // Backend currently only accepts { date }
+        body: JSON.stringify({ date: dateStr }),
+      }
+    );
 
-    backendStatus = backendRes.status;
     const text = await backendRes.text();
+    let backendBody: any;
     try {
       backendBody = text ? JSON.parse(text) : null;
     } catch {
       backendBody = text;
     }
 
-    if (backendRes.ok) {
-      const data = backendBody;
-      const normalized = normalizeDates(Array.isArray(data) ? data : data ? [data] : []);
-      const item = normalized[0] || { id: dateStr, date: dateStr, label };
-      return NextResponse.json(item);
-    }
-    console.warn("[Admin exam-dates] Backend POST failed:", backendStatus, backendBody);
-  } catch (err) {
-    console.warn("[Admin exam-dates] Backend unreachable:", err);
-  }
-
-  // Fallback: save to local file
-  try {
-    const { dates: stored } = await getStoredData();
-    if (stored.some((d) => d.date === dateStr)) {
+    if (!backendRes.ok) {
       return NextResponse.json(
-        { message: "This date already exists" },
-        { status: 409 }
+        {
+          statusCode: backendRes.status,
+          message:
+            backendBody?.message ||
+            backendBody?.error ||
+            `Backend /exams/dates returned ${backendRes.status}`,
+          raw: backendBody,
+        },
+        { status: backendRes.status }
       );
     }
 
-    const newItem: ExamDateItem = { id: dateStr, date: dateStr, label };
-    stored.push(newItem);
-    stored.sort((a, b) => a.date.localeCompare(b.date));
-    await saveStoredDates(stored);
+    const normalized = normalizeDates(
+      Array.isArray(backendBody)
+        ? backendBody
+        : backendBody
+          ? [backendBody]
+          : []
+    );
+    const item =
+      normalized[0] || ({ id: dateStr, date: dateStr, label } as ExamDateItem);
 
-    return NextResponse.json(newItem);
+    return NextResponse.json(item, { status: 200 });
   } catch (err) {
-    console.error("[Admin exam-dates] Local save error:", err);
+    console.error("[Admin exam-dates] Backend POST error:", err);
     return NextResponse.json(
       {
-        backendResponse: backendStatus != null
-          ? { status: backendStatus, body: backendBody }
-          : null,
-        localSaveError: err instanceof Error ? err.message : String(err),
+        statusCode: 500,
+        message: "Failed to add exam date via backend",
+        error: err instanceof Error ? err.message : String(err),
       },
       { status: 500 }
     );

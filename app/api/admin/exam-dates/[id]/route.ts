@@ -1,26 +1,13 @@
 /**
- * Admin Exam Date by ID
- * PATCH: update exam date (date, label)
+ * Admin Exam Date by ID (backend only)
+ * PATCH: update exam date
  * DELETE: remove exam date
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { promises as fs } from "fs";
-import path from "path";
+import { API_CONFIG, API_ENDPOINTS } from "@/src/config/api";
 
 const JWT_COOKIE_NAME = "token";
-const DATA_FILE = path.join(process.cwd(), "data", "exam-dates.json");
-
-interface ExamDateItem {
-  id: string;
-  date: string;
-  label: string;
-}
-
-interface StoredData {
-  dates: ExamDateItem[];
-  deletedIds: string[];
-}
 
 function getToken(request: NextRequest): string | undefined {
   const token = request.cookies.get(JWT_COOKIE_NAME)?.value;
@@ -30,47 +17,32 @@ function getToken(request: NextRequest): string | undefined {
   return undefined;
 }
 
-async function getStoredData(): Promise<StoredData> {
-  try {
-    const raw = await fs.readFile(DATA_FILE, "utf-8");
-    const data = JSON.parse(raw);
-    if (Array.isArray(data)) {
-      return { dates: data, deletedIds: [] };
-    }
-    return {
-      dates: data.dates || [],
-      deletedIds: Array.isArray(data.deletedIds) ? data.deletedIds : [],
-    };
-  } catch {
-    return { dates: [], deletedIds: [] };
-  }
-}
-
-async function saveStoredData(data: StoredData): Promise<void> {
-  const dir = path.dirname(DATA_FILE);
-  await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2), "utf-8");
-}
-
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  if (!getToken(request)) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  const token = getToken(request);
+  if (!token) {
+    return NextResponse.json(
+      { statusCode: 401, message: "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   const id = decodeURIComponent(params.id);
   if (!id) {
-    return NextResponse.json({ message: "ID required" }, { status: 400 });
+    return NextResponse.json(
+      { statusCode: 400, message: "ID required" },
+      { status: 400 }
+    );
   }
 
-  let body: { date?: string; label?: string };
+  let body: { date?: string };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json(
-      { message: "Invalid JSON; optional { date, label }" },
+      { message: "Invalid JSON; optional { date }" },
       { status: 400 }
     );
   }
@@ -86,58 +58,127 @@ export async function PATCH(
     );
   }
 
-  const { dates, deletedIds } = await getStoredData();
-  const index = dates.findIndex((d) => d.id === id);
-  if (index === -1) {
+  try {
+    const backendRes = await fetch(
+      `${API_CONFIG.baseURL}${API_ENDPOINTS.exams.dates}/${encodeURIComponent(
+        id
+      )}`,
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(
+          dateStr ? { date: dateStr } : {}
+        ),
+      }
+    );
+
+    const text = await backendRes.text();
+    let backendBody: any;
+    try {
+      backendBody = text ? JSON.parse(text) : null;
+    } catch {
+      backendBody = text;
+    }
+
+    if (!backendRes.ok) {
+      return NextResponse.json(
+        {
+          statusCode: backendRes.status,
+          message:
+            backendBody?.message ||
+            backendBody?.error ||
+            `Backend PATCH /exams/dates/${id} returned ${backendRes.status}`,
+          raw: backendBody,
+        },
+        { status: backendRes.status }
+      );
+    }
+
+    return NextResponse.json(backendBody ?? { id, date: dateStr }, {
+      status: 200,
+    });
+  } catch (err) {
+    console.error("[Admin exam-dates] PATCH error:", err);
     return NextResponse.json(
-      { message: "Exam date not found" },
-      { status: 404 }
+      {
+        statusCode: 500,
+        message: "Failed to update exam date via backend",
+        error: err instanceof Error ? err.message : String(err),
+      },
+      { status: 500 }
     );
   }
-
-  const item = dates[index];
-  const newDate = dateStr ?? item.date;
-  const newLabel =
-    typeof body.label === "string" ? body.label.trim() : item.label;
-  const updated: ExamDateItem = {
-    id: newDate,
-    date: newDate,
-    label: newLabel || newDate,
-  };
-
-  const newDates = dates.slice();
-  newDates[index] = updated;
-  if (newDate !== id) {
-    newDates.sort((a, b) => a.date.localeCompare(b.date));
-  }
-  await saveStoredData({ dates: newDates, deletedIds });
-
-  return NextResponse.json(updated);
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  if (!getToken(_request)) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  const token = getToken(request);
+  if (!token) {
+    return NextResponse.json(
+      { statusCode: 401, message: "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   const id = decodeURIComponent(params.id);
   if (!id) {
-    return NextResponse.json({ message: "ID required" }, { status: 400 });
+    return NextResponse.json(
+      { statusCode: 400, message: "ID required" },
+      { status: 400 }
+    );
   }
 
-  const { dates, deletedIds } = await getStoredData();
-  const index = dates.findIndex((d) => d.id === id);
-  if (index >= 0) {
-    const newDates = dates.filter((d) => d.id !== id);
-    await saveStoredData({ dates: newDates, deletedIds });
-    return NextResponse.json({ deleted: id });
+  try {
+    const backendRes = await fetch(
+      `${API_CONFIG.baseURL}${API_ENDPOINTS.exams.dates}/${encodeURIComponent(
+        id
+      )}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const text = await backendRes.text();
+    let backendBody: any;
+    try {
+      backendBody = text ? JSON.parse(text) : null;
+    } catch {
+      backendBody = text;
+    }
+
+    if (!backendRes.ok) {
+      return NextResponse.json(
+        {
+          statusCode: backendRes.status,
+          message:
+            backendBody?.message ||
+            backendBody?.error ||
+            `Backend DELETE /exams/dates/${id} returned ${backendRes.status}`,
+          raw: backendBody,
+        },
+        { status: backendRes.status }
+      );
+    }
+
+    return NextResponse.json(backendBody ?? { deleted: id }, { status: 200 });
+  } catch (err) {
+    console.error("[Admin exam-dates] DELETE error:", err);
+    return NextResponse.json(
+      {
+        statusCode: 500,
+        message: "Failed to delete exam date via backend",
+        error: err instanceof Error ? err.message : String(err),
+      },
+      { status: 500 }
+    );
   }
-  const newDeletedIds = deletedIds.includes(id)
-    ? deletedIds
-    : [...deletedIds, id];
-  await saveStoredData({ dates, deletedIds: newDeletedIds });
-  return NextResponse.json({ deleted: id });
 }

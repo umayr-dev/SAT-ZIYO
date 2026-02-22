@@ -41,6 +41,7 @@ import {
   StickyNote,
   Edit,
   MoreVertical,
+  BookOpen,
 } from "lucide-react";
 import { useCurrentUser } from "@/src/hooks/use-auth";
 import { debounce } from "@/src/utils/request-queue";
@@ -144,6 +145,125 @@ function DesmosCalculatorPanel({
   );
 }
 
+const REF_MIN_W = 320;
+const REF_MIN_H = 400;
+const REF_MAX_W = 700;
+const REF_MAX_H = 900;
+
+function ReferenceSheetPanel({
+  width,
+  height,
+  onSizeChange,
+  onClose,
+}: {
+  width: number;
+  height: number;
+  onSizeChange: (size: { width: number; height: number }) => void;
+  onClose: () => void;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const startRef = useRef({ x: 0, y: 0, w: 0, h: 0 });
+
+  const handleResizeStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      startRef.current = { x: e.clientX, y: e.clientY, w: width, h: height };
+      const handleMove = (moveEvent: MouseEvent) => {
+        const dx = moveEvent.clientX - startRef.current.x;
+        const dy = moveEvent.clientY - startRef.current.y;
+        const newW = Math.max(
+          REF_MIN_W,
+          Math.min(REF_MAX_W, startRef.current.w + dx)
+        );
+        const newH = Math.max(
+          REF_MIN_H,
+          Math.min(REF_MAX_H, startRef.current.h + dy)
+        );
+        onSizeChange({ width: newW, height: newH });
+      };
+      const handleUp = () => {
+        window.removeEventListener("mousemove", handleMove);
+        window.removeEventListener("mouseup", handleUp);
+      };
+      window.addEventListener("mousemove", handleMove);
+      window.addEventListener("mouseup", handleUp);
+    },
+    [width, height, onSizeChange]
+  );
+
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest("[data-ref-resize]")) return;
+    const target = panelRef.current;
+    if (!target) return;
+    const startX = e.clientX - target.offsetLeft;
+    const startY = e.clientY - target.offsetTop;
+    const handleMove = (moveEvent: MouseEvent) => {
+      target.style.left = `${Math.max(0, moveEvent.clientX - startX)}px`;
+      target.style.top = `${Math.max(0, moveEvent.clientY - startY)}px`;
+      target.style.bottom = "auto";
+      target.style.right = "auto";
+    };
+    const handleUp = () => {
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("mouseup", handleUp);
+    };
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("mouseup", handleUp);
+  }, []);
+
+  return (
+    <div className="pointer-events-none fixed inset-0 z-40">
+      <div
+        ref={panelRef}
+        className="pointer-events-auto absolute bottom-20 right-4 bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden border border-gray-200"
+        style={{ width: `${width}px`, height: `${height}px` }}
+        onMouseDown={handleDragStart}
+      >
+        <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-200 bg-gray-50 cursor-move select-none">
+          <h2 className="text-xs font-semibold text-gray-800">
+            Reference Sheet
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-[10px] text-gray-500 hover:text-gray-800"
+          >
+            Close
+          </button>
+        </div>
+        <div className="flex-1 min-h-0 overflow-auto relative bg-gray-100">
+          <img
+            src="/reference-sheet.png"
+            alt="Math Reference Sheet - formulas and facts"
+            className="w-full h-auto object-contain block"
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = "none";
+              const fallback = (e.target as HTMLImageElement).nextElementSibling;
+              if (fallback instanceof HTMLElement) fallback.hidden = false;
+            }}
+          />
+          <div
+            hidden
+            className="p-4 text-sm text-gray-600 text-center"
+            aria-hidden="true"
+          >
+            Add <code className="bg-gray-200 px-1">reference-sheet.png</code> to
+            the <code className="bg-gray-200 px-1">public</code> folder for the
+            formula reference image.
+          </div>
+          <div
+            data-ref-resize
+            onMouseDown={handleResizeStart}
+            className="absolute bottom-0 right-0 w-5 h-5 cursor-se-resize bg-gray-300 hover:bg-gray-400 rounded-tl border-t border-l border-gray-400"
+            aria-label="Resize"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function TestTakingPage() {
   const router = useRouter();
   const params = useParams();
@@ -179,6 +299,11 @@ export default function TestTakingPage() {
   const [countdown, setCountdown] = useState(10);
   const [showCalculator, setShowCalculator] = useState(false);
   const [desmosSize, setDesmosSize] = useState({ width: 480, height: 420 });
+  const [showReferenceSheet, setShowReferenceSheet] = useState(false);
+  const [referenceSheetSize, setReferenceSheetSize] = useState({
+    width: 420,
+    height: 520,
+  });
   const [showNavigator, setShowNavigator] = useState(false);
   const [isMarkupEnabled, setIsMarkupEnabled] = useState(false);
   const [isTimerHidden, setIsTimerHidden] = useState(false);
@@ -1742,6 +1867,14 @@ export default function TestTakingPage() {
           onClose={() => setShowCalculator(false)}
         />
       )}
+      {showReferenceSheet && testState.currentSection.type === "MATH" && (
+        <ReferenceSheetPanel
+          width={referenceSheetSize.width}
+          height={referenceSheetSize.height}
+          onSizeChange={setReferenceSheetSize}
+          onClose={() => setShowReferenceSheet(false)}
+        />
+      )}
       {/* Fullscreen Exit Warning Modal */}
       {showFullscreenWarning && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
@@ -1874,45 +2007,67 @@ export default function TestTakingPage() {
                 </div>
               )}
 
-              {/* Right side buttons - one row */}
+              {/* Right side buttons – Math da faqat Reference (Directions) va Calculator */}
               <div className="flex items-center gap-2 flex-nowrap pr-4 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setShowNotesModal(true)}
-                  className="flex items-center gap-1.5 p-2 rounded-lg transition-colors duration-200 bg-gray-100 text-gray-600 hover:bg-gray-200 text-xs whitespace-nowrap"
-                  title="Open Notes"
-                >
-                  <StickyNote className="w-5 h-5 shrink-0" />
-                  <span className="hidden sm:inline">Notes</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsMarkupEnabled((prev) => !prev)}
-                  className={`flex items-center gap-1.5 p-2 rounded-lg transition-colors duration-200 text-xs whitespace-nowrap ${
-                    isMarkupEnabled
-                      ? "text-blue-600 bg-gray-100"
-                      : "text-gray-700 hover:text-blue-600 hover:bg-gray-100 bg-gray-100 hover:bg-gray-200"
-                  }`}
-                  aria-label="Highlights and Notes"
-                >
-                  <Edit className="w-5 h-5 shrink-0" />
-                  <span className="hidden sm:inline">Highlights</span>
-                </button>
+                {testState.currentSection.type !== "MATH" && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setShowNotesModal(true)}
+                      className="flex items-center gap-1.5 p-2 rounded-lg transition-colors duration-200 bg-gray-100 text-gray-600 hover:bg-gray-200 text-xs whitespace-nowrap"
+                      title="Open Notes"
+                    >
+                      <StickyNote className="w-5 h-5 shrink-0" />
+                      <span className="hidden sm:inline">Notes</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsMarkupEnabled((prev) => !prev)}
+                      className={`flex items-center gap-1.5 p-2 rounded-lg transition-colors duration-200 text-xs whitespace-nowrap ${
+                        isMarkupEnabled
+                          ? "text-blue-600 bg-gray-100"
+                          : "text-gray-700 hover:text-blue-600 hover:bg-gray-100 bg-gray-100 hover:bg-gray-200"
+                      }`}
+                      aria-label="Highlights and Notes"
+                    >
+                      <Edit className="w-5 h-5 shrink-0" />
+                      <span className="hidden sm:inline">Highlights</span>
+                    </button>
+                  </>
+                )}
                 {testState.currentSection.type === "MATH" && (
-                  <button
-                    type="button"
-                    onClick={() => setShowCalculator((prev) => !prev)}
-                    className={`flex items-center gap-1.5 p-2 rounded-lg transition-colors duration-200 text-xs whitespace-nowrap ${
-                      showCalculator
-                        ? "text-blue-600 bg-gray-100"
-                        : "text-gray-700 hover:text-blue-600 hover:bg-gray-100 bg-gray-100 hover:bg-gray-200"
-                    }`}
-                    aria-label="Calculator"
-                    title="Calculator"
-                  >
-                    <Calculator className="w-5 h-5 shrink-0" />
-                    <span className="hidden sm:inline">Calculator</span>
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowReferenceSheet((prev) => !prev)
+                      }
+                      className={`flex items-center gap-1.5 p-2 rounded-lg transition-colors duration-200 text-xs whitespace-nowrap ${
+                        showReferenceSheet
+                          ? "text-blue-600 bg-gray-100"
+                          : "text-gray-700 hover:text-blue-600 hover:bg-gray-100 bg-gray-100 hover:bg-gray-200"
+                      }`}
+                      aria-label="Reference Sheet"
+                      title="Reference Sheet"
+                    >
+                      <BookOpen className="w-5 h-5 shrink-0" />
+                      <span className="hidden sm:inline">Reference</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowCalculator((prev) => !prev)}
+                      className={`flex items-center gap-1.5 p-2 rounded-lg transition-colors duration-200 text-xs whitespace-nowrap ${
+                        showCalculator
+                          ? "text-blue-600 bg-gray-100"
+                          : "text-gray-700 hover:text-blue-600 hover:bg-gray-100 bg-gray-100 hover:bg-gray-200"
+                      }`}
+                      aria-label="Calculator"
+                      title="Calculator"
+                    >
+                      <Calculator className="w-5 h-5 shrink-0" />
+                      <span className="hidden sm:inline">Calculator</span>
+                    </button>
+                  </>
                 )}
                 <div className="relative">
                   <button
@@ -1946,7 +2101,7 @@ export default function TestTakingPage() {
             <div className="flex-1 min-h-0 flex flex-col relative">
               {/* Desktop / large (>= lg) – 2 ustunli resizable layout */}
               <div
-                className="relative hidden lg:flex flex-1 min-h-0 overflow-hidden gap-0 transition-opacity duration-150"
+                className="relative hidden lg:flex flex-1 min-h-0 gap-0 transition-opacity duration-150"
                 ref={layoutContainerRef}
               >
                 {/* Left Column: question + image (ustma ust) */}
@@ -1961,111 +2116,17 @@ export default function TestTakingPage() {
                     className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-hide"
                     style={{ WebkitOverflowScrolling: "touch" }}
                   >
-                    <div className="pr-4 pb-4">
-                      <div className="question-index-container flex items-center justify-between bg-gray-200 rounded mb-2">
-                        <div className="flex items-center h-full">
-                          <p className="question-index font-semibold bg-black text-white text-sm h-full px-3 py-2 rounded-l">
-                            {testState.currentQuestionIndex + 1}
+                    <div className="pr-4 pb-6 pl-1">
+                      {/* Chap ustun: faqat passage (rasmdagidek) */}
+                      {(question.sharedPassage?.content || question.passage) ? (
+                        <div className="p-5 bg-gray-50/80 rounded-lg">
+                          <p className="text-base leading-relaxed whitespace-pre-wrap">
+                            {question.sharedPassage?.content || question.passage}
                           </p>
-                          <button
-                            type="button"
-                            onClick={handleToggleFlag}
-                            className="flex items-center text-sm text-gray-600 hover:text-black mr-2 h-full px-2"
-                          >
-                            <Flag
-                              className={`w-5 h-5 text-gray-500 ${
-                                isFlagged
-                                  ? "fill-orange-500 text-orange-500"
-                                  : ""
-                              }`}
-                            />
-                            <span className="ml-1">Mark for Review</span>
-                          </button>
                         </div>
-                        {hasChoiceOptions(question) && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsEliminationMode((prev) => !prev);
-                              if (isEliminationMode)
-                                setEliminatedChoices(new Set());
-                            }}
-                            className={`hidden xl:flex items-center text-sm text-gray-600 hover:text-black mr-2 h-full relative border border-gray-300 rounded-sm w-8 h-8 justify-center bg-transparent ${
-                              isEliminationMode ? "bg-blue-100" : ""
-                            }`}
-                          >
-                            <span className="text-[12px] font-medium text-gray-600">
-                              ABC
-                            </span>
-                            {isEliminationMode && (
-                              <svg
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                                className="absolute w-8 h-8 text-gray-500"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth="1"
-                                  d="M18 6L6 18"
-                                />
-                              </svg>
-                            )}
-                          </button>
-                        )}
-                      </div>
-                      <div className="prose max-w-none mt-2">
-                        <QuestionDisplay
-                          key={question.id}
-                          question={question}
-                          selectedChoiceId={undefined}
-                          textAnswer={undefined}
-                          onSelectChoice={() => {}}
-                          onTextAnswerChange={() => {}}
-                          isFlagged={isFlagged}
-                          hidePassage
-                          isMarkupEnabled={isMarkupEnabled}
-                          showOnlyQuestionText
-                          attemptId={attemptId}
-                          onHighlightsChange={(highlights) => {
-                            if (highlights.length > 0) {
-                              saveHighlightsToStorage(question.id, highlights);
-                            } else {
-                              const allHighlights =
-                                getAllHighlightsFromStorage();
-                              allHighlights.delete(question.id);
-                              if (typeof window !== "undefined") {
-                                try {
-                                  const highlightsObj: Record<string, any> =
-                                    {};
-                                  allHighlights.forEach((value, key) => {
-                                    highlightsObj[key] = value;
-                                  });
-                                  localStorage.setItem(
-                                    getHighlightsStorageKey(),
-                                    JSON.stringify(highlightsObj),
-                                  );
-                                } catch (err) {
-                                  console.error(
-                                    "Failed to save highlights from localStorage:",
-                                    err,
-                                  );
-                                }
-                              }
-                            }
-                          }}
-                        />
-                      </div>
-                      {getQuestionImageUrl(question) && (
-                        <div className="mt-4 bg-gray-100 rounded-lg min-h-[120px] flex items-center justify-center overflow-hidden">
-                          {/* Oddiy img – GCS rasmlari ishonchli yuklansin */}
-                          <img
-                            src={getQuestionImageUrl(question)!}
-                            alt="Savol rasmi"
-                            className="w-full h-auto rounded-lg object-contain max-h-[320px] bg-gray-100"
-                            loading="lazy"
-                          />
+                      ) : (
+                        <div className="text-gray-500 text-sm italic">
+                          No passage for this question.
                         </div>
                       )}
                     </div>
@@ -2088,21 +2149,119 @@ export default function TestTakingPage() {
                   }}
                 >
                   <div
-                    className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-hide pl-3"
+                    className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-hide px-4 pb-6"
                     style={{ WebkitOverflowScrolling: "touch" }}
                   >
-                    {/* Passage (ong tarafda, variantlar ustida) */}
-                    {(question.sharedPassage?.content || question.passage) && (
-                      <div className="mb-6 p-4 bg-gray-50/80 rounded-lg">
-                        <p className="text-base leading-relaxed whitespace-pre-wrap">
-                          {question.sharedPassage?.content || question.passage}
+                    {/* O'ng ustun: savol raqami + Mark for Review + ABC (rasmdagidek) */}
+                    <div className="flex items-center justify-between bg-gray-200 rounded-lg mb-5 py-1">
+                      <div className="flex items-center h-full">
+                        <p className="question-index font-semibold bg-black text-white text-sm h-full px-3 py-2 rounded-l rounded-r-none">
+                          {testState.currentQuestionIndex + 1}
                         </p>
+                        <button
+                          type="button"
+                          onClick={handleToggleFlag}
+                          className="flex items-center text-sm text-gray-600 hover:text-black mr-2 h-full px-2"
+                        >
+                          <Flag
+                            className={`w-5 h-5 text-gray-500 ${
+                              isFlagged
+                                ? "fill-orange-500 text-orange-500"
+                                : ""
+                            }`}
+                          />
+                          <span className="ml-1">Mark for Review</span>
+                        </button>
+                      </div>
+                      {hasChoiceOptions(question) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsEliminationMode((prev) => !prev);
+                            if (isEliminationMode)
+                              setEliminatedChoices(new Set());
+                          }}
+                          className={`hidden xl:flex items-center text-sm text-gray-600 hover:text-black mr-2 h-full relative border border-gray-300 rounded w-8 h-8 justify-center bg-transparent ${
+                            isEliminationMode ? "bg-blue-100" : ""
+                          }`}
+                        >
+                          <span className="text-[12px] font-medium text-gray-600">
+                            ABC
+                          </span>
+                          {isEliminationMode && (
+                            <svg
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              className="absolute w-8 h-8 text-gray-500 pointer-events-none"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="1"
+                                d="M18 6L6 18"
+                              />
+                            </svg>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                    {/* Savol matni (Mark for Review / ABC dan keyin) */}
+                    <div className="prose max-w-none mb-5">
+                      <QuestionDisplay
+                        key={question.id}
+                        question={question}
+                        selectedChoiceId={undefined}
+                        textAnswer={undefined}
+                        onSelectChoice={() => {}}
+                        onTextAnswerChange={() => {}}
+                        isFlagged={isFlagged}
+                        hidePassage
+                        isMarkupEnabled={isMarkupEnabled}
+                        showOnlyQuestionText
+                        attemptId={attemptId}
+                        onHighlightsChange={(highlights) => {
+                          if (highlights.length > 0) {
+                            saveHighlightsToStorage(question.id, highlights);
+                          } else {
+                            const allHighlights =
+                              getAllHighlightsFromStorage();
+                            allHighlights.delete(question.id);
+                            if (typeof window !== "undefined") {
+                              try {
+                                const highlightsObj: Record<string, any> = {};
+                                allHighlights.forEach((value, key) => {
+                                  highlightsObj[key] = value;
+                                });
+                                localStorage.setItem(
+                                  getHighlightsStorageKey(),
+                                  JSON.stringify(highlightsObj),
+                                );
+                              } catch (err) {
+                                console.error(
+                                  "Failed to save highlights from localStorage:",
+                                  err,
+                                );
+                              }
+                            }
+                          }
+                        }}
+                      />
+                    </div>
+                    {getQuestionImageUrl(question) && (
+                      <div className="mb-5 p-3 bg-gray-100 rounded-lg min-h-[120px] flex items-center justify-center overflow-hidden">
+                        <img
+                          src={getQuestionImageUrl(question)!}
+                          alt="Savol rasmi"
+                          className="w-full h-auto rounded-lg object-contain max-h-[180px] bg-gray-100"
+                          loading="lazy"
+                        />
                       </div>
                     )}
 
                     {/* Choices */}
                     {hasChoiceOptions(question) && (
-                      <div className="space-y-2">
+                      <div className="space-y-4">
                         {(question.choices ?? []).map((choice, index) => {
                           const isSelected =
                             currentAnswer.choiceId === choice.id;
@@ -2116,7 +2275,7 @@ export default function TestTakingPage() {
                           return (
                             <div
                               key={choice.id || index}
-                              className="relative w-full mb-2"
+                              className="relative w-full"
                             >
                               <button
                                 type="button"
@@ -2138,7 +2297,7 @@ export default function TestTakingPage() {
                                     });
                                   }
                                 }}
-                                className={`w-full p-3 text-left border-2 rounded-lg text-base flex items-start gap-3 ${
+                                className={`w-full p-4 text-left border-2 rounded-lg text-base flex items-start gap-3 ${
                                   isSelected
                                     ? "border-black"
                                     : isEliminated
@@ -2166,12 +2325,12 @@ export default function TestTakingPage() {
                                     {getChoiceText(choice) || `Choice ${letter}`}
                                   </span>
                                   {choiceImageUrl && (
-                                    <span className="block mt-2 bg-gray-100 rounded border border-gray-200 overflow-hidden">
+                                    <span className="block mt-3 bg-gray-100 rounded border border-gray-200 overflow-hidden p-1">
                                       {/* Oddiy img – GCS rasmlari ishonchli yuklansin (Next/Image baʼzan tashqi URL da muammo qiladi) */}
                                       <img
                                         src={choiceImageUrl}
                                         alt={`Variant ${letter}`}
-                                        className="rounded object-contain max-h-40 w-full bg-gray-100 min-h-[80px]"
+                                        className="rounded object-contain max-h-12 w-full bg-gray-100 min-h-[24px]"
                                         loading="lazy"
                                       />
                                     </span>
@@ -2210,8 +2369,8 @@ export default function TestTakingPage() {
 
               {/* Mobil / planshet (< lg) – bitta ustun, scroll qilinadigan layout */}
               <div className="flex lg:hidden flex-1 min-h-0 overflow-y-auto">
-                <div className="flex-1 min-h-0 px-1 pb-4">
-                  <div className="question-index-container flex items-center justify-between bg-gray-200 rounded mb-2">
+                <div className="flex-1 min-h-0 px-4 pb-6">
+                  <div className="question-index-container flex items-center justify-between bg-gray-200 rounded-lg mb-5 py-1">
                     <div className="flex items-center h-full">
                       <p className="question-index font-semibold bg-black text-white text-sm h-full px-3 py-2 rounded-l">
                         {testState.currentQuestionIndex + 1}
@@ -2230,7 +2389,7 @@ export default function TestTakingPage() {
                       </button>
                     </div>
                   </div>
-                  <div className="prose max-w-none mt-2">
+                  <div className="prose max-w-none mt-0 mb-5">
                     <QuestionDisplay
                       key={question.id}
                       question={question}
@@ -2281,11 +2440,11 @@ export default function TestTakingPage() {
                     />
                   </div>
                   {getQuestionImageUrl(question) && (
-                    <div className="mt-4 bg-gray-100 rounded-lg min-h-[120px] flex items-center justify-center overflow-hidden">
+                    <div className="my-5 p-3 bg-gray-100 rounded-lg min-h-[120px] flex items-center justify-center overflow-hidden">
                       <img
                         src={getQuestionImageUrl(question)!}
                         alt="Savol rasmi"
-                        className="w-full h-auto rounded-lg object-contain max-h-[320px] bg-gray-100"
+                        className="w-full h-auto rounded-lg object-contain max-h-[180px] bg-gray-100"
                         loading="lazy"
                       />
                     </div>

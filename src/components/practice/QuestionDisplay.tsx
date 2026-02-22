@@ -65,9 +65,9 @@ export function QuestionDisplay({
   attemptId,
   onHighlightsChange,
 }: QuestionDisplayProps) {
-  // Text highlight state: map of character index -> color
+  // Text highlight state: map of character index -> array of styles (so you can combine e.g. yellow + bold + italic)
   const [selectedStyle, setSelectedStyle] = useState<HighlightStyle>("yellow");
-  const [highlights, setHighlights] = useState<Record<number, HighlightStyle>>(
+  const [highlights, setHighlights] = useState<Record<number, HighlightStyle[]>>(
     {},
   );
   const textRef = useRef<HTMLParagraphElement | null>(null);
@@ -84,7 +84,7 @@ export function QuestionDisplay({
   // Convert highlights from character index format to startOffset/endOffset format
   const convertHighlightsToBackendFormat = useCallback(
     (
-      highlights: Record<number, HighlightStyle>,
+      highlights: Record<number, HighlightStyle[]>,
     ): Array<{
       startOffset: number;
       endOffset: number;
@@ -93,50 +93,54 @@ export function QuestionDisplay({
     }> => {
       if (Object.keys(highlights).length === 0) return [];
 
-      // Group consecutive indices with same style into ranges
+      const colorStyles: HighlightStyle[] = ["yellow", "green", "blue", "pink"];
+      const getPrimaryColor = (styles: HighlightStyle[]) => {
+        const c = styles.find((s) => colorStyles.includes(s));
+        return c || "yellow";
+      };
+
       const sortedIndices = Object.keys(highlights)
         .map(Number)
         .sort((a, b) => a - b);
       const ranges: Array<{
         start: number;
         end: number;
-        style: HighlightStyle;
+        styles: HighlightStyle[];
       }> = [];
 
       if (sortedIndices.length === 0) return [];
 
       let currentStart = sortedIndices[0];
       let currentEnd = sortedIndices[0];
-      let currentStyle = highlights[sortedIndices[0]];
+      let currentStyles = highlights[sortedIndices[0]] || [];
 
       for (let i = 1; i < sortedIndices.length; i++) {
         const idx = sortedIndices[i];
-        const style = highlights[idx];
+        const styles = highlights[idx] || [];
+        const sameStyles =
+          currentStyles.length === styles.length &&
+          currentStyles.every((s, j) => styles[j] === s);
 
-        // If consecutive and same style, extend range
-        if (idx === currentEnd + 1 && style === currentStyle) {
+        if (idx === currentEnd + 1 && sameStyles) {
           currentEnd = idx;
         } else {
-          // Save current range and start new one
           ranges.push({
             start: currentStart,
             end: currentEnd,
-            style: currentStyle,
+            styles: currentStyles,
           });
           currentStart = idx;
           currentEnd = idx;
-          currentStyle = style;
+          currentStyles = styles;
         }
       }
 
-      // Add last range
       ranges.push({
         start: currentStart,
         end: currentEnd,
-        style: currentStyle,
+        styles: currentStyles,
       });
 
-      // Convert to backend format
       const colorMap: Record<
         HighlightStyle,
         "YELLOW" | "GREEN" | "BLUE" | "PINK" | "ORANGE"
@@ -145,16 +149,16 @@ export function QuestionDisplay({
         green: "GREEN",
         blue: "BLUE",
         pink: "PINK",
-        underline: "YELLOW", // Default to yellow for underline
-        dotted: "YELLOW", // Default to yellow for dotted
-        bold: "YELLOW", // Default to yellow for bold
-        italic: "YELLOW", // Default to yellow for italic
+        underline: "YELLOW",
+        dotted: "YELLOW",
+        bold: "YELLOW",
+        italic: "YELLOW",
       };
 
       return ranges.map((range) => ({
         startOffset: range.start,
-        endOffset: range.end + 1, // endOffset is exclusive in backend
-        color: colorMap[range.style] || "YELLOW",
+        endOffset: range.end + 1,
+        color: colorMap[getPrimaryColor(range.styles)] || "YELLOW",
         note: null,
       }));
     },
@@ -173,18 +177,18 @@ export function QuestionDisplay({
         if (raw) {
           const allHighlights = JSON.parse(raw);
           const questionHighlights = allHighlights[question.id] || [];
-          // Convert from backend format to character index format
-          const charIndexHighlights: Record<number, HighlightStyle> = {};
+          const charIndexHighlights: Record<number, HighlightStyle[]> = {};
           questionHighlights.forEach(
             (h: { startOffset: number; endOffset: number; color: string }) => {
+              const colorMap: Record<string, HighlightStyle> = {
+                YELLOW: "yellow",
+                GREEN: "green",
+                BLUE: "blue",
+                PINK: "pink",
+              };
+              const style = colorMap[h.color] || "yellow";
               for (let i = h.startOffset; i < h.endOffset; i++) {
-                const colorMap: Record<string, HighlightStyle> = {
-                  YELLOW: "yellow",
-                  GREEN: "green",
-                  BLUE: "blue",
-                  PINK: "pink",
-                };
-                charIndexHighlights[i] = colorMap[h.color] || "yellow";
+                charIndexHighlights[i] = [style];
               }
             },
           );
@@ -194,12 +198,20 @@ export function QuestionDisplay({
         // ignore
       }
     } else {
-      // Load from old format (question-specific key)
       try {
         const raw = window.localStorage.getItem(storageKey);
         if (raw) {
-          const parsed = JSON.parse(raw);
-          setHighlights(parsed || {});
+          const parsed = JSON.parse(raw) as Record<
+            string,
+            HighlightStyle | HighlightStyle[]
+          >;
+          const normalized: Record<number, HighlightStyle[]> = {};
+          Object.entries(parsed || {}).forEach(([k, v]) => {
+            const idx = Number(k);
+            if (Array.isArray(v)) normalized[idx] = v;
+            else normalized[idx] = [v];
+          });
+          setHighlights(normalized);
         }
       } catch {
         // ignore
@@ -244,11 +256,14 @@ export function QuestionDisplay({
 
     setHighlights((prev) => {
       const next = { ...prev };
-      if (next[index] === selectedStyle) {
-        // same style -> remove highlight
-        delete next[index];
+      const arr = next[index] || [];
+      const idx = arr.indexOf(selectedStyle);
+      if (idx >= 0) {
+        const newArr = arr.filter((_, i) => i !== idx);
+        if (newArr.length === 0) delete next[index];
+        else next[index] = newArr;
       } else {
-        next[index] = selectedStyle;
+        next[index] = [...arr, selectedStyle];
       }
       return next;
     });
@@ -449,10 +464,14 @@ export function QuestionDisplay({
     setHighlights((prev) => {
       const next = { ...prev };
       for (let i = from; i <= to; i++) {
-        if (next[i] === style) {
-          delete next[i];
+        const arr = next[i] || [];
+        const idx = arr.indexOf(style);
+        if (idx >= 0) {
+          const newArr = arr.filter((_, j) => j !== idx);
+          if (newArr.length === 0) delete next[i];
+          else next[i] = newArr;
         } else {
-          next[i] = style;
+          next[i] = [...arr, style];
         }
       }
       return next;
@@ -502,7 +521,8 @@ export function QuestionDisplay({
             title="Pink highlight"
           />
           <div className="w-px h-6 bg-gray-300 mx-1" />
-          {/* Text style buttons */}
+          {/* Bold, Italic, Underline – bir xil matnda birga qo‘llash mumkin */}
+          <span className="text-[10px] text-gray-500 mr-0.5">Style</span>
           <button
             type="button"
             onClick={() => applyStyleToSelection("bold")}
@@ -550,15 +570,17 @@ export function QuestionDisplay({
           >
             {question.questionText ? (
               characters.map(({ char, index }) => {
-                const style = highlights[index];
+                const styles = highlights[index] || [];
+                const combinedClass = styles
+                  .map((s) => styleClasses[s])
+                  .filter(Boolean)
+                  .join(" ");
                 return (
                   <span
                     key={index}
                     data-char-index={index}
                     onClick={() => handleCharClick(index, isMarkupEnabled)}
-                    className={`${isMarkupEnabled ? "cursor-pointer" : ""} ${
-                      style ? styleClasses[style] : ""
-                    }`}
+                    className={`${isMarkupEnabled ? "cursor-pointer" : ""} ${combinedClass}`}
                   >
                     {char}
                   </span>
@@ -624,11 +646,11 @@ export function QuestionDisplay({
                           </span>
                         )}
                         {getChoiceImageUrl(choice) && (
-                          <span className="block mt-2 bg-gray-100 rounded border border-gray-200 overflow-hidden">
+                          <span className="block mt-3 p-1 bg-gray-100 rounded border border-gray-200 overflow-hidden">
                             <img
                               src={getChoiceImageUrl(choice)!}
                               alt={`Choice ${letter}`}
-                              className="rounded object-contain max-h-40 w-full bg-gray-100 min-h-[80px]"
+                              className="rounded object-contain max-h-12 w-full bg-gray-100 min-h-[24px]"
                               loading="lazy"
                             />
                           </span>

@@ -219,10 +219,7 @@ function slotToQuestionInput(
     const text = (choiceTexts[c] ?? "").trim();
     const url = (choiceUrls[c] ?? "").trim() || undefined;
     const hasImage = !!url;
-    const choiceText =
-      kind === "image" && hasImage
-        ? text || `Variant ${letters[c]}`
-        : text || letters[c];
+    const choiceText = text || letters[c];
     const isChoiceBase64 = url?.startsWith("data:");
     return {
       choiceText: choiceText || letters[c],
@@ -742,7 +739,7 @@ export default function TestQuestionsPage() {
                             <img
                               src={(slot.imageUrl ?? "").trim()}
                               alt="Savol rasmi"
-                              className="mt-2 max-h-40 rounded border object-contain"
+                              className="mt-2 max-h-12 rounded border object-contain"
                               onError={(e) => {
                                 (e.target as HTMLImageElement).style.display =
                                   "none";
@@ -989,7 +986,7 @@ export default function TestQuestionsPage() {
                                           <img
                                             src={imgUrl}
                                             alt={`Variant ${letter}`}
-                                            className="max-h-24 rounded border object-contain"
+                                            className="max-h-12 rounded border object-contain"
                                             onError={(ev) => {
                                               (
                                                 ev.target as HTMLImageElement

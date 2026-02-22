@@ -197,9 +197,6 @@ export default function PracticePage() {
     <div className="w-full max-w-5xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <p className="text-xs font-semibold tracking-[0.2em] uppercase text-brand-blue/70 mb-2">
-          Official practice
-        </p>
         <h1 className="text-3xl md:text-4xl font-bold text-brand-blue mb-2">
           Official Practice Tests
         </h1>

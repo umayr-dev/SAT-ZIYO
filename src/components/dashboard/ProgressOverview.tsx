@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { flushSync } from "react-dom";
 import {
   Calendar,
   TrendingUp,
@@ -42,15 +43,39 @@ export function ProgressOverview() {
   const [examDate, setExamDate] = useState("");
   const [selectedExamDateId, setSelectedExamDateId] = useState<string>("");
   const [availableExamDates, setAvailableExamDates] = useState<ExamDate[]>([]);
-  const [countdown, setCountdown] = useState<CountdownTime | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingInitial, setIsLoadingInitial] = useState(true);
   const [isLoadingExamDates, setIsLoadingExamDates] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [progressStats, setProgressStats] = useState<ProgressStats | null>(
-    null
+    null,
   );
   const [isLoadingProgress, setIsLoadingProgress] = useState(true);
+  const [countdownTick, setCountdownTick] = useState(0);
+  const userSelectedExamDateRef = useRef<{ date: string; id: string } | null>(null);
+
+  // Countdown: compute from examDate so it shows immediately when date is selected (no reload)
+  const countdown = useMemo((): CountdownTime | null => {
+    if (!examDate) return null;
+    const target = new Date(examDate + "T00:00:00");
+    if (Number.isNaN(target.getTime())) return null;
+    const now = new Date();
+    if (target <= now) return { days: 0, hours: 0, minutes: 0, seconds: 0 };
+    const diff = target.getTime() - now.getTime();
+    return {
+      days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+      hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+      minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+      seconds: Math.floor((diff % (1000 * 60)) / 1000),
+    };
+  }, [examDate, countdownTick]); // countdownTick: re-run every second
+
+  // Tick every second so countdown updates (useMemo depends on countdownTick)
+  useEffect(() => {
+    if (!examDate) return;
+    const interval = setInterval(() => setCountdownTick((t) => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, [examDate]);
 
   // Load progress (lastScore, testsCompleted, accuracy) from API
   useEffect(() => {
@@ -100,11 +125,9 @@ export function ProgressOverview() {
 
         const [user, datesRes] = await Promise.all([
           authService.getCurrentUser(),
-          // Faqat backenddan kelgan oxirgi exam datelar
           fetch("/api/exam-dates", { method: "GET", credentials: "include" }),
         ]);
 
-        // Target score va exam date profil dan (PATCH /auth/profile orqali saqlangan)
         if (user.targetScore) {
           setTargetScore(user.targetScore.toString());
           setTempTargetScore(user.targetScore.toString());
@@ -113,21 +136,26 @@ export function ProgressOverview() {
           setTempTargetScore("1580");
         }
 
-        const dateStr = user.examDate ? user.examDate.slice(0, 10) : "";
-
         let datesList: ExamDate[] = [];
         if (datesRes.ok) {
           const data = await datesRes.json();
-          // /api/exam-dates to'g'ridan-to'g'ri massiv qaytaradi
           datesList = Array.isArray(data) ? data : [];
         }
         setAvailableExamDates(datesList);
 
-        // Profil dagi exam date ni select da ko'rsatish (sana bo'yicha match)
-        if (dateStr) {
-          setExamDate(dateStr);
-          const found = datesList.find((d: ExamDate) => d.date === dateStr);
-          if (found) setSelectedExamDateId(found.id);
+        // Agar foydalanuvchi select qilgan bo'lsa (load tugashidan oldin), uni ustun qil – reload kerak bo'lmasin
+        const selected = userSelectedExamDateRef.current;
+        if (selected) {
+          setExamDate(selected.date);
+          setSelectedExamDateId(selected.id);
+          userSelectedExamDateRef.current = null;
+        } else {
+          const dateStr = user.examDate ? user.examDate.slice(0, 10) : "";
+          if (dateStr) {
+            setExamDate(dateStr);
+            const found = datesList.find((d: ExamDate) => d.date === dateStr);
+            if (found) setSelectedExamDateId(found.id);
+          }
         }
       } catch (err) {
         console.error("Failed to load:", err);
@@ -141,49 +169,6 @@ export function ProgressOverview() {
 
     load();
   }, []);
-
-  // Countdown timer effect
-  useEffect(() => {
-    if (!examDate) {
-      setCountdown(null);
-      return;
-    }
-
-    const calculateCountdown = () => {
-      const now = new Date();
-      const target = new Date(examDate + "T00:00:00");
-
-      // Agar examDate noto'g'ri bo'lsa (Invalid Date) → NaN bo'lmasin
-      if (Number.isNaN(target.getTime())) {
-        setCountdown(null);
-        return;
-      }
-
-      // If exam date is in the past, show 0
-      if (target <= now) {
-        setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-        return;
-      }
-
-      const diff = target.getTime() - now.getTime();
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const hours = Math.floor(
-        (diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
-      );
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-      setCountdown({ days, hours, minutes, seconds });
-    };
-
-    // Calculate immediately
-    calculateCountdown();
-
-    // Update every second
-    const interval = setInterval(calculateCountdown, 1000);
-
-    return () => clearInterval(interval);
-  }, [examDate]);
 
   const handleSave = async () => {
     const scoreValue = parseInt(tempTargetScore, 10);
@@ -210,7 +195,7 @@ export function ProgressOverview() {
       setError(
         err instanceof Error
           ? err.message
-          : "Failed to save target score. Please try again."
+          : "Failed to save target score. Please try again.",
       );
     } finally {
       setIsLoading(false);
@@ -225,28 +210,46 @@ export function ProgressOverview() {
 
   const handleExamDateChange = async (examDateId: string) => {
     if (!examDateId) {
+      userSelectedExamDateRef.current = null;
       setSelectedExamDateId("");
       setExamDate("");
+      try {
+        await authService.updateProfile({ examDate: undefined });
+      } catch {
+        // ignore
+      }
       return;
     }
 
     const selectedDate = availableExamDates.find((d) => d.id === examDateId);
     if (!selectedDate) return;
 
-    try {
-      setIsLoading(true);
-      setError(null);
+    const dateStr = selectedDate.date.slice(0, 10);
+    userSelectedExamDateRef.current = { date: dateStr, id: examDateId };
 
-      // Save exam date via PATCH /auth/profile (ISO 8601)
-      await authService.updateProfile({ examDate: selectedDate.date });
-
+    // Darhol UI yangilansin (reload kerak bo‘lmasin)
+    flushSync(() => {
       setSelectedExamDateId(examDateId);
-      setExamDate(selectedDate.date);
+      setExamDate(dateStr);
+      setError(null);
+    });
+
+    try {
+      await authService.updateProfile({ examDate: dateStr });
     } catch (err) {
       console.error("Failed to save exam date:", err);
       setError("Failed to save exam date. Please try again.");
-    } finally {
-      setIsLoading(false);
+      userSelectedExamDateRef.current = null;
+      const user = await authService.getCurrentUser();
+      const dateStr = user.examDate ? user.examDate.slice(0, 10) : "";
+      if (dateStr) {
+        setExamDate(dateStr);
+        const found = availableExamDates.find((d) => d.date === dateStr);
+        if (found) setSelectedExamDateId(found.id);
+      } else {
+        setSelectedExamDateId("");
+        setExamDate("");
+      }
     }
   };
 
@@ -272,7 +275,9 @@ export function ProgressOverview() {
         <CardContent>
           {isLoadingProgress ? (
             <div className="text-center py-6">
-              <p className="text-sm text-brand-orange/70">Loading progress...</p>
+              <p className="text-sm text-brand-orange/70">
+                Loading progress...
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -280,14 +285,18 @@ export function ProgressOverview() {
               <div className="p-4 bg-white border border-brand-orange-light rounded-xl">
                 <div className="flex items-center gap-2 mb-2">
                   <TrendingUp className="h-4 w-4 text-brand-orange/70" />
-                  <span className="text-sm text-brand-orange/80">Oxirgi ball</span>
+                  <span className="text-sm text-brand-orange/80">
+                    Oxirgi ball
+                  </span>
                 </div>
                 <p className="text-2xl font-bold text-brand-orange">
                   {progressStats?.lastScore != null
                     ? progressStats.lastScore
                     : "—"}
                 </p>
-                <p className="text-xs text-brand-orange/70 mt-0.5">out of 1600</p>
+                <p className="text-xs text-brand-orange/70 mt-0.5">
+                  out of 1600
+                </p>
               </div>
               {/* Completed tests */}
               <div className="p-4 bg-white border border-brand-orange/40 rounded-xl">
@@ -300,7 +309,9 @@ export function ProgressOverview() {
                 <p className="text-2xl font-bold text-brand-orange">
                   {progressStats?.testsCompleted ?? 0}
                 </p>
-                <p className="text-xs text-brand-orange/70 mt-0.5">tugatilgan</p>
+                <p className="text-xs text-brand-orange/70 mt-0.5">
+                  tugatilgan
+                </p>
               </div>
               {/* Accuracy */}
               <div className="p-4 bg-white border border-brand-orange-light rounded-xl">
@@ -313,7 +324,9 @@ export function ProgressOverview() {
                     ? `${progressStats.accuracy}%`
                     : "—"}
                 </p>
-                <p className="text-xs text-brand-orange/70 mt-0.5">oxirgi test</p>
+                <p className="text-xs text-brand-orange/70 mt-0.5">
+                  oxirgi test
+                </p>
               </div>
             </div>
           )}
@@ -380,13 +393,13 @@ export function ProgressOverview() {
               </>
             ) : null}
 
-            {countdown !== null && examDate && (
+            {examDate && (
               <div>
                 <div className="grid grid-cols-4 gap-3 mb-6">
                   <div className="text-center">
                     <div className="bg-brand-blue-50 border border-brand-blue-light rounded-2xl p-4 mb-2 transition-all duration-300 hover:shadow-md hover:border-brand-blue/30 min-h-[100px] flex flex-col items-center justify-center">
                       <p className="text-4xl md:text-5xl font-bold text-brand-blue leading-none mb-1">
-                        {countdown.days}
+                        {countdown?.days ?? "—"}
                       </p>
                       <p className="text-xs font-medium text-brand-blue/70 uppercase tracking-wider">
                         Days
@@ -396,7 +409,7 @@ export function ProgressOverview() {
                   <div className="text-center">
                     <div className="bg-brand-blue-50 border border-brand-blue-light rounded-2xl p-4 mb-2 transition-all duration-300 hover:shadow-md hover:border-brand-blue/30 min-h-[100px] flex flex-col items-center justify-center">
                       <p className="text-4xl md:text-5xl font-bold text-brand-blue leading-none mb-1">
-                        {String(countdown.hours).padStart(2, "0")}
+                        {countdown != null ? String(countdown.hours).padStart(2, "0") : "—"}
                       </p>
                       <p className="text-xs font-medium text-brand-blue/70 uppercase tracking-wider">
                         Hours
@@ -406,7 +419,7 @@ export function ProgressOverview() {
                   <div className="text-center">
                     <div className="bg-brand-blue-50 border border-brand-blue-light rounded-2xl p-4 mb-2 transition-all duration-300 hover:shadow-md hover:border-brand-blue/30 min-h-[100px] flex flex-col items-center justify-center">
                       <p className="text-4xl md:text-5xl font-bold text-brand-blue leading-none mb-1">
-                        {String(countdown.minutes).padStart(2, "0")}
+                        {countdown != null ? String(countdown.minutes).padStart(2, "0") : "—"}
                       </p>
                       <p className="text-xs font-medium text-brand-blue/70 uppercase tracking-wider">
                         Minutes
@@ -416,7 +429,7 @@ export function ProgressOverview() {
                   <div className="text-center">
                     <div className="bg-brand-blue-50 border border-brand-blue-light rounded-2xl p-4 mb-2 transition-all duration-200 relative overflow-hidden min-h-[100px] flex flex-col items-center justify-center hover:shadow-md hover:border-brand-blue/30">
                       <p className="text-4xl md:text-5xl font-bold text-brand-blue leading-none mb-1 transition-all duration-200">
-                        {String(countdown.seconds).padStart(2, "0")}
+                        {countdown != null ? String(countdown.seconds).padStart(2, "0") : "—"}
                       </p>
                       <p className="text-xs font-medium text-brand-blue/70 uppercase tracking-wider">
                         Seconds
@@ -424,7 +437,8 @@ export function ProgressOverview() {
                     </div>
                   </div>
                 </div>
-                {countdown.days === 0 &&
+                {countdown != null &&
+                  countdown.days === 0 &&
                   countdown.hours === 0 &&
                   countdown.minutes === 0 &&
                   countdown.seconds === 0 && (
@@ -434,9 +448,15 @@ export function ProgressOverview() {
                   )}
                 <div className="text-center pt-4 border-t border-brand-blue-light">
                   <button
-                    onClick={() => {
+                    onClick={async () => {
+                      userSelectedExamDateRef.current = null;
                       setSelectedExamDateId("");
                       setExamDate("");
+                      try {
+                        await authService.updateProfile({ examDate: undefined });
+                      } catch {
+                        // ignore
+                      }
                     }}
                     className="text-sm text-brand-blue/80 hover:text-brand-blue transition-colors duration-200 underline-offset-2 hover:underline font-medium"
                   >
@@ -473,7 +493,9 @@ export function ProgressOverview() {
             ) : !isEditing ? (
               <>
                 <div className="text-center p-6 bg-brand-blue-50 border border-brand-blue-light rounded-2xl">
-                  <p className="text-sm text-brand-blue/80 mb-2">Current Target</p>
+                  <p className="text-sm text-brand-blue/80 mb-2">
+                    Current Target
+                  </p>
                   <p className="text-6xl font-bold text-brand-blue mb-2">
                     {targetScore || "Not set"}
                   </p>

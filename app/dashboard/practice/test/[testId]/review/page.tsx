@@ -211,7 +211,7 @@ export default function QuestionReviewPage() {
                             <img
                               src={getChoiceImageUrl(choice)!}
                               alt={`Choice ${letter}`}
-                              className="rounded object-contain max-h-40 w-full bg-gray-100 min-h-[80px]"
+                              className="rounded object-contain max-h-12 w-full bg-gray-100 min-h-[24px]"
                               loading="lazy"
                             />
                           </span>

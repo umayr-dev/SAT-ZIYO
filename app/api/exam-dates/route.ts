@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
   if (!token) {
     return NextResponse.json(
       { statusCode: 401, message: "Unauthorized" },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-      }
+      },
     );
 
     const text = await res.text();
@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
             `Backend /exams/dates returned ${res.status}`,
           raw: body,
         },
-        { status: res.status }
+        { status: res.status },
       );
     }
 
@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
         message: "Failed to fetch exam dates from backend",
         error: err instanceof Error ? err.message : String(err),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
   if (!token) {
     return NextResponse.json(
       { statusCode: 401, message: "Unauthorized" },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json(
       { message: "Invalid JSON body; need { date, label? }" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
   if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
     return NextResponse.json(
       { message: "Valid date (YYYY-MM-DD) required" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
         },
         // Backend 400: "property label should not exist" → faqat { date } yuboramiz
         body: JSON.stringify({ date: dateStr }),
-      }
+      },
     );
 
     const text = await res.text();
@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
             `Backend /exams/dates returned ${res.status}`,
           raw: backendBody,
         },
-        { status: res.status }
+        { status: res.status },
       );
     }
 
@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
         message: "Failed to add exam date via backend",
         error: err instanceof Error ? err.message : String(err),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
