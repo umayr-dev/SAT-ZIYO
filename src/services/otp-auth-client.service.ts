@@ -103,16 +103,7 @@ export async function getCurrentUser(): Promise<UserResponse> {
 
   // Use cache manager to prevent multiple simultaneous requests
   return userCacheManager.getOrCreatePromise(async () => {
-    // Try to get token from localStorage as fallback
-    let token: string | null = null;
-    if (typeof window !== "undefined") {
-      token = localStorage.getItem("auth_token");
-    }
-
     const headers: HeadersInit = {};
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
 
     const response = await fetch("/api/auth/me", {
       method: "GET",
@@ -163,6 +154,15 @@ export async function checkAuth(): Promise<boolean> {
  * Logout user
  */
 export async function logout(): Promise<LogoutResponse> {
+  // Har ehtimolga qarshi localStorage dagi eski tokenni ham tozalaymiz
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.removeItem("auth_token");
+    } catch {
+      // ignore
+    }
+  }
+
   const response = await fetch("/api/auth/logout", {
     method: "POST",
     credentials: "include", // Important: include cookies
