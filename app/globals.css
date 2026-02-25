@@ -123,6 +123,20 @@ html {
   background: rgba(59, 130, 246, 0.08); /* blue-500/8 */
 }
 
+.divider-inline {
+  width: 8px;
+  min-width: 8px;
+  flex-shrink: 0;
+  background: rgba(148, 163, 184, 0.15);
+  cursor: col-resize;
+  border-left: 1px solid #e2e8f0;
+  border-right: 1px solid #e2e8f0;
+}
+
+.divider-inline:hover {
+  background: rgba(59, 130, 246, 0.08);
+}
+
 .divider::before {
   content: "";
 }

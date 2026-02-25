@@ -667,16 +667,13 @@ export function QuestionDisplay({
           {isOpenAnswerQuestion(question) && (
             <div className="space-y-2 mt-4 pt-2">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Enter your answer:
-                </label>
                 <input
                   type="text"
                   value={textAnswer || ""}
                   onChange={(e) => onTextAnswerChange(e.target.value)}
-                  placeholder="Type your answer"
+                  placeholder="Enter your answer (e.g. 5.566, -5.566, 2/3, -2/3)"
                   pattern="[0-9.\\-/]+"
-                  className="max-w-[140px] px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                  className="max-w-[240px] w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
                 />
               </div>
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">

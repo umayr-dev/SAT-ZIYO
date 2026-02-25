@@ -1857,7 +1857,7 @@ export default function TestTakingPage() {
   };
 
   return (
-    <div className="flex min-h-screen w-full bg-gray-50 px-[20px]">
+    <div className="flex h-screen w-full bg-gray-50 overflow-hidden px-2 sm:px-4 md:px-5">
       {/* Desmos Calculator Panel (Math only, non-blocking, draggable, resizable from corner) */}
       {showCalculator && testState.currentSection.type === "MATH" && (
         <DesmosCalculatorPanel
@@ -1923,7 +1923,7 @@ export default function TestTakingPage() {
         </div>
       )}
 
-      <div className="flex-1 transition-all duration-300 relative">
+      <div className="flex-1 min-h-0 flex flex-col transition-all duration-300 relative overflow-hidden">
         {/* Watermark with glass blur effect */}
         <div className="fixed inset-0 pointer-events-none z-0 flex items-center justify-center overflow-hidden">
           <div className="relative w-full h-full">
@@ -1938,29 +1938,31 @@ export default function TestTakingPage() {
           </div>
         </div>
 
-        <main className="flex-1 relative z-10 flex flex-col h-screen min-h-0">
+        <main className="flex-1 min-h-0 relative z-10 flex flex-col">
           <div
-            className="h-full flex flex-col font-noto-serif transition-all duration-300"
-            style={{ fontSize: "15px", lineHeight: "24px" }}
+            className="flex-1 min-h-0 flex flex-col font-noto-serif transition-all duration-300 text-xs sm:text-sm md:text-base"
+            style={{ lineHeight: "1.5" }}
           >
-            {/* Header – qotib turadi */}
+            {/* Header – doimiy balandlik, o‘zgarmaydi, yuqorida qotib turadi */}
             <div
-              className="flex-shrink-0 bg-white text-gray-800 p-2 flex justify-between items-center border-b border-gray-300 relative"
+              className="flex-shrink-0 flex-none h-14 bg-white text-gray-800 flex items-center justify-between border-b border-gray-300 relative"
               style={{
+                minHeight: 56,
+                maxHeight: 56,
                 borderBottom: "2px dashed",
                 borderImage:
                   "repeating-linear-gradient(to right, rgb(167, 56, 87) 0%, rgb(167, 56, 87) 3.5%, transparent 3.5%, transparent 4%, rgb(249, 223, 205) 4%, rgb(249, 223, 205) 7.5%, transparent 7.5%, transparent 8%, rgb(28, 17, 103) 8%, rgb(28, 17, 103) 11.5%, transparent 11.5%, transparent 12%, rgb(94, 147, 101) 12%, rgb(94, 147, 101) 15.5%, transparent 15.5%, transparent 16%) 1 / 1 / 0 stretch",
               }}
             >
-              <div className="pl-4">
-                <p className="font-semibold text-lg">
+              <div className="pl-3 flex items-center min-w-0">
+                <p className="font-semibold text-sm truncate">
                   Section {testState.currentSection.orderIndex + 1}, Module{" "}
                   {testState.currentModule.moduleNumber}:{" "}
                   {testState.currentSection.type === "ENGLISH"
                     ? "Reading and Writing"
                     : "Math"}
                 </p>
-                <button className="text-sm text-blue-600 hover:underline">
+                <button className="text-sm text-blue-600 hover:underline ml-2 flex-shrink-0">
                   Directions
                 </button>
               </div>
@@ -1968,7 +1970,7 @@ export default function TestTakingPage() {
               {/* Timer - Centered */}
               {!isTimerHidden ? (
                 <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-2">
-                  <div className="text-xl font-bold text-black">
+                  <div className="text-lg font-bold text-black">
                     {formatTimer(remainingTimeSeconds)}
                   </div>
                   <button
@@ -1998,7 +2000,7 @@ export default function TestTakingPage() {
                   <button
                     type="button"
                     onClick={() => setIsTimerHidden(false)}
-                    className="flex items-center justify-center text-xs text-gray-600 hover:text-blue-600 focus:outline-none rounded-md p-1 transition-colors duration-200"
+                    className="flex items-center justify-center text-gray-600 hover:text-blue-600 focus:outline-none rounded p-1"
                     aria-label="Show timer"
                     title="Show timer"
                   >
@@ -2007,14 +2009,14 @@ export default function TestTakingPage() {
                 </div>
               )}
 
-              {/* Right side buttons – Math da faqat Reference (Directions) va Calculator */}
-              <div className="flex items-center gap-2 flex-nowrap pr-4 shrink-0">
+              {/* Right side buttons – doimiy o‘lcham */}
+              <div className="flex items-center gap-2 flex-nowrap pr-3 shrink-0">
                 {testState.currentSection.type !== "MATH" && (
                   <>
                     <button
                       type="button"
                       onClick={() => setShowNotesModal(true)}
-                      className="flex items-center gap-1.5 p-2 rounded-lg transition-colors duration-200 bg-gray-100 text-gray-600 hover:bg-gray-200 text-xs whitespace-nowrap"
+                      className="flex items-center gap-1.5 p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 text-xs whitespace-nowrap"
                       title="Open Notes"
                     >
                       <StickyNote className="w-5 h-5 shrink-0" />
@@ -2023,7 +2025,7 @@ export default function TestTakingPage() {
                     <button
                       type="button"
                       onClick={() => setIsMarkupEnabled((prev) => !prev)}
-                      className={`flex items-center gap-1.5 p-2 rounded-lg transition-colors duration-200 text-xs whitespace-nowrap ${
+                      className={`flex items-center gap-1.5 p-2 rounded-lg text-xs whitespace-nowrap ${
                         isMarkupEnabled
                           ? "text-blue-600 bg-gray-100"
                           : "text-gray-700 hover:text-blue-600 hover:bg-gray-100 bg-gray-100 hover:bg-gray-200"
@@ -2042,7 +2044,7 @@ export default function TestTakingPage() {
                       onClick={() =>
                         setShowReferenceSheet((prev) => !prev)
                       }
-                      className={`flex items-center gap-1.5 p-2 rounded-lg transition-colors duration-200 text-xs whitespace-nowrap ${
+                      className={`flex items-center gap-1.5 p-2 rounded-lg text-xs whitespace-nowrap ${
                         showReferenceSheet
                           ? "text-blue-600 bg-gray-100"
                           : "text-gray-700 hover:text-blue-600 hover:bg-gray-100 bg-gray-100 hover:bg-gray-200"
@@ -2056,7 +2058,7 @@ export default function TestTakingPage() {
                     <button
                       type="button"
                       onClick={() => setShowCalculator((prev) => !prev)}
-                      className={`flex items-center gap-1.5 p-2 rounded-lg transition-colors duration-200 text-xs whitespace-nowrap ${
+                      className={`flex items-center gap-1.5 p-2 rounded-lg text-xs whitespace-nowrap ${
                         showCalculator
                           ? "text-blue-600 bg-gray-100"
                           : "text-gray-700 hover:text-blue-600 hover:bg-gray-100 bg-gray-100 hover:bg-gray-200"
@@ -2097,34 +2099,32 @@ export default function TestTakingPage() {
               </div>
             </div>
 
-            {/* Markaz – katta ekranlarda ikki ustun, kichik ekranlarda bitta ustun (tablet/mobil uchun responsive) */}
-            <div className="flex-1 min-h-0 flex flex-col relative">
-              {/* Desktop / large (>= lg) – 2 ustunli resizable layout */}
+            {/* Markaz – katta ekranlarda (>= lg) ikki ustun, kichik va planshet ekranlarda bitta ustun */}
+            <div className="flex-1 min-h-0 flex flex-col relative min-w-0 overflow-hidden">
+              {/* Desktop / large (>= lg): 2 ustun – bitta umumiy scroll */}
               <div
-                className="relative hidden lg:flex flex-1 min-h-0 gap-0 transition-opacity duration-150"
+                className="relative hidden lg:block flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden"
                 ref={layoutContainerRef}
+                style={{ WebkitOverflowScrolling: "touch" }}
               >
-                {/* Left Column: question + image (ustma ust) */}
+                <div className="flex gap-0 min-h-full items-stretch" style={{ minHeight: "min-content" }}>
+                {/* Left Column */}
                 <div
-                  className="content-pane flex flex-col min-h-0 flex-shrink-0 pr-2"
+                  className="content-pane flex-shrink-0 pr-1 md:pr-2 min-w-0"
                   style={{
-                    width: `calc(${splitPosition}% - 6px)`,
-                    minWidth: 280,
+                    width: `calc(${splitPosition}% - 4px)`,
+                    minWidth: 200,
                   }}
                 >
-                  <div
-                    className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-hide"
-                    style={{ WebkitOverflowScrolling: "touch" }}
-                  >
-                    <div className="pr-4 pb-6 pl-1">
+                  <div className="pr-2 md:pr-4 pb-4 md:pb-6 pl-0.5 md:pl-1">
                       {/* Math + yozma javob (grid-in): chapda Student-Produced Response Directions */}
                       {testState.currentSection.type === "MATH" &&
                       isOpenAnswerQuestion(question) ? (
-                        <div className="p-5 bg-gray-50/80 rounded-lg text-base leading-relaxed">
-                          <h2 className="text-lg font-bold text-black mb-4">
+                        <div className="p-3 sm:p-4 md:p-5 bg-gray-50/80 rounded-lg text-xs sm:text-sm md:text-base leading-relaxed">
+                          <h2 className="text-sm sm:text-base md:text-lg font-bold text-black mb-2 sm:mb-3 md:mb-4">
                             Student-Produced Response Directions
                           </h2>
-                          <ul className="list-disc pl-5 space-y-2 mb-4 text-gray-800">
+                          <ul className="list-disc pl-4 sm:pl-5 space-y-1 sm:space-y-2 mb-2 sm:mb-3 md:mb-4 text-gray-800">
                             <li>
                               If you find more than one correct answer, enter
                               only one answer.
@@ -2154,53 +2154,53 @@ export default function TestTakingPage() {
                               comma, or dollar sign.
                             </li>
                           </ul>
-                          <p className="font-semibold text-black mb-2">
+                          <p className="font-semibold text-black mb-1 sm:mb-2 text-xs sm:text-sm">
                             Examples
                           </p>
                           <div className="overflow-x-auto border border-gray-300 rounded-lg">
-                            <table className="w-full text-sm border-collapse">
+                            <table className="w-full text-xs sm:text-sm border-collapse">
                               <thead>
                                 <tr className="bg-gray-100 border-b border-gray-300">
-                                  <th className="text-left p-2 font-semibold text-black border-r border-gray-300">
+                                  <th className="text-left p-1 sm:p-2 font-semibold text-black border-r border-gray-300">
                                     Answer
                                   </th>
-                                  <th className="text-left p-2 font-semibold text-black border-r border-gray-300">
+                                  <th className="text-left p-1 sm:p-2 font-semibold text-black border-r border-gray-300">
                                     Acceptable ways to enter answer
                                   </th>
-                                  <th className="text-left p-2 font-semibold text-black">
+                                  <th className="text-left p-1 sm:p-2 font-semibold text-black">
                                     Unacceptable: will NOT receive credit
                                   </th>
                                 </tr>
                               </thead>
                               <tbody className="text-gray-800">
                                 <tr className="border-b border-gray-200">
-                                  <td className="p-2 border-r border-gray-200">
+                                  <td className="p-1 sm:p-2 border-r border-gray-200">
                                     3.5
                                   </td>
-                                  <td className="p-2 border-r border-gray-200">
+                                  <td className="p-1 sm:p-2 border-r border-gray-200">
                                     3.5, 3.50, 7/2
                                   </td>
-                                  <td className="p-2">3 1/2</td>
+                                  <td className="p-1 sm:p-2">3 1/2</td>
                                 </tr>
                                 <tr className="border-b border-gray-200">
-                                  <td className="p-2 border-r border-gray-200">
+                                  <td className="p-1 sm:p-2 border-r border-gray-200">
                                     2/3
                                   </td>
-                                  <td className="p-2 border-r border-gray-200">
+                                  <td className="p-1 sm:p-2 border-r border-gray-200">
                                     2/3, .6666, .6667, 0.666, 0.667
                                   </td>
-                                  <td className="p-2">
+                                  <td className="p-1 sm:p-2">
                                     0.66, .66, 0.67, .67
                                   </td>
                                 </tr>
                                 <tr>
-                                  <td className="p-2 border-r border-gray-200">
+                                  <td className="p-1 sm:p-2 border-r border-gray-200">
                                     -1/3
                                   </td>
-                                  <td className="p-2 border-r border-gray-200">
+                                  <td className="p-1 sm:p-2 border-r border-gray-200">
                                     -1/3, -.3333, -0.333
                                   </td>
-                                  <td className="p-2">-.33, -0.33</td>
+                                  <td className="p-1 sm:p-2">-.33, -0.33</td>
                                 </tr>
                               </tbody>
                             </table>
@@ -2208,8 +2208,8 @@ export default function TestTakingPage() {
                         </div>
                       ) : (question.sharedPassage?.content ||
                       question.passage) ? (
-                        <div className="p-5 bg-gray-50/80 rounded-lg">
-                          <p className="text-base leading-relaxed whitespace-pre-wrap">
+                        <div className="p-3 sm:p-4 md:p-5 bg-gray-50/80 rounded-lg">
+                          <p className="text-xs sm:text-sm md:text-base leading-relaxed whitespace-pre-wrap">
                             {question.sharedPassage?.content || question.passage}
                           </p>
                         </div>
@@ -2218,48 +2218,55 @@ export default function TestTakingPage() {
                           No passage for this question.
                         </div>
                       )}
+                      {/* Savol rasmi passage/directions ostida chap ustunda */}
+                      {getQuestionImageUrl(question) && (
+                        <div className="mt-2 sm:mt-3 md:mt-4 p-2 sm:p-3 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+                          <img
+                            src={getQuestionImageUrl(question)!}
+                            alt="Question"
+                            className="w-full h-auto rounded-lg object-contain max-h-[100px] sm:max-h-[140px] md:max-h-[180px] bg-gray-100"
+                            loading="lazy"
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
 
-                {/* Resizable Divider – markazdagi ustun, 2 tarafiga bo‘shliq */}
+                {/* Resizable Divider (in-flow, scroll bilan birga harakat qiladi) */}
                 <div
-                  className="divider flex-shrink-0"
-                  style={{ left: `calc(${splitPosition}% - 4px)` }}
+                  className="divider-inline self-stretch"
                   onMouseDown={handleDividerMouseDown}
+                  aria-label="Resize columns"
                 />
 
-                {/* Right Column: passage ustida, variantlar pastda */}
+                {/* Right Column – scroll yo‘q, kontent to‘liq ko‘rinadi */}
                 <div
-                  className="content-pane flex flex-col min-h-0 flex-1 min-w-0 pl-2"
+                  className="content-pane flex-1 min-w-0 pl-1 md:pl-2"
                   style={{
-                    width: `calc(${100 - splitPosition}% - 6px)`,
-                    minWidth: 280,
+                    width: `calc(${100 - splitPosition}% - 4px)`,
+                    minWidth: 260,
                   }}
                 >
-                  <div
-                    className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-hide px-4 pb-6"
-                    style={{ WebkitOverflowScrolling: "touch" }}
-                  >
-                    {/* O'ng ustun: savol raqami + Mark for Review + ABC (rasmdagidek) */}
-                    <div className="flex items-center justify-between bg-gray-200 rounded-lg mb-5 py-1">
+                  <div className="px-2 md:px-4 pb-4 md:pb-6">
+                    {/* O'ng ustun: savol raqami + Mark for Review + ABC */}
+                    <div className="flex items-center justify-between bg-gray-200 rounded-lg mb-2 sm:mb-3 md:mb-4 py-0.5 sm:py-1">
                       <div className="flex items-center h-full">
-                        <p className="question-index font-semibold bg-black text-white text-sm h-full px-3 py-2 rounded-l rounded-r-none">
+                        <p className="question-index font-semibold bg-black text-white text-xs sm:text-sm h-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-l rounded-r-none">
                           {testState.currentQuestionIndex + 1}
                         </p>
                         <button
                           type="button"
                           onClick={handleToggleFlag}
-                          className="flex items-center text-sm text-gray-600 hover:text-black mr-2 h-full px-2"
+                          className="flex items-center text-xs sm:text-sm text-gray-600 hover:text-black mr-1 sm:mr-2 h-full px-1 sm:px-2"
                         >
                           <Flag
-                            className={`w-5 h-5 text-gray-500 ${
+                            className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-500 ${
                               isFlagged
                                 ? "fill-orange-500 text-orange-500"
                                 : ""
                             }`}
                           />
-                          <span className="ml-1">Mark for Review</span>
+                          <span className="ml-0.5 sm:ml-1 text-xs sm:text-sm">Mark for Review</span>
                         </button>
                       </div>
                       {hasChoiceOptions(question) && (
@@ -2295,8 +2302,8 @@ export default function TestTakingPage() {
                         </button>
                       )}
                     </div>
-                    {/* Savol matni (Mark for Review / ABC dan keyin) */}
-                    <div className="prose max-w-none mb-5">
+                    {/* Savol matni – rasm chapda passage ostida */}
+                    <div className="prose prose-sm sm:prose max-w-none mb-2 sm:mb-3 md:mb-4 text-xs sm:text-sm md:text-base">
                       <QuestionDisplay
                         key={question.id}
                         question={question}
@@ -2337,20 +2344,9 @@ export default function TestTakingPage() {
                         }}
                       />
                     </div>
-                    {getQuestionImageUrl(question) && (
-                      <div className="mb-5 p-3 bg-gray-100 rounded-lg min-h-[120px] flex items-center justify-center overflow-hidden">
-                        <img
-                          src={getQuestionImageUrl(question)!}
-                          alt="Savol rasmi"
-                          className="w-full h-auto rounded-lg object-contain max-h-[180px] bg-gray-100"
-                          loading="lazy"
-                        />
-                      </div>
-                    )}
 
-                    {/* Choices */}
                     {hasChoiceOptions(question) && (
-                      <div className="space-y-4">
+                      <div className="space-y-2 sm:space-y-3 md:space-y-4">
                         {(question.choices ?? []).map((choice, index) => {
                           const isSelected =
                             currentAnswer.choiceId === choice.id;
@@ -2386,7 +2382,7 @@ export default function TestTakingPage() {
                                     });
                                   }
                                 }}
-                                className={`w-full p-4 text-left border-2 rounded-lg text-base flex items-start gap-3 ${
+                                className={`w-full p-2 sm:p-3 md:p-4 text-left border-2 rounded-lg text-xs sm:text-sm md:text-base flex items-start gap-2 md:gap-3 ${
                                   isSelected
                                     ? "border-black"
                                     : isEliminated
@@ -2395,7 +2391,7 @@ export default function TestTakingPage() {
                                 }`}
                               >
                                 <div
-                                  className={`flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full font-bold border border-black ${
+                                  className={`flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full font-bold border border-black text-[10px] sm:text-xs ${
                                     isSelected
                                       ? "bg-black text-white"
                                       : "text-black"
@@ -2434,9 +2430,6 @@ export default function TestTakingPage() {
 
                     {isOpenAnswerQuestion(question) && (
                       <div className="mt-3 pt-2 space-y-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Javobingizni yozing
-                        </label>
                         <input
                           type="text"
                           value={currentAnswer.textAnswer || ""}
@@ -2446,27 +2439,28 @@ export default function TestTakingPage() {
                               choiceId: currentAnswer.choiceId,
                             })
                           }
-                          placeholder="Javobni kiriting"
+                          placeholder="Enter your answer (e.g. 5.566, -5.566, 2/3, -2/3)"
                           pattern="[0-9.\\-/]+"
-                          className="max-w-[140px] px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                          className="max-w-[180px] sm:max-w-[220px] md:max-w-[240px] w-full px-2 sm:px-3 py-1.5 sm:py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm md:text-base"
                         />
                       </div>
                     )}
                   </div>
                 </div>
+                </div>
               </div>
 
-              {/* Mobil / planshet (< lg) – bitta ustun, scroll qilinadigan layout */}
-              <div className="flex lg:hidden flex-1 min-h-0 overflow-y-auto">
-                <div className="flex-1 min-h-0 px-4 pb-6">
-                  {/* Math + grid-in: mobil da ham directions yuqorida */}
+              {/* Mobil / planshet (< lg) – bitta ustun, bitta scroll, to‘liq responsive */}
+              <div className="flex lg:hidden flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain">
+                <div className="px-2 sm:px-3 md:px-4 pb-4 sm:pb-6">
+                  {/* Math + grid-in: mobil da ham directions */}
                   {testState.currentSection.type === "MATH" &&
                     isOpenAnswerQuestion(question) && (
-                      <div className="p-4 mb-5 bg-gray-50/80 rounded-lg text-base leading-relaxed">
-                        <h2 className="text-lg font-bold text-black mb-3">
+                      <div className="p-3 sm:p-4 mb-3 sm:mb-5 bg-gray-50/80 rounded-lg text-xs sm:text-sm leading-relaxed">
+                        <h2 className="text-sm sm:text-base md:text-lg font-bold text-black mb-2 sm:mb-3">
                           Student-Produced Response Directions
                         </h2>
-                        <ul className="list-disc pl-5 space-y-1.5 mb-3 text-gray-800 text-sm">
+                        <ul className="list-disc pl-4 sm:pl-5 space-y-1 sm:space-y-1.5 mb-2 sm:mb-3 text-gray-800 text-xs sm:text-sm">
                           <li>If you find more than one correct answer, enter only one answer.</li>
                           <li>You can enter up to 5 characters for a positive answer and up to 6 (including the negative sign) for a negative answer.</li>
                           <li>If your answer is a fraction that doesn&apos;t fit, enter the decimal equivalent.</li>
@@ -2474,45 +2468,45 @@ export default function TestTakingPage() {
                           <li>If your answer is a mixed number (e.g. 3½), enter it as an improper fraction (7/2) or decimal (3.5).</li>
                           <li>Don&apos;t enter symbols such as %, comma, or $.</li>
                         </ul>
-                        <p className="font-semibold text-black mb-1.5 text-sm">Examples</p>
-                        <div className="overflow-x-auto border border-gray-300 rounded text-sm">
+                        <p className="font-semibold text-black mb-1 sm:mb-1.5 text-xs sm:text-sm">Examples</p>
+                        <div className="overflow-x-auto border border-gray-300 rounded text-xs sm:text-sm">
                           <table className="w-full border-collapse">
                             <thead>
                               <tr className="bg-gray-100 border-b border-gray-300">
-                                <th className="text-left p-1.5 font-semibold border-r border-gray-300">Answer</th>
-                                <th className="text-left p-1.5 font-semibold border-r border-gray-300">Acceptable</th>
-                                <th className="text-left p-1.5 font-semibold">Unacceptable</th>
+                                <th className="text-left p-1 sm:p-1.5 font-semibold border-r border-gray-300">Answer</th>
+                                <th className="text-left p-1 sm:p-1.5 font-semibold border-r border-gray-300">Acceptable</th>
+                                <th className="text-left p-1 sm:p-1.5 font-semibold">Unacceptable</th>
                               </tr>
                             </thead>
                             <tbody>
-                              <tr className="border-b border-gray-200"><td className="p-1.5 border-r">3.5</td><td className="p-1.5 border-r">3.5, 3.50, 7/2</td><td className="p-1.5">3 1/2</td></tr>
-                              <tr className="border-b border-gray-200"><td className="p-1.5 border-r">2/3</td><td className="p-1.5 border-r">2/3, .6666, .6667, 0.666, 0.667</td><td className="p-1.5">0.66, .66, 0.67, .67</td></tr>
-                              <tr><td className="p-1.5 border-r">-1/3</td><td className="p-1.5 border-r">-1/3, -.3333, -0.333</td><td className="p-1.5">-.33, -0.33</td></tr>
+                              <tr className="border-b border-gray-200"><td className="p-1 sm:p-1.5 border-r">3.5</td><td className="p-1 sm:p-1.5 border-r">3.5, 3.50, 7/2</td><td className="p-1 sm:p-1.5">3 1/2</td></tr>
+                              <tr className="border-b border-gray-200"><td className="p-1 sm:p-1.5 border-r">2/3</td><td className="p-1 sm:p-1.5 border-r">2/3, .6666, .6667, 0.666, 0.667</td><td className="p-1 sm:p-1.5">0.66, .66, 0.67, .67</td></tr>
+                              <tr><td className="p-1 sm:p-1.5 border-r">-1/3</td><td className="p-1 sm:p-1.5 border-r">-1/3, -.3333, -0.333</td><td className="p-1 sm:p-1.5">-.33, -0.33</td></tr>
                             </tbody>
                           </table>
                         </div>
                       </div>
                     )}
-                  <div className="question-index-container flex items-center justify-between bg-gray-200 rounded-lg mb-5 py-1">
+                  <div className="question-index-container flex items-center justify-between bg-gray-200 rounded-lg mb-3 sm:mb-5 py-0.5 sm:py-1">
                     <div className="flex items-center h-full">
-                      <p className="question-index font-semibold bg-black text-white text-sm h-full px-3 py-2 rounded-l">
+                      <p className="question-index font-semibold bg-black text-white text-xs sm:text-sm h-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-l">
                         {testState.currentQuestionIndex + 1}
                       </p>
                       <button
                         type="button"
                         onClick={handleToggleFlag}
-                        className="flex items-center text-sm text-gray-600 hover:text-black mr-2 h-full px-2"
+                        className="flex items-center text-xs sm:text-sm text-gray-600 hover:text-black mr-1 sm:mr-2 h-full px-1 sm:px-2"
                       >
                         <Flag
-                          className={`w-5 h-5 text-gray-500 ${
+                          className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-500 ${
                             isFlagged ? "fill-orange-500 text-orange-500" : ""
                           }`}
                         />
-                        <span className="ml-1">Mark for Review</span>
+                        <span className="ml-0.5 sm:ml-1">Mark for Review</span>
                       </button>
                     </div>
                   </div>
-                  <div className="prose max-w-none mt-0 mb-5">
+                  <div className="prose prose-sm sm:prose max-w-none mt-0 mb-3 sm:mb-5 text-xs sm:text-sm">
                     <QuestionDisplay
                       key={question.id}
                       question={question}
@@ -2563,11 +2557,11 @@ export default function TestTakingPage() {
                     />
                   </div>
                   {getQuestionImageUrl(question) && (
-                    <div className="my-5 p-3 bg-gray-100 rounded-lg min-h-[120px] flex items-center justify-center overflow-hidden">
+                    <div className="my-3 sm:my-5 p-2 sm:p-3 bg-gray-100 rounded-lg min-h-[80px] sm:min-h-[120px] flex items-center justify-center overflow-hidden">
                       <img
                         src={getQuestionImageUrl(question)!}
                         alt="Savol rasmi"
-                        className="w-full h-auto rounded-lg object-contain max-h-[180px] bg-gray-100"
+                        className="w-full h-auto rounded-lg object-contain max-h-[120px] sm:max-h-[160px] md:max-h-[180px] bg-gray-100"
                         loading="lazy"
                       />
                     </div>
@@ -2576,23 +2570,25 @@ export default function TestTakingPage() {
               </div>
             </div>
 
-            {/* Footer – qotib turadi (Question navigator / Back–Next) */}
+            {/* Footer – doimiy balandlik, o‘zgarmaydi, pastda qotib turadi */}
             <div
-              className="flex-shrink-0 bg-blue-100 p-2 flex justify-between items-center"
+              className="flex-shrink-0 flex-none h-12 bg-blue-100 flex justify-between items-center"
               style={{
+                minHeight: 48,
+                maxHeight: 48,
                 borderTop: "2px dashed",
                 backgroundColor: "rgb(229, 235, 245)",
                 borderImage:
                   "repeating-linear-gradient(to right, rgb(167, 56, 87) 0%, rgb(167, 56, 87) 3.5%, transparent 3.5%, transparent 4%, rgb(249, 223, 205) 4%, rgb(249, 223, 205) 7.5%, transparent 7.5%, transparent 8%, rgb(28, 17, 103) 8%, rgb(28, 17, 103) 11.5%, transparent 11.5%, transparent 12%, rgb(94, 147, 101) 12%, rgb(94, 147, 101) 15.5%, transparent 15.5%, transparent 16%) 1 / 1 / 0 stretch",
               }}
             >
-              <p>
+              <p className="text-sm truncate max-w-[100px] sm:max-w-[120px]">
                 {currentUser?.name ||
                   currentUser?.email?.split("@")[0] ||
                   "User"}
               </p>
               <div
-                className="bg-black text-white p-2 flex items-center gap-2 rounded-xl cursor-pointer"
+                className="bg-black text-white px-3 py-1.5 flex items-center gap-2 rounded-xl cursor-pointer"
                 style={{
                   position: "absolute",
                   left: "50%",
@@ -2600,13 +2596,10 @@ export default function TestTakingPage() {
                 }}
                 onClick={() => setShowNavigator((prev) => !prev)}
               >
-                <p className="text-white">
+                <p className="text-white text-sm">
                   Question {testState.currentQuestionIndex + 1} of {totalQs}
                 </p>
-                <button
-                  className="p-1 rounded"
-                  style={{ pointerEvents: "none" }}
-                >
+                <button className="p-1 rounded" style={{ pointerEvents: "none" }}>
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
@@ -2615,7 +2608,7 @@ export default function TestTakingPage() {
                   variant="outline"
                   onClick={handlePrevious}
                   disabled={testState.currentQuestionIndex === 0 || submitting || isQuestionLoading}
-                  className="px-4 py-2 text-white transition-opacity duration-200 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 text-sm text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
                     backgroundColor: "rgb(51, 76, 199)",
                     borderRadius: "30px",
@@ -2628,7 +2621,7 @@ export default function TestTakingPage() {
                   <Button
                     onClick={handleNext}
                     disabled={submitting || isQuestionLoading}
-                    className="px-4 py-2 text-white transition-opacity duration-200 rounded-md cursor-pointer"
+                    className="px-4 py-2 text-sm text-white rounded-md cursor-pointer"
                     style={{
                       backgroundColor: "rgb(51, 76, 199)",
                       borderRadius: "30px",
@@ -2640,7 +2633,7 @@ export default function TestTakingPage() {
                   <Button
                     onClick={handleFinishSection}
                     disabled={submitting || isQuestionLoading}
-                    className="px-4 py-2 text-white transition-opacity duration-200 rounded-md cursor-pointer"
+                    className="px-4 py-2 text-sm text-white rounded-md cursor-pointer"
                     style={{
                       backgroundColor: "rgb(51, 76, 199)",
                       borderRadius: "30px",
