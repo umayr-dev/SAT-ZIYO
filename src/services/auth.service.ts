@@ -40,35 +40,13 @@ export const authService = {
 
   /**
    * Verify OTP and get JWT access token
-   * Verifies OTP code and returns JWT access token
+   * BACKEND TALABI: faqat email va otp yuboriladi.
    */
   async verifyOtp(email: string, code: string): Promise<AuthResponse> {
     const response = await apiPost<AuthResponse>(API_ENDPOINTS.auth.verifyOtp, {
       email,
-      otp: code, // API expects 'otp' field, not 'code'
+      otp: code,
     });
-
-    // Store JWT token from response
-    // API spec: /auth/verify-otp returns JWT access token in response body
-    // Try multiple common field names
-    const token =
-      (response as any).accessToken ||
-      (response as any).token ||
-      (response as any).access_token ||
-      (response as any).jwt;
-
-    if (token && typeof window !== "undefined") {
-      // Ensure token is a string
-      const tokenString = String(token);
-      tokenStorage.setToken(tokenString);
-      const storedToken = tokenStorage.getToken();
-      if (!storedToken) {
-        console.error("Failed to store token in localStorage");
-      }
-    } else if (typeof window !== "undefined") {
-      // Debug: Log response if token is missing
-      console.error("Token not found in OTP response:", response);
-    }
 
     return response as AuthResponse;
   },
@@ -94,8 +72,8 @@ export const authService = {
 
   /**
    * Get current user profile
-   * Returns authenticated user profile using cookie-based or token-based authentication
-   * Uses caching to prevent rate limiting
+   * Returns authenticated user profile using cookie-based authentication
+   * (localStorage token fallback olib tashlangan)
    */
   async getCurrentUser(): Promise<UserProfile> {
     // Import cache manager dynamically to avoid circular dependencies
@@ -109,16 +87,8 @@ export const authService = {
 
     // Use cache manager to prevent multiple simultaneous requests
     return userCacheManager.getOrCreatePromise(async () => {
-      // Get token from localStorage as fallback
-      const token = tokenStorage.getToken();
-      
       // Use our Next.js API route which handles cookie-based auth
       const headers: HeadersInit = {};
-      
-      // If we have a token in localStorage but not in cookie, send it in header
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
 
       const response = await fetch("/api/auth/me", {
         method: "GET",
@@ -191,16 +161,10 @@ export const authService = {
 
   /**
    * Logout user
-   * Clears JWT token and logs out the user
+   * Clears JWT cookie and logs out the user
    * Optimized for fast logout - doesn't wait for backend response
    */
   async logout(): Promise<AuthResponse> {
-    // Remove token from storage immediately
-    if (typeof window !== "undefined") {
-      const { tokenStorage } = await import("@/src/lib/token-storage");
-      tokenStorage.removeToken();
-    }
-
     // Call logout API but don't wait for it (fire and forget)
     try {
       // Use fetch directly to avoid waiting
