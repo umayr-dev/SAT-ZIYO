@@ -13,7 +13,10 @@ const JWT_MAX_AGE = 30 * 24 * 60 * 60; // 30 days in seconds
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, otp, name, isRegister } = await request.json();
+    // Backend talabi: faqat email va otp ishlatiladi.
+    // Agar front boshqa maydon yuborsa ham (name, isRegister),
+    // bu yerda faqat email va otp olinadi va backendga yuboriladi.
+    const { email, otp } = await request.json();
 
     if (!email || typeof email !== "string" || !email.includes("@")) {
       return NextResponse.json(
@@ -31,18 +34,6 @@ export async function POST(request: NextRequest) {
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Call backend API to verify OTP and get JWT token
-    // Backend will verify OTP and return token if valid
-    // For register, we might need to send name as well
-    const requestBody: { email: string; otp: string; name?: string } = {
-      email: normalizedEmail,
-      otp: otp,
-    };
-
-    if (isRegister && name) {
-      requestBody.name = name;
-    }
-
     const response = await fetch(
       `${API_CONFIG.baseURL}${API_ENDPOINTS.auth.verifyOtp}`,
       {
@@ -50,7 +41,8 @@ export async function POST(request: NextRequest) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(requestBody),
+        // BACKEND GA: faqat email va otp yuboramiz
+        body: JSON.stringify({ email: normalizedEmail, otp }),
       }
     );
 

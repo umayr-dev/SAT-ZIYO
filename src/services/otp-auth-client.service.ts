@@ -62,17 +62,12 @@ export async function sendOTP(
 }
 
 /**
- * Verify OTP and create session
- * @param email - User's email address
- * @param otp - OTP code to verify
- * @param name - User's name (optional, for registration)
- * @param isRegister - Whether this is for registration (default: false)
+ * Verify OTP and create session.
+ * BACKEND TALABI: faqat email va otp yuboriladi.
  */
 export async function verifyOTP(
   email: string,
-  otp: string,
-  name?: string,
-  isRegister: boolean = false
+  otp: string
 ): Promise<VerifyOTPResponse> {
   const response = await fetch("/api/auth/otp/verify", {
     method: "POST",
@@ -80,7 +75,7 @@ export async function verifyOTP(
       "Content-Type": "application/json",
     },
     credentials: "include", // Important: include cookies
-    body: JSON.stringify({ email, otp, name, isRegister }),
+    body: JSON.stringify({ email, otp }),
   });
 
   if (!response.ok) {

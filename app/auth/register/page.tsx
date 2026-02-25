@@ -86,7 +86,7 @@ export default function RegisterPage() {
 
     try {
       // Verify OTP - this creates the session cookie with user data (including name)
-      await verifyOTP(email, code, name, true); // isRegister = true
+      await verifyOTP(email, code);
 
       // Redirect to dashboard (session cookie is now set)
       router.push("/dashboard");
