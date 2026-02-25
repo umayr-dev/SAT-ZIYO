@@ -82,9 +82,13 @@ export const authService = {
     // API URL is configured in API_CONFIG from environment variable
     if (typeof window !== "undefined") {
       const redirectUrl = `${window.location.origin}/auth/callback`;
-      window.location.href = `${API_CONFIG.baseURL}${
-        API_ENDPOINTS.auth.google
-      }?redirect=${encodeURIComponent(redirectUrl)}`;
+      // Qo‘shimcha query param: prompt=select_account – Google har safar
+      // account tanlash oynasini ko‘rsatadi (oldingi akkauntga avtomatik kirmaydi)
+      const params = new URLSearchParams({
+        redirect: redirectUrl,
+        prompt: "select_account",
+      });
+      window.location.href = `${API_CONFIG.baseURL}${API_ENDPOINTS.auth.google}?${params.toString()}`;
     }
   },
 
