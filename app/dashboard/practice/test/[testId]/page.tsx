@@ -1970,7 +1970,7 @@ export default function TestTakingPage() {
               {/* Timer - Centered */}
               {!isTimerHidden ? (
                 <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-2">
-                  <div className="text-lg font-bold text-black">
+                  <div className="text-base sm:text-lg font-bold text-black">
                     {formatTimer(remainingTimeSeconds)}
                   </div>
                   <button
@@ -2103,11 +2103,11 @@ export default function TestTakingPage() {
             <div className="flex-1 min-h-0 flex flex-col relative min-w-0 overflow-hidden">
               {/* Desktop / large (>= lg): 2 ustun – bitta umumiy scroll */}
               <div
-                className="relative hidden lg:block flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden"
+                className="relative hidden lg:flex lg:flex-col flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden"
                 ref={layoutContainerRef}
                 style={{ WebkitOverflowScrolling: "touch" }}
               >
-                <div className="flex gap-0 min-h-full items-stretch" style={{ minHeight: "min-content" }}>
+                <div className="flex flex-1 gap-0 items-stretch" style={{ minHeight: "min-content" }}>
                 {/* Left Column */}
                 <div
                   className="content-pane flex-shrink-0 pr-1 md:pr-2 min-w-0"
@@ -2451,8 +2451,8 @@ export default function TestTakingPage() {
               </div>
 
               {/* Mobil / planshet (< lg) – bitta ustun, bitta scroll, to‘liq responsive */}
-              <div className="flex lg:hidden flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain">
-                <div className="px-2 sm:px-3 md:px-4 pb-4 sm:pb-6">
+              <div className="flex lg:hidden flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden overscroll-contain">
+                <div className="w-full min-w-0 px-2 sm:px-3 md:px-4 pb-4 sm:pb-6">
                   {/* Math + grid-in: mobil da ham directions */}
                   {testState.currentSection.type === "MATH" &&
                     isOpenAnswerQuestion(question) && (

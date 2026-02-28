@@ -566,7 +566,7 @@ export function QuestionDisplay({
           <p
             ref={textRef}
             onMouseUp={handleMouseUp}
-            className="text-base text-gray-900 leading-relaxed select-text"
+            className="text-sm sm:text-base text-gray-900 leading-relaxed select-text"
           >
             {question.questionText ? (
               characters.map(({ char, index }) => {
@@ -593,7 +593,7 @@ export function QuestionDisplay({
             )}
           </p>
         ) : (
-          <div className="text-base text-gray-900 leading-relaxed">
+          <div className="text-sm sm:text-base text-gray-900 leading-relaxed">
             {question.questionText ? (
               parseMathContent(question.questionText)
             ) : (
@@ -610,7 +610,7 @@ export function QuestionDisplay({
         <>
           {/* Multiple Choice */}
           {hasChoiceOptions(question) ? (
-            <div className="space-y-3 mt-4">
+            <div className="space-y-2 sm:space-y-3 mt-3 sm:mt-4">
               {(question.choices ?? []).map((choice, index) => {
                 const isSelected = selectedChoiceId === choice.id;
                 const letter = String.fromCharCode(65 + index); // A, B, C, D
@@ -619,15 +619,15 @@ export function QuestionDisplay({
                   <button
                     key={choice.id || index}
                     onClick={() => onSelectChoice(choice.id)}
-                    className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
+                    className={`w-full text-left p-2 sm:p-3 md:p-4 rounded-lg border-2 transition-all ${
                       isSelected
                         ? "border-blue-500 bg-blue-50"
                         : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                     }`}
                   >
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-2 sm:gap-3">
                       <span
-                        className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-semibold ${
+                        className={`flex-shrink-0 w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-semibold text-xs sm:text-sm ${
                           isSelected
                             ? "bg-blue-500 text-white"
                             : "bg-gray-200 text-gray-700"
@@ -673,7 +673,7 @@ export function QuestionDisplay({
                   onChange={(e) => onTextAnswerChange(e.target.value)}
                   placeholder="Enter your answer (e.g. 5.566, -5.566, 2/3, -2/3)"
                   pattern="[0-9.\\-/]+"
-                  className="max-w-[240px] w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                  className="max-w-[240px] w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                 />
               </div>
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">

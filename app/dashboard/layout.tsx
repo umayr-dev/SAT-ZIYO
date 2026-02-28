@@ -46,9 +46,7 @@ function DashboardLayoutContent({ children }: DashboardLayoutProps) {
       <div
         className={cn(
           "transition-all duration-300 min-h-screen",
-          isPracticeTestRoute 
-            ? "ml-0" 
-            : isCollapsed ? "ml-20" : "ml-72"
+          isPracticeTestRoute ? "ml-0" : isCollapsed ? "ml-20" : "ml-72",
         )}
       >
         <div
@@ -56,18 +54,10 @@ function DashboardLayoutContent({ children }: DashboardLayoutProps) {
             "w-full",
             isPracticeTestRoute
               ? "px-0 pt-0 pb-0"
-              : "pl-4 pr-8 pt-6 pb-8 lg:pl-6 lg:pr-10"
+              : "pl-4 pr-8 pt-6 pb-8 lg:pl-6 lg:pr-10",
           )}
         >
-          <div
-            className={cn(
-              isPracticeTestRoute
-                ? "w-full min-w-[1500px]"
-                : "max-w-[1440px] mx-auto w-full"
-            )}
-          >
-            {children}
-          </div>
+          <div className={cn("max-w-[1440px] mx-auto w-full")}>{children}</div>
         </div>
       </div>
     </div>
@@ -87,5 +77,3 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     </AuthGuard>
   );
 }
-
-
