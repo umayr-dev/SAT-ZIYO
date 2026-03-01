@@ -197,10 +197,10 @@ export default function PracticePage() {
     <div className="w-full max-w-5xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold text-brand-blue mb-2">
+        <h1 className="text-3xl md:text-4xl font-bold text-black mb-2">
           Official Practice Tests
         </h1>
-        <p className="text-sm md:text-base text-brand-blue/80">
+        <p className="text-sm md:text-base text-black">
           Real SAT-style tests from your dashboard. Jump back into your latest
           attempt in one click.
         </p>
@@ -239,10 +239,10 @@ export default function PracticePage() {
             const totalPeopleTook = allAttemptsForTest.length;
 
             const statusBadge = inProgressAttempt
-              ? { label: "In progress", color: "bg-brand-blue-50 text-brand-blue" }
+              ? { label: "In progress", color: "bg-brand-orange-50 text-brand-orange" }
               : completedAttempts.length > 0
               ? { label: "Completed", color: "bg-brand-orange-light text-brand-orange" }
-              : { label: "Unsolved", color: "bg-brand-blue-light text-brand-blue" };
+              : { label: "Unsolved", color: "bg-brand-orange-light text-brand-orange" };
 
             const hasAttempts = totalPeopleTook > 0;
             const title =
@@ -256,12 +256,12 @@ export default function PracticePage() {
             const accessClasses =
               accessType === "PREMIUM"
                 ? "bg-brand-orange-light text-brand-orange border border-brand-orange/30"
-                : "bg-brand-blue-50 text-brand-blue border border-brand-blue/30";
+                : "bg-brand-orange-light text-brand-orange border border-brand-orange/30";
 
             return (
               <Card
                 key={test.id}
-                className="p-4 md:p-5 bg-white border border-brand-blue-light hover:border-brand-blue/40 hover:shadow-md transition-all duration-200 rounded-2xl"
+                className="p-4 md:p-5 bg-white border border-brand-orange-light hover:border-brand-orange/40 hover:shadow-md transition-all duration-200 rounded-2xl"
               >
                 <div className="space-y-3">
                   {/* Top: tile with logo + glass effect, test name centered */}
@@ -293,13 +293,13 @@ export default function PracticePage() {
                   </div>
 
                   {/* Middle: meta + attempts */}
-                  <div className="flex items-center justify-between text-[11px] md:text-xs text-brand-blue/80">
+                  <div className="flex items-center justify-between text-[11px] md:text-xs text-black">
                     <div className="flex items-center gap-2">
                       <div className="flex items-center gap-1.5">
                         <Clock className="w-3.5 h-3.5" />
                         <span>{totalDuration} min</span>
                       </div>
-                      <span className="h-1 w-1 rounded-full bg-brand-blue/40" />
+                      <span className="h-1 w-1 rounded-full bg-gray-400" />
                       <span>{totalQuestions} questions</span>
                     </div>
                     <span
@@ -308,7 +308,7 @@ export default function PracticePage() {
                       {statusBadge.label}
                     </span>
                   </div>
-                  <div className="text-[11px] md:text-xs text-brand-blue/70 flex items-center justify-between">
+                  <div className="text-[11px] md:text-xs text-black flex items-center justify-between">
                     <span
                       className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${accessClasses}`}
                     >
@@ -337,7 +337,7 @@ export default function PracticePage() {
                             : `/dashboard/practice/test/${test.id}/start`,
                         )
                       }
-                      className="flex-1 bg-brand-blue hover:bg-brand-blue/90 text-white rounded-xl py-2.5 text-sm font-semibold"
+                      className="flex-1 bg-brand-orange hover:bg-brand-orange/90 text-white rounded-xl py-2.5 text-sm font-semibold"
                     >
                       {inProgressAttempt ? (
                         <>
@@ -359,7 +359,7 @@ export default function PracticePage() {
                           `/dashboard/practice/test/${test.id}/comments`,
                         )
                       }
-                      className="bg-white border-brand-blue-light hover:bg-brand-orange-light rounded-xl px-3 py-2"
+                      className="bg-white border-brand-orange-light text-brand-orange hover:bg-brand-orange-light rounded-xl px-3 py-2"
                       title="Comments / Discussion"
                     >
                       <MessageCircle className="w-4 h-4" />

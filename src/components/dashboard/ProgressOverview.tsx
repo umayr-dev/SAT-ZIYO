@@ -266,7 +266,7 @@ export function ProgressOverview() {
               <CardTitle className="text-xl font-bold text-brand-orange">
                 Your Progress
               </CardTitle>
-              <p className="text-sm text-brand-orange/70 mt-0.5">
+              <p className="text-sm text-black mt-0.5">
                 Real stats from your practice
               </p>
             </div>
@@ -285,7 +285,7 @@ export function ProgressOverview() {
               <div className="p-4 bg-white border border-brand-orange-light rounded-xl">
                 <div className="flex items-center gap-2 mb-2">
                   <TrendingUp className="h-4 w-4 text-brand-orange/70" />
-                  <span className="text-sm text-brand-orange/80">
+                  <span className="text-sm text-black">
                     Oxirgi ball
                   </span>
                 </div>
@@ -294,7 +294,7 @@ export function ProgressOverview() {
                     ? progressStats.lastScore
                     : "—"}
                 </p>
-                <p className="text-xs text-brand-orange/70 mt-0.5">
+                <p className="text-xs text-black mt-0.5">
                   out of 1600
                 </p>
               </div>
@@ -302,14 +302,14 @@ export function ProgressOverview() {
               <div className="p-4 bg-white border border-brand-orange/40 rounded-xl">
                 <div className="flex items-center gap-2 mb-2">
                   <ClipboardCheck className="h-4 w-4 text-brand-orange/80" />
-                  <span className="text-sm text-brand-orange/90">
+                  <span className="text-sm text-black">
                     Ishlagan testlar
                   </span>
                 </div>
                 <p className="text-2xl font-bold text-brand-orange">
                   {progressStats?.testsCompleted ?? 0}
                 </p>
-                <p className="text-xs text-brand-orange/70 mt-0.5">
+                <p className="text-xs text-black mt-0.5">
                   tugatilgan
                 </p>
               </div>
@@ -317,14 +317,14 @@ export function ProgressOverview() {
               <div className="p-4 bg-white border border-brand-orange-light rounded-xl">
                 <div className="flex items-center gap-2 mb-2">
                   <Percent className="h-4 w-4 text-brand-orange/70" />
-                  <span className="text-sm text-brand-orange/80">Accuracy</span>
+                  <span className="text-sm text-black">Accuracy</span>
                 </div>
                 <p className="text-2xl font-bold text-brand-orange">
                   {progressStats?.accuracy != null
                     ? `${progressStats.accuracy}%`
                     : "—"}
                 </p>
-                <p className="text-xs text-brand-orange/70 mt-0.5">
+                <p className="text-xs text-black mt-0.5">
                   oxirgi test
                 </p>
               </div>
@@ -354,7 +354,7 @@ export function ProgressOverview() {
           <CardContent className="space-y-6">
             {!examDate ? (
               <>
-                <p className="text-sm text-brand-blue/80">
+                <p className="text-sm text-brand-blue">
                   Select your official SAT test date to activate a personalized
                   countdown timer.
                 </p>
@@ -479,7 +479,7 @@ export function ProgressOverview() {
                 <CardTitle className="text-xl font-bold text-brand-blue">
                   Your Target Score
                 </CardTitle>
-                <p className="text-sm text-brand-blue/70 mt-0.5">
+                <p className="text-sm text-brand-blue mt-0.5">
                   Set your SAT goal
                 </p>
               </div>
@@ -493,19 +493,19 @@ export function ProgressOverview() {
             ) : !isEditing ? (
               <>
                 <div className="text-center p-6 bg-brand-blue-50 border border-brand-blue-light rounded-2xl">
-                  <p className="text-sm text-brand-blue/80 mb-2">
+                  <p className="text-sm text-black mb-2">
                     Current Target
                   </p>
                   <p className="text-6xl font-bold text-brand-blue mb-2">
                     {targetScore || "Not set"}
                   </p>
-                  <p className="text-xs text-brand-blue/70">out of 1600</p>
+                  <p className="text-xs text-black">out of 1600</p>
                 </div>
-                <p className="text-sm text-brand-blue/80 text-center">
+                <p className="text-sm text-black text-center">
                   This appears on your{" "}
                   <Link
                     href="/results"
-                    className="text-brand-blue hover:text-brand-blue/80 hover:underline font-medium transition-colors"
+                    className="text-black hover:underline font-medium transition-colors"
                   >
                     Results
                   </Link>{" "}
@@ -521,7 +521,7 @@ export function ProgressOverview() {
             ) : (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <p className="text-sm font-semibold text-brand-blue">
+                  <p className="text-sm font-semibold text-black">
                     Current Target
                   </p>
                   <Input
