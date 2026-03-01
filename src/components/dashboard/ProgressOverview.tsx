@@ -335,17 +335,17 @@ export function ProgressOverview() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Exam Countdown Card */}
-        <Card className="border border-brand-blue-light shadow-sm bg-white overflow-hidden rounded-2xl">
+        <Card className="border border-brand-orange-light shadow-sm bg-white overflow-hidden rounded-2xl">
           <CardHeader className="pb-5">
             <div className="flex items-center gap-3">
-              <div className="w-14 h-14 bg-brand-blue rounded-2xl flex items-center justify-center shadow-sm">
+              <div className="w-14 h-14 bg-brand-orange rounded-2xl flex items-center justify-center shadow-sm">
                 <Calendar className="h-7 w-7 text-white" />
               </div>
               <div>
-                <CardTitle className="text-xl font-bold text-brand-blue">
+                <CardTitle className="text-xl font-bold text-brand-orange">
                   Exam Countdown
                 </CardTitle>
-                <p className="text-sm text-brand-blue/70 mt-0.5">
+                <p className="text-sm text-black mt-0.5">
                   Time until your SAT test
                 </p>
               </div>
@@ -354,7 +354,7 @@ export function ProgressOverview() {
           <CardContent className="space-y-6">
             {!examDate ? (
               <>
-                <p className="text-sm text-brand-blue">
+                <p className="text-sm text-black">
                   Select your official SAT test date to activate a personalized
                   countdown timer.
                 </p>
@@ -468,18 +468,18 @@ export function ProgressOverview() {
           </CardContent>
         </Card>
 
-        {/* Target Score Card — blue theme */}
-        <Card className="border border-brand-blue-light shadow-sm bg-white overflow-hidden rounded-2xl">
+        {/* Target Score Card — orange theme */}
+        <Card className="border border-brand-orange-light shadow-sm bg-white overflow-hidden rounded-2xl">
           <CardHeader className="pb-5">
             <div className="flex items-center gap-3">
-              <div className="w-14 h-14 bg-brand-blue rounded-2xl flex items-center justify-center shadow-sm">
+              <div className="w-14 h-14 bg-brand-orange rounded-2xl flex items-center justify-center shadow-sm">
                 <TrendingUp className="h-7 w-7 text-white" />
               </div>
               <div>
-                <CardTitle className="text-xl font-bold text-brand-blue">
+                <CardTitle className="text-xl font-bold text-brand-orange">
                   Your Target Score
                 </CardTitle>
-                <p className="text-sm text-brand-blue mt-0.5">
+                <p className="text-sm text-black mt-0.5">
                   Set your SAT goal
                 </p>
               </div>

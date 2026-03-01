@@ -195,7 +195,7 @@ export default function PracticePage() {
 
   return (
     <div className="w-full max-w-5xl mx-auto">
-      {/* Header */}
+      {/* Header — markup ichida, o‘zgartirilmaydi */}
       <div className="mb-8">
         <h1 className="text-3xl md:text-4xl font-bold text-black mb-2">
           Official Practice Tests
@@ -216,8 +216,8 @@ export default function PracticePage() {
 
       {/* Test Cards Grid */}
       {filteredAndSortedTests.length === 0 ? (
-        <Card className="p-12 text-center border border-dashed border-brand-blue/30 bg-brand-blue-50/60">
-          <p className="text-brand-blue text-base mb-2">
+        <Card className="p-12 text-center border border-dashed border-brand-orange/40 bg-brand-orange-50">
+          <p className="text-brand-orange text-base mb-2">
             No practice tests available
           </p>
         </Card>
@@ -264,10 +264,10 @@ export default function PracticePage() {
                 className="p-4 md:p-5 bg-white border border-brand-orange-light hover:border-brand-orange/40 hover:shadow-md transition-all duration-200 rounded-2xl"
               >
                 <div className="space-y-3">
-                  {/* Top: tile with logo + glass effect, test name centered */}
-                  <div className="relative overflow-hidden rounded-2xl h-44 md:h-52 bg-gradient-to-br from-brand-orange-light via-brand-orange/20 to-brand-blue">
+                  {/* Top: tile with logo, white background + orange glass effect, test name centered */}
+                  <div className="relative overflow-hidden rounded-2xl h-44 md:h-52 bg-white border border-brand-orange-light">
                     {/* Logo: larger so more visible */}
-                    <div className="absolute inset-0 flex items-center justify-center opacity-40">
+                    <div className="absolute inset-0 flex items-center justify-center opacity-30">
                       <div className="relative w-44 h-44 md:w-56 md:h-56">
                         <Image
                           src="/logo.png"
@@ -279,27 +279,27 @@ export default function PracticePage() {
                         />
                       </div>
                     </div>
-                    {/* Glass effect overlays */}
+                    {/* Glass effect — orange ton */}
                     <div className="absolute inset-0 pointer-events-none">
-                      <div className="absolute -top-10 left-0 w-40 h-32 bg-brand-orange/50 rounded-full blur-3xl" />
-                      <div className="absolute bottom-0 right-[-40px] w-48 h-32 bg-brand-blue/60 rounded-full blur-3xl" />
+                      <div className="absolute -top-10 left-0 w-40 h-32 bg-brand-orange/20 rounded-full blur-3xl" />
+                      <div className="absolute bottom-0 right-[-40px] w-48 h-32 bg-brand-orange/25 rounded-full blur-3xl" />
                     </div>
                     {/* Test name centered */}
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-lg md:text-xl font-semibold text-white drop-shadow-md text-center px-4">
+                      <span className="text-lg md:text-xl font-semibold text-gray-900 text-center px-4">
                         {title}
                       </span>
                     </div>
                   </div>
 
                   {/* Middle: meta + attempts */}
-                  <div className="flex items-center justify-between text-[11px] md:text-xs text-black">
+                  <div className="flex items-center justify-between text-[11px] md:text-xs text-brand-orange">
                     <div className="flex items-center gap-2">
                       <div className="flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5" />
+                        <Clock className="w-3.5 h-3.5 text-brand-orange" />
                         <span>{totalDuration} min</span>
                       </div>
-                      <span className="h-1 w-1 rounded-full bg-gray-400" />
+                      <span className="h-1 w-1 rounded-full bg-brand-orange/60" />
                       <span>{totalQuestions} questions</span>
                     </div>
                     <span
@@ -308,7 +308,7 @@ export default function PracticePage() {
                       {statusBadge.label}
                     </span>
                   </div>
-                  <div className="text-[11px] md:text-xs text-black flex items-center justify-between">
+                  <div className="text-[11px] md:text-xs text-brand-orange flex items-center justify-between">
                     <span
                       className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${accessClasses}`}
                     >
