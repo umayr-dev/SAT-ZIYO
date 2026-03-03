@@ -49,7 +49,11 @@ import { debounce } from "@/src/utils/request-queue";
 const QUESTIONS_PER_MODULE = { ENGLISH: 27, MATH: 22 } as const;
 
 /** Strict Mode / double mount da loadTestState ikki marta chaqilmasin – so‘nggi natija cache (qisqa vaqt) */
-let loadStateCache: { attemptId: string; state: StartTestResponse; ts: number } | null = null;
+let loadStateCache: {
+  attemptId: string;
+  state: StartTestResponse;
+  ts: number;
+} | null = null;
 const LOAD_STATE_CACHE_MS = 2500;
 
 const DESMOS_MIN_W = 320;
@@ -79,8 +83,14 @@ function DesmosCalculatorPanel({
       const handleMove = (moveEvent: MouseEvent) => {
         const dx = moveEvent.clientX - startRef.current.x;
         const dy = moveEvent.clientY - startRef.current.y;
-        const newW = Math.max(DESMOS_MIN_W, Math.min(DESMOS_MAX_W, startRef.current.w + dx));
-        const newH = Math.max(DESMOS_MIN_H, Math.min(DESMOS_MAX_H, startRef.current.h + dy));
+        const newW = Math.max(
+          DESMOS_MIN_W,
+          Math.min(DESMOS_MAX_W, startRef.current.w + dx),
+        );
+        const newH = Math.max(
+          DESMOS_MIN_H,
+          Math.min(DESMOS_MAX_H, startRef.current.h + dy),
+        );
         onSizeChange({ width: newW, height: newH });
       };
       const handleUp = () => {
@@ -90,7 +100,7 @@ function DesmosCalculatorPanel({
       window.addEventListener("mousemove", handleMove);
       window.addEventListener("mouseup", handleUp);
     },
-    [width, height, onSizeChange]
+    [width, height, onSizeChange],
   );
 
   const handleDragStart = useCallback((e: React.MouseEvent) => {
@@ -122,8 +132,14 @@ function DesmosCalculatorPanel({
         onMouseDown={handleDragStart}
       >
         <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-200 bg-gray-50 cursor-move select-none">
-          <h2 className="text-xs font-semibold text-gray-800">Desmos Calculator</h2>
-          <button type="button" onClick={onClose} className="text-[10px] text-gray-500 hover:text-gray-800">
+          <h2 className="text-xs font-semibold text-gray-800">
+            Desmos Calculator
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-[10px] text-gray-500 hover:text-gray-800"
+          >
             Close
           </button>
         </div>
@@ -174,11 +190,11 @@ function ReferenceSheetPanel({
         const dy = moveEvent.clientY - startRef.current.y;
         const newW = Math.max(
           REF_MIN_W,
-          Math.min(REF_MAX_W, startRef.current.w + dx)
+          Math.min(REF_MAX_W, startRef.current.w + dx),
         );
         const newH = Math.max(
           REF_MIN_H,
-          Math.min(REF_MAX_H, startRef.current.h + dy)
+          Math.min(REF_MAX_H, startRef.current.h + dy),
         );
         onSizeChange({ width: newW, height: newH });
       };
@@ -189,7 +205,7 @@ function ReferenceSheetPanel({
       window.addEventListener("mousemove", handleMove);
       window.addEventListener("mouseup", handleUp);
     },
-    [width, height, onSizeChange]
+    [width, height, onSizeChange],
   );
 
   const handleDragStart = useCallback((e: React.MouseEvent) => {
@@ -239,7 +255,8 @@ function ReferenceSheetPanel({
             className="w-full h-auto object-contain block"
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = "none";
-              const fallback = (e.target as HTMLImageElement).nextElementSibling;
+              const fallback = (e.target as HTMLImageElement)
+                .nextElementSibling;
               if (fallback instanceof HTMLElement) fallback.hidden = false;
             }}
           />
@@ -274,13 +291,13 @@ export default function TestTakingPage() {
   const [testState, setTestState] = useState<StartTestResponse | null>(null);
   // Local cache for all questions in current module
   const [questionsCache, setQuestionsCache] = useState<Map<number, Question>>(
-    new Map()
+    new Map(),
   );
   const [answeredQuestions, setAnsweredQuestions] = useState<Set<number>>(
-    new Set()
+    new Set(),
   );
   const [flaggedQuestions, setFlaggedQuestions] = useState<Set<number>>(
-    new Set()
+    new Set(),
   );
   const [currentAnswer, setCurrentAnswer] = useState<{
     choiceId?: string;
@@ -312,10 +329,10 @@ export default function TestTakingPage() {
   >(null);
   const [isEliminationMode, setIsEliminationMode] = useState(false);
   const [eliminatedChoices, setEliminatedChoices] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
   const [questionNotes, setQuestionNotes] = useState<Map<number, string>>(
-    new Map()
+    new Map(),
   );
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [newNoteText, setNewNoteText] = useState("");
@@ -324,7 +341,7 @@ export default function TestTakingPage() {
   // localStorage key for notes
   const getNotesStorageKey = useCallback(
     () => `test_notes_${attemptId}`,
-    [attemptId]
+    [attemptId],
   );
 
   // Save notes to localStorage
@@ -341,7 +358,7 @@ export default function TestTakingPage() {
         console.error("Failed to save notes to localStorage:", err);
       }
     },
-    [getNotesStorageKey]
+    [getNotesStorageKey],
   );
 
   // Add new note
@@ -386,7 +403,7 @@ export default function TestTakingPage() {
   // localStorage key for answers (one key per attempt; inside we use s{section}_m{module}_{index})
   const getStorageKey = useCallback(
     () => `test_answers_${attemptId}`,
-    [attemptId]
+    [attemptId],
   );
 
   // Current module prefix so each module's answers are isolated (no carry-over to next module)
@@ -394,13 +411,20 @@ export default function TestTakingPage() {
     const s = testState?.currentSection?.orderIndex ?? 0;
     const m = testState?.currentModule?.moduleNumber ?? 1;
     return `s${s}_m${m}_`;
-  }, [testState?.currentSection?.orderIndex, testState?.currentModule?.moduleNumber]);
+  }, [
+    testState?.currentSection?.orderIndex,
+    testState?.currentModule?.moduleNumber,
+  ]);
 
   // sessionStorage: savollarni backenddan olgach saqlash (tez o‘tish uchun). Section+module bo‘yicha ajratamiz – Module 2 da Module 1 savollari chiqmasin.
   const getQuestionsStorageKey = useCallback(
     () =>
       `test_questions_${attemptId}_s${testState?.currentSection?.orderIndex ?? 0}_m${testState?.currentModule?.moduleNumber ?? 1}`,
-    [attemptId, testState?.currentSection?.orderIndex, testState?.currentModule?.moduleNumber]
+    [
+      attemptId,
+      testState?.currentSection?.orderIndex,
+      testState?.currentModule?.moduleNumber,
+    ],
   );
 
   const saveQuestionToLocal = useCallback(
@@ -421,7 +445,7 @@ export default function TestTakingPage() {
         console.warn("saveQuestionToLocal:", e);
       }
     },
-    [getQuestionsStorageKey]
+    [getQuestionsStorageKey],
   );
 
   const getQuestionFromLocal = useCallback(
@@ -447,7 +471,7 @@ export default function TestTakingPage() {
       }
       return null;
     },
-    [getQuestionsStorageKey, questionsCache]
+    [getQuestionsStorageKey, questionsCache],
   );
 
   // Modul o‘zgarganda (Module 1 → Module 2) in-memory cache’ni tozalash – eski modul savollari ko‘rinmasin
@@ -458,12 +482,15 @@ export default function TestTakingPage() {
       setQuestionsCache(new Map());
     }
     moduleKeyRef.current = key;
-  }, [testState?.currentSection?.orderIndex, testState?.currentModule?.moduleNumber]);
+  }, [
+    testState?.currentSection?.orderIndex,
+    testState?.currentModule?.moduleNumber,
+  ]);
 
   // localStorage key for highlights
   const getHighlightsStorageKey = useCallback(
     () => `test_highlights_${attemptId}`,
-    [attemptId]
+    [attemptId],
   );
 
   // Get all highlights from localStorage (grouped by questionId)
@@ -533,7 +560,7 @@ export default function TestTakingPage() {
       isDraggingDividerRef.current = true;
       document.body.style.cursor = "col-resize";
     },
-    []
+    [],
   );
 
   // Save highlights to localStorage (grouped by questionId)
@@ -545,7 +572,7 @@ export default function TestTakingPage() {
         endOffset: number;
         color: "YELLOW" | "GREEN" | "BLUE" | "PINK" | "ORANGE";
         note?: string | null;
-      }>
+      }>,
     ) => {
       if (typeof window === "undefined") return;
       try {
@@ -558,7 +585,7 @@ export default function TestTakingPage() {
         console.error("Failed to save highlights to localStorage:", err);
       }
     },
-    [getHighlightsStorageKey]
+    [getHighlightsStorageKey],
   );
 
   // Submit all highlights to backend (batch)
@@ -571,7 +598,7 @@ export default function TestTakingPage() {
     }
 
     console.log(
-      `[Test Page] Submitting ${allHighlights.size} question highlights to server...`
+      `[Test Page] Submitting ${allHighlights.size} question highlights to server...`,
     );
 
     const submitPromises: Promise<void>[] = [];
@@ -591,15 +618,15 @@ export default function TestTakingPage() {
             await practiceService.saveHighlights(
               attemptId,
               questionId,
-              highlights
+              highlights,
             );
           } catch (err) {
             console.error(
               `Failed to submit highlights for question ${questionId}:`,
-              err
+              err,
             );
           }
-        })()
+        })(),
       );
     }
 
@@ -610,8 +637,11 @@ export default function TestTakingPage() {
   // True only when user has selected an answer (choice or grid-in text)
   const hasActualAnswer = useCallback(
     (answer: { choiceId?: string; textAnswer?: string }) =>
-      !!(answer.choiceId || (answer.textAnswer != null && String(answer.textAnswer).trim() !== "")),
-    []
+      !!(
+        answer.choiceId ||
+        (answer.textAnswer != null && String(answer.textAnswer).trim() !== "")
+      ),
+    [],
   );
 
   // Save answer to localStorage (scoped by current module: s{section}_m{module}_{index})
@@ -624,7 +654,7 @@ export default function TestTakingPage() {
         textAnswer?: string;
         markedForReview?: boolean;
         eliminatedChoices?: string[];
-      }
+      },
     ) => {
       if (typeof window === "undefined") return;
 
@@ -632,14 +662,16 @@ export default function TestTakingPage() {
         const key = getStorageKey();
         const prefix = getCurrentModulePrefix();
         const stored = localStorage.getItem(key);
-        const answers: Record<string, unknown> = stored ? JSON.parse(stored) : {};
+        const answers: Record<string, unknown> = stored
+          ? JSON.parse(stored)
+          : {};
         answers[prefix + questionIndex] = answer;
         localStorage.setItem(key, JSON.stringify(answers));
       } catch (err) {
         console.error("Failed to save answer to localStorage:", err);
       }
     },
-    [getStorageKey, getCurrentModulePrefix]
+    [getStorageKey, getCurrentModulePrefix],
   );
 
   // Remove answer for one question from localStorage (so we don't submit empty)
@@ -658,7 +690,7 @@ export default function TestTakingPage() {
         console.error("Failed to remove answer from localStorage:", err);
       }
     },
-    [getStorageKey, getCurrentModulePrefix]
+    [getStorageKey, getCurrentModulePrefix],
   );
 
   // Load answered set for current module only (so switching module shows 0 answered for new module)
@@ -671,7 +703,10 @@ export default function TestTakingPage() {
         setAnsweredQuestions(new Set());
         return;
       }
-      const answers = JSON.parse(stored) as Record<string, Record<string, unknown>>;
+      const answers = JSON.parse(stored) as Record<
+        string,
+        Record<string, unknown>
+      >;
       const answeredSet = new Set<number>();
       Object.keys(answers).forEach((k) => {
         if (!k.startsWith(prefix)) return;
@@ -715,7 +750,10 @@ export default function TestTakingPage() {
       const stored = localStorage.getItem(key);
       if (!stored) return new Map();
 
-      const answers = JSON.parse(stored) as Record<string, Record<string, unknown>>;
+      const answers = JSON.parse(stored) as Record<
+        string,
+        Record<string, unknown>
+      >;
       const map = new Map<
         number,
         {
@@ -761,23 +799,33 @@ export default function TestTakingPage() {
       const stored = localStorage.getItem(key);
       if (!stored) return [];
 
-      const answers = JSON.parse(stored) as Record<string, Record<string, unknown>>;
+      const answers = JSON.parse(stored) as Record<
+        string,
+        Record<string, unknown>
+      >;
       return Object.keys(answers)
         .filter((k) => /^s\d+_m\d+_\d+$/.test(k))
         .filter((k) => {
-          const entry = answers[k] as { choiceId?: string; textAnswer?: string };
+          const entry = answers[k] as {
+            choiceId?: string;
+            textAnswer?: string;
+          };
           return !!(
             entry?.choiceId ||
-            (entry?.textAnswer != null && String(entry.textAnswer).trim() !== "")
+            (entry?.textAnswer != null &&
+              String(entry.textAnswer).trim() !== "")
           );
         })
-        .map((k) => answers[k] as {
-          questionId: string;
-          choiceId?: string;
-          textAnswer?: string;
-          markedForReview?: boolean;
-          eliminatedChoices?: string[];
-        });
+        .map(
+          (k) =>
+            answers[k] as {
+              questionId: string;
+              choiceId?: string;
+              textAnswer?: string;
+              markedForReview?: boolean;
+              eliminatedChoices?: string[];
+            },
+        );
     } catch (err) {
       console.error("Failed to get answers for submit:", err);
       return [];
@@ -819,7 +867,7 @@ export default function TestTakingPage() {
         setEliminatedChoices(new Set());
       }
     },
-    [getAllAnswersFromStorage]
+    [getAllAnswersFromStorage],
   );
 
   // Persist current question answer to localStorage whenever user changes selection/text/flag/eliminations
@@ -1023,7 +1071,7 @@ export default function TestTakingPage() {
       gotoMutexRef.current = p.catch(() => {});
       return p as Promise<StartTestResponse>;
     },
-    [attemptId]
+    [attemptId],
   );
 
   // Keyingi savolni faqat cache'ga yuklash – runGoto modul ichidagi local index bilan
@@ -1049,7 +1097,7 @@ export default function TestTakingPage() {
             )
               saveQuestionToLocal(
                 nextState.currentQuestionIndex,
-                nextState.question
+                nextState.question,
               );
           })
           .catch(() => {})
@@ -1058,7 +1106,7 @@ export default function TestTakingPage() {
           });
       }, 3500);
     },
-    [getQuestionFromLocal, saveQuestionToLocal, runGoto]
+    [getQuestionFromLocal, saveQuestionToLocal, runGoto],
   );
 
   async function loadTestState() {
@@ -1077,11 +1125,30 @@ export default function TestTakingPage() {
       }
       const statePrefix = `s${state.currentSection.orderIndex}_m${state.currentModule.moduleNumber}_`;
       const key = getStorageKey();
-      const raw = typeof window !== "undefined" ? localStorage.getItem(key) : null;
-      const savedEntry = raw ? (JSON.parse(raw) as Record<string, Record<string, unknown>>)[statePrefix + state.currentQuestionIndex] : undefined;
-      const savedAnswer = savedEntry as { choiceId?: string; textAnswer?: string; eliminatedChoices?: string[] } | undefined;
-      if (savedAnswer && (savedAnswer.choiceId || (savedAnswer.textAnswer != null && String(savedAnswer.textAnswer).trim() !== ""))) {
-        setCurrentAnswer({ choiceId: savedAnswer.choiceId, textAnswer: savedAnswer.textAnswer });
+      const raw =
+        typeof window !== "undefined" ? localStorage.getItem(key) : null;
+      const savedEntry = raw
+        ? (JSON.parse(raw) as Record<string, Record<string, unknown>>)[
+            statePrefix + state.currentQuestionIndex
+          ]
+        : undefined;
+      const savedAnswer = savedEntry as
+        | {
+            choiceId?: string;
+            textAnswer?: string;
+            eliminatedChoices?: string[];
+          }
+        | undefined;
+      if (
+        savedAnswer &&
+        (savedAnswer.choiceId ||
+          (savedAnswer.textAnswer != null &&
+            String(savedAnswer.textAnswer).trim() !== ""))
+      ) {
+        setCurrentAnswer({
+          choiceId: savedAnswer.choiceId,
+          textAnswer: savedAnswer.textAnswer,
+        });
         if (savedAnswer.eliminatedChoices?.length)
           setEliminatedChoices(new Set(savedAnswer.eliminatedChoices));
       } else setCurrentAnswer({});
@@ -1095,12 +1162,23 @@ export default function TestTakingPage() {
         const key = getStorageKey();
         const stored = localStorage.getItem(key);
         if (stored) {
-          const answers = JSON.parse(stored) as Record<string, Record<string, unknown>>;
+          const answers = JSON.parse(stored) as Record<
+            string,
+            Record<string, unknown>
+          >;
           const answeredSet = new Set<number>();
           Object.keys(answers).forEach((k) => {
             if (!k.startsWith(statePrefixCache)) return;
-            const entry = answers[k] as { choiceId?: string; textAnswer?: string };
-            if (entry && (!!entry.choiceId || (entry.textAnswer != null && String(entry.textAnswer).trim() !== ""))) {
+            const entry = answers[k] as {
+              choiceId?: string;
+              textAnswer?: string;
+            };
+            if (
+              entry &&
+              (!!entry.choiceId ||
+                (entry.textAnswer != null &&
+                  String(entry.textAnswer).trim() !== ""))
+            ) {
               const idx = parseInt(k.slice(statePrefixCache.length), 10);
               if (!Number.isNaN(idx)) answeredSet.add(idx);
             }
@@ -1111,11 +1189,22 @@ export default function TestTakingPage() {
         setAnsweredQuestions(new Set());
       }
       const cacheTimerKey = `test_timer_${attemptId}_s${state.currentSection.orderIndex}_m${state.currentModule.moduleNumber}`;
-      const cacheSavedTime = typeof window !== "undefined" ? sessionStorage.getItem(cacheTimerKey) : null;
-      const cacheSavedSeconds = cacheSavedTime != null ? Number(cacheSavedTime) : NaN;
-      if (typeof window !== "undefined" && !Number.isNaN(cacheSavedSeconds) && cacheSavedSeconds > 0) {
+      const cacheSavedTime =
+        typeof window !== "undefined"
+          ? sessionStorage.getItem(cacheTimerKey)
+          : null;
+      const cacheSavedSeconds =
+        cacheSavedTime != null ? Number(cacheSavedTime) : NaN;
+      if (
+        typeof window !== "undefined" &&
+        !Number.isNaN(cacheSavedSeconds) &&
+        cacheSavedSeconds > 0
+      ) {
         setRemainingTimeSeconds(cacheSavedSeconds);
-      } else if (state?.currentModule?.duration && remainingTimeSeconds === null) {
+      } else if (
+        state?.currentModule?.duration &&
+        remainingTimeSeconds === null
+      ) {
         setRemainingTimeSeconds(state.currentModule.duration * 60);
       }
       setLoading(false);
@@ -1147,7 +1236,7 @@ export default function TestTakingPage() {
       if (!state.question) {
         console.error("[Test Page] No question in state:", state);
         setError(
-          "No current question available. The test may have been completed or abandoned."
+          "No current question available. The test may have been completed or abandoned.",
         );
         return;
       }
@@ -1161,11 +1250,25 @@ export default function TestTakingPage() {
       // Load saved answer for current question from current module only (use state prefix, not testState)
       const statePrefix = `s${state.currentSection.orderIndex}_m${state.currentModule.moduleNumber}_`;
       const key = getStorageKey();
-      const raw = typeof window !== "undefined" ? localStorage.getItem(key) : null;
-      const answersMap = raw ? (JSON.parse(raw) as Record<string, Record<string, unknown>>) : {};
+      const raw =
+        typeof window !== "undefined" ? localStorage.getItem(key) : null;
+      const answersMap = raw
+        ? (JSON.parse(raw) as Record<string, Record<string, unknown>>)
+        : {};
       const savedEntry = answersMap[statePrefix + state.currentQuestionIndex];
-      const savedAnswer = savedEntry as { choiceId?: string; textAnswer?: string; eliminatedChoices?: string[]; markedForReview?: boolean } | undefined;
-      const hasActual = savedAnswer && (!!savedAnswer.choiceId || (savedAnswer.textAnswer != null && String(savedAnswer.textAnswer).trim() !== ""));
+      const savedAnswer = savedEntry as
+        | {
+            choiceId?: string;
+            textAnswer?: string;
+            eliminatedChoices?: string[];
+            markedForReview?: boolean;
+          }
+        | undefined;
+      const hasActual =
+        savedAnswer &&
+        (!!savedAnswer.choiceId ||
+          (savedAnswer.textAnswer != null &&
+            String(savedAnswer.textAnswer).trim() !== ""));
       if (hasActual && savedAnswer) {
         setCurrentAnswer({
           choiceId: savedAnswer.choiceId,
@@ -1195,17 +1298,25 @@ export default function TestTakingPage() {
       } else {
         console.warn(
           "[Test Page] No totalQuestions in currentModule:",
-          state.currentModule
+          state.currentModule,
         );
       }
 
       // Initialize timer: restore from sessionStorage if returning from module review, else set from module duration
       const timerKey = `test_timer_${attemptId}_s${state.currentSection.orderIndex}_m${state.currentModule.moduleNumber}`;
-      const savedTime = typeof window !== "undefined" ? sessionStorage.getItem(timerKey) : null;
+      const savedTime =
+        typeof window !== "undefined" ? sessionStorage.getItem(timerKey) : null;
       const savedSeconds = savedTime != null ? Number(savedTime) : NaN;
-      if (typeof window !== "undefined" && !Number.isNaN(savedSeconds) && savedSeconds > 0) {
+      if (
+        typeof window !== "undefined" &&
+        !Number.isNaN(savedSeconds) &&
+        savedSeconds > 0
+      ) {
         setRemainingTimeSeconds(savedSeconds);
-      } else if (state?.currentModule?.duration && remainingTimeSeconds === null) {
+      } else if (
+        state?.currentModule?.duration &&
+        remainingTimeSeconds === null
+      ) {
         const durationSeconds = state.currentModule.duration * 60;
         setRemainingTimeSeconds(durationSeconds);
       }
@@ -1216,12 +1327,23 @@ export default function TestTakingPage() {
         const key = getStorageKey();
         const raw = localStorage.getItem(key);
         if (raw) {
-          const answers = JSON.parse(raw) as Record<string, Record<string, unknown>>;
+          const answers = JSON.parse(raw) as Record<
+            string,
+            Record<string, unknown>
+          >;
           const answeredSet = new Set<number>();
           Object.keys(answers).forEach((k) => {
             if (!k.startsWith(statePrefixApi)) return;
-            const entry = answers[k] as { choiceId?: string; textAnswer?: string };
-            if (entry && (!!entry.choiceId || (entry.textAnswer != null && String(entry.textAnswer).trim() !== ""))) {
+            const entry = answers[k] as {
+              choiceId?: string;
+              textAnswer?: string;
+            };
+            if (
+              entry &&
+              (!!entry.choiceId ||
+                (entry.textAnswer != null &&
+                  String(entry.textAnswer).trim() !== ""))
+            ) {
               const idx = parseInt(k.slice(statePrefixApi.length), 10);
               if (!Number.isNaN(idx)) answeredSet.add(idx);
             }
@@ -1240,12 +1362,17 @@ export default function TestTakingPage() {
       // If it's a 404 or 401, provide more specific error
       if (err instanceof Error && err.message.includes("404")) {
         setError(
-          "Test attempt not found. It may have been deleted or expired."
+          "Test attempt not found. It may have been deleted or expired.",
         );
       } else if (err instanceof Error && err.message.includes("401")) {
         setError("Unauthorized. Please log in again.");
-      } else if (err instanceof Error && /429|Too Many Requests/i.test(err.message)) {
-        setError("Server busy (Too Many Requests). Click Retry below or wait a moment and refresh.");
+      } else if (
+        err instanceof Error &&
+        /429|Too Many Requests/i.test(err.message)
+      ) {
+        setError(
+          "Server busy (Too Many Requests). Click Retry below or wait a moment and refresh.",
+        );
       }
     } finally {
       setLoading(false);
@@ -1255,13 +1382,13 @@ export default function TestTakingPage() {
 
   async function loadAnsweredQuestions(
     currentState?: StartTestResponse,
-    force = false
+    force = false,
   ) {
     // Throttle: don't load if called within cache duration
     const now = Date.now();
     if (!force && now - lastAnswersLoadRef.current < ANSWERS_CACHE_DURATION) {
       console.log(
-        "[Test Page] Skipping loadAnsweredQuestions - too soon after last load"
+        "[Test Page] Skipping loadAnsweredQuestions - too soon after last load",
       );
       return;
     }
@@ -1278,7 +1405,10 @@ export default function TestTakingPage() {
           testState?.currentModule?.totalQuestions ??
           answers?.totalQuestions ??
           0;
-        const sectionType = state?.currentSection?.type ?? testState?.currentSection?.type ?? "ENGLISH";
+        const sectionType =
+          state?.currentSection?.type ??
+          testState?.currentSection?.type ??
+          "ENGLISH";
         const cap = QUESTIONS_PER_MODULE[sectionType] ?? 27;
         setTotalQuestions(Math.min(raw, cap));
         return;
@@ -1292,7 +1422,10 @@ export default function TestTakingPage() {
         testState?.currentModule?.totalQuestions ??
         answers?.totalQuestions ??
         0;
-      const sectionType = state?.currentSection?.type ?? testState?.currentSection?.type ?? "ENGLISH";
+      const sectionType =
+        state?.currentSection?.type ??
+        testState?.currentSection?.type ??
+        "ENGLISH";
       const cap = QUESTIONS_PER_MODULE[sectionType] ?? 27;
       setTotalQuestions(Math.min(raw, cap));
     } catch (err) {
@@ -1384,9 +1517,16 @@ export default function TestTakingPage() {
     const type = testState.currentSection.type;
     const total = totalQuestions;
     router.push(
-      `/dashboard/practice/test/${attemptId}/module-review?section=${sectionNum}&module=${moduleNum}&type=${type}&total=${total}`
+      `/dashboard/practice/test/${attemptId}/module-review?section=${sectionNum}&module=${moduleNum}&type=${type}&total=${total}`,
     );
-  }, [attemptId, handleAnswer, router, testState, totalQuestions, remainingTimeSeconds]);
+  }, [
+    attemptId,
+    handleAnswer,
+    router,
+    testState,
+    totalQuestions,
+    remainingTimeSeconds,
+  ]);
 
   async function handleNext() {
     if (!testState?.question) return;
@@ -1394,7 +1534,10 @@ export default function TestTakingPage() {
 
     const currentIndex = testState.currentQuestionIndex;
     const nextIndex = currentIndex + 1;
-    const cap = totalQuestions ?? QUESTIONS_PER_MODULE[testState.currentSection?.type ?? "ENGLISH"] ?? 27;
+    const cap =
+      totalQuestions ??
+      QUESTIONS_PER_MODULE[testState.currentSection?.type ?? "ENGLISH"] ??
+      27;
     if (nextIndex >= cap) {
       handleGoToModuleReview();
       return;
@@ -1420,7 +1563,7 @@ export default function TestTakingPage() {
       applySavedAnswerForIndex(nextState.currentQuestionIndex);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to go to next question"
+        err instanceof Error ? err.message : "Failed to go to next question",
       );
     } finally {
       setSubmitting(false);
@@ -1453,7 +1596,9 @@ export default function TestTakingPage() {
       applySavedAnswerForIndex(prevState.currentQuestionIndex);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to go to previous question"
+        err instanceof Error
+          ? err.message
+          : "Failed to go to previous question",
       );
     } finally {
       setSubmitting(false);
@@ -1502,7 +1647,7 @@ export default function TestTakingPage() {
           setError(
             err instanceof Error
               ? err.message
-              : "Failed to go to selected question"
+              : "Failed to go to selected question",
           );
         }
       } finally {
@@ -1523,7 +1668,7 @@ export default function TestTakingPage() {
       applySavedAnswerForIndex,
       preloadNextQuestions,
       saveQuestionToLocal,
-    ]
+    ],
   );
 
   // Agar module-review sahifasidan ma'lum bir savolga qaytish kerak bo'lsa – faqat index hozirgi savoldan farq qilsa goto
@@ -1541,7 +1686,7 @@ export default function TestTakingPage() {
     sessionStorage.removeItem(key);
     if (index === testState.currentQuestionIndex) return;
     handleJumpToQuestion(index).catch((err) =>
-      console.error("[Test Page] Failed to jump from module review:", err)
+      console.error("[Test Page] Failed to jump from module review:", err),
     );
   }, [attemptId, handleJumpToQuestion, testState]);
 
@@ -1561,7 +1706,7 @@ export default function TestTakingPage() {
       });
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to toggle flag status"
+        err instanceof Error ? err.message : "Failed to toggle flag status",
       );
     }
   }
@@ -1589,7 +1734,7 @@ export default function TestTakingPage() {
     }
 
     console.log(
-      `[Test Page] Submitting ${allAnswers.length} answers to server (batch mode)...`
+      `[Test Page] Submitting ${allAnswers.length} answers to server (batch mode)...`,
     );
 
     const batchAnswers = allAnswers.map((answer) => ({
@@ -1601,7 +1746,6 @@ export default function TestTakingPage() {
     }));
 
     try {
-
       // Submit in batches of 10 to avoid overwhelming server
       const BATCH_SIZE = 10;
       let successCount = 0;
@@ -1613,7 +1757,7 @@ export default function TestTakingPage() {
         try {
           const result = await practiceService.submitAnswersBatch(
             attemptId,
-            batch
+            batch,
           );
           successCount += result.processed;
           failCount += result.failed;
@@ -1627,14 +1771,14 @@ export default function TestTakingPage() {
             `[Test Page] Batch submission failed for batch ${
               i / BATCH_SIZE + 1
             }:`,
-            err
+            err,
           );
           failCount += batch.length;
         }
       }
 
       console.log(
-        `[Test Page] Batch submission complete: ${successCount} succeeded, ${failCount} failed`
+        `[Test Page] Batch submission complete: ${successCount} succeeded, ${failCount} failed`,
       );
     } catch (err) {
       console.error("[Test Page] Batch submission error:", err);
@@ -1653,7 +1797,7 @@ export default function TestTakingPage() {
             answer.choiceId,
             answer.textAnswer,
             answer.markedForReview,
-            answer.eliminatedChoices
+            answer.eliminatedChoices,
           );
           successCount++;
           if (i < allAnswers.length - 1) {
@@ -1662,14 +1806,14 @@ export default function TestTakingPage() {
         } catch (submitErr) {
           console.error(
             `Failed to submit answer for question ${answer.questionId}:`,
-            submitErr
+            submitErr,
           );
           failCount++;
         }
       }
 
       console.log(
-        `[Test Page] Fallback submission complete: ${successCount} succeeded, ${failCount} failed`
+        `[Test Page] Fallback submission complete: ${successCount} succeeded, ${failCount} failed`,
       );
     }
   }, [attemptId, getAllAnswersForSubmit]);
@@ -1710,7 +1854,7 @@ export default function TestTakingPage() {
           ) {
             // Attempt already completed or not active – treat as graceful finish
             console.warn(
-              "[Test Page] Attempt already not in progress, skipping submitTest"
+              "[Test Page] Attempt already not in progress, skipping submitTest",
             );
           } else {
             console.error("Failed to submit test on time up:", err);
@@ -1841,7 +1985,8 @@ export default function TestTakingPage() {
   const question: Question = testState.question;
   const sectionType = testState.currentSection?.type ?? "ENGLISH";
   const cap = QUESTIONS_PER_MODULE[sectionType] ?? 27;
-  const rawTotal = totalQuestions ?? testState.currentModule?.totalQuestions ?? 0;
+  const rawTotal =
+    totalQuestions ?? testState.currentModule?.totalQuestions ?? 0;
   const totalQs = Math.min(rawTotal, cap);
 
   const isLastQuestion =
@@ -2041,9 +2186,7 @@ export default function TestTakingPage() {
                   <>
                     <button
                       type="button"
-                      onClick={() =>
-                        setShowReferenceSheet((prev) => !prev)
-                      }
+                      onClick={() => setShowReferenceSheet((prev) => !prev)}
                       className={`flex items-center gap-1.5 p-2 rounded-lg text-xs whitespace-nowrap ${
                         showReferenceSheet
                           ? "text-blue-600 bg-gray-100"
@@ -2107,16 +2250,19 @@ export default function TestTakingPage() {
                 ref={layoutContainerRef}
                 style={{ WebkitOverflowScrolling: "touch" }}
               >
-                <div className="flex flex-1 gap-0 items-stretch" style={{ minHeight: "min-content" }}>
-                {/* Left Column */}
                 <div
-                  className="content-pane flex-shrink-0 pr-1 md:pr-2 min-w-0"
-                  style={{
-                    width: `calc(${splitPosition}% - 4px)`,
-                    minWidth: 200,
-                  }}
+                  className="flex flex-1 gap-0 items-stretch"
+                  style={{ minHeight: "min-content" }}
                 >
-                  <div className="pr-2 md:pr-4 pb-4 md:pb-6 pl-0.5 md:pl-1">
+                  {/* Left Column */}
+                  <div
+                    className="content-pane flex-shrink-0 pr-1 md:pr-2 min-w-0"
+                    style={{
+                      width: `calc(${splitPosition}% - 4px)`,
+                      minWidth: 200,
+                    }}
+                  >
+                    <div className="pr-2 md:pr-4 pb-4 md:pb-6 pl-0.5 md:pl-1">
                       {/* Math + yozma javob (grid-in): chapda Student-Produced Response Directions */}
                       {testState.currentSection.type === "MATH" &&
                       isOpenAnswerQuestion(question) ? (
@@ -2206,11 +2352,12 @@ export default function TestTakingPage() {
                             </table>
                           </div>
                         </div>
-                      ) : (question.sharedPassage?.content ||
-                      question.passage) ? (
+                      ) : question.sharedPassage?.content ||
+                        question.passage ? (
                         <div className="p-3 sm:p-4 md:p-5 bg-gray-50/80 rounded-lg">
                           <p className="text-xs sm:text-sm md:text-base leading-relaxed whitespace-pre-wrap">
-                            {question.sharedPassage?.content || question.passage}
+                            {question.sharedPassage?.content ||
+                              question.passage}
                           </p>
                         </div>
                       ) : (
@@ -2232,221 +2379,225 @@ export default function TestTakingPage() {
                     </div>
                   </div>
 
-                {/* Resizable Divider (in-flow, scroll bilan birga harakat qiladi) */}
-                <div
-                  className="divider-inline self-stretch"
-                  onMouseDown={handleDividerMouseDown}
-                  aria-label="Resize columns"
-                />
+                  {/* Resizable Divider (in-flow, scroll bilan birga harakat qiladi) */}
+                  <div
+                    className="divider-inline self-stretch"
+                    onMouseDown={handleDividerMouseDown}
+                    aria-label="Resize columns"
+                  />
 
-                {/* Right Column – scroll yo‘q, kontent to‘liq ko‘rinadi */}
-                <div
-                  className="content-pane flex-1 min-w-0 pl-1 md:pl-2"
-                  style={{
-                    width: `calc(${100 - splitPosition}% - 4px)`,
-                    minWidth: 260,
-                  }}
-                >
-                  <div className="px-2 md:px-4 pb-4 md:pb-6">
-                    {/* O'ng ustun: savol raqami + Mark for Review + ABC */}
-                    <div className="flex items-center justify-between bg-gray-200 rounded-lg mb-2 sm:mb-3 md:mb-4 py-0.5 sm:py-1">
-                      <div className="flex items-center h-full">
-                        <p className="question-index font-semibold bg-black text-white text-xs sm:text-sm h-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-l rounded-r-none">
-                          {testState.currentQuestionIndex + 1}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={handleToggleFlag}
-                          className="flex items-center text-xs sm:text-sm text-gray-600 hover:text-black mr-1 sm:mr-2 h-full px-1 sm:px-2"
-                        >
-                          <Flag
-                            className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-500 ${
-                              isFlagged
-                                ? "fill-orange-500 text-orange-500"
-                                : ""
+                  {/* Right Column – scroll yo‘q, kontent to‘liq ko‘rinadi */}
+                  <div
+                    className="content-pane flex-1 min-w-0 pl-1 md:pl-2"
+                    style={{
+                      width: `calc(${100 - splitPosition}% - 4px)`,
+                      minWidth: 260,
+                    }}
+                  >
+                    <div className="px-2 md:px-4 pb-4 md:pb-6">
+                      {/* O'ng ustun: savol raqami + Mark for Review + ABC */}
+                      <div className="flex items-center justify-between bg-gray-200 rounded-lg mb-2 sm:mb-3 md:mb-4 py-0.5 sm:py-1">
+                        <div className="flex items-center h-full">
+                          <p className="question-index font-semibold bg-black text-white text-xs sm:text-sm h-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-l rounded-r-none">
+                            {testState.currentQuestionIndex + 1}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={handleToggleFlag}
+                            className="flex items-center text-xs sm:text-sm text-gray-600 hover:text-black mr-1 sm:mr-2 h-full px-1 sm:px-2"
+                          >
+                            <Flag
+                              className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-500 ${
+                                isFlagged
+                                  ? "fill-orange-500 text-orange-500"
+                                  : ""
+                              }`}
+                            />
+                            <span className="ml-0.5 sm:ml-1 text-xs sm:text-sm">
+                              Mark for Review
+                            </span>
+                          </button>
+                        </div>
+                        {hasChoiceOptions(question) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsEliminationMode((prev) => !prev);
+                              if (isEliminationMode)
+                                setEliminatedChoices(new Set());
+                            }}
+                            className={`hidden xl:flex items-center text-sm text-gray-600 hover:text-black mr-2 h-full relative border border-gray-300 rounded w-8 h-8 justify-center bg-transparent ${
+                              isEliminationMode ? "bg-blue-100" : ""
                             }`}
-                          />
-                          <span className="ml-0.5 sm:ml-1 text-xs sm:text-sm">Mark for Review</span>
-                        </button>
+                          >
+                            <span className="text-[12px] font-medium text-gray-600">
+                              ABC
+                            </span>
+                            {isEliminationMode && (
+                              <svg
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                className="absolute w-8 h-8 text-gray-500 pointer-events-none"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="1"
+                                  d="M18 6L6 18"
+                                />
+                              </svg>
+                            )}
+                          </button>
+                        )}
                       </div>
-                      {hasChoiceOptions(question) && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsEliminationMode((prev) => !prev);
-                            if (isEliminationMode)
-                              setEliminatedChoices(new Set());
-                          }}
-                          className={`hidden xl:flex items-center text-sm text-gray-600 hover:text-black mr-2 h-full relative border border-gray-300 rounded w-8 h-8 justify-center bg-transparent ${
-                            isEliminationMode ? "bg-blue-100" : ""
-                          }`}
-                        >
-                          <span className="text-[12px] font-medium text-gray-600">
-                            ABC
-                          </span>
-                          {isEliminationMode && (
-                            <svg
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                              className="absolute w-8 h-8 text-gray-500 pointer-events-none"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="1"
-                                d="M18 6L6 18"
-                              />
-                            </svg>
-                          )}
-                        </button>
-                      )}
-                    </div>
-                    {/* Savol matni – rasm chapda passage ostida */}
-                    <div className="prose prose-sm sm:prose max-w-none mb-2 sm:mb-3 md:mb-4 text-xs sm:text-sm md:text-base">
-                      <QuestionDisplay
-                        key={question.id}
-                        question={question}
-                        selectedChoiceId={undefined}
-                        textAnswer={undefined}
-                        onSelectChoice={() => {}}
-                        onTextAnswerChange={() => {}}
-                        isFlagged={isFlagged}
-                        hidePassage
-                        isMarkupEnabled={isMarkupEnabled}
-                        showOnlyQuestionText
-                        attemptId={attemptId}
-                        onHighlightsChange={(highlights) => {
-                          if (highlights.length > 0) {
-                            saveHighlightsToStorage(question.id, highlights);
-                          } else {
-                            const allHighlights =
-                              getAllHighlightsFromStorage();
-                            allHighlights.delete(question.id);
-                            if (typeof window !== "undefined") {
-                              try {
-                                const highlightsObj: Record<string, any> = {};
-                                allHighlights.forEach((value, key) => {
-                                  highlightsObj[key] = value;
-                                });
-                                localStorage.setItem(
-                                  getHighlightsStorageKey(),
-                                  JSON.stringify(highlightsObj),
-                                );
-                              } catch (err) {
-                                console.error(
-                                  "Failed to save highlights from localStorage:",
-                                  err,
-                                );
+                      {/* Savol matni – rasm chapda passage ostida */}
+                      <div className="prose prose-sm sm:prose max-w-none mb-2 sm:mb-3 md:mb-4 text-xs sm:text-sm md:text-base">
+                        <QuestionDisplay
+                          key={question.id}
+                          question={question}
+                          selectedChoiceId={undefined}
+                          textAnswer={undefined}
+                          onSelectChoice={() => {}}
+                          onTextAnswerChange={() => {}}
+                          isFlagged={isFlagged}
+                          hidePassage
+                          isMarkupEnabled={isMarkupEnabled}
+                          showOnlyQuestionText
+                          attemptId={attemptId}
+                          onHighlightsChange={(highlights) => {
+                            if (highlights.length > 0) {
+                              saveHighlightsToStorage(question.id, highlights);
+                            } else {
+                              const allHighlights =
+                                getAllHighlightsFromStorage();
+                              allHighlights.delete(question.id);
+                              if (typeof window !== "undefined") {
+                                try {
+                                  const highlightsObj: Record<string, any> = {};
+                                  allHighlights.forEach((value, key) => {
+                                    highlightsObj[key] = value;
+                                  });
+                                  localStorage.setItem(
+                                    getHighlightsStorageKey(),
+                                    JSON.stringify(highlightsObj),
+                                  );
+                                } catch (err) {
+                                  console.error(
+                                    "Failed to save highlights from localStorage:",
+                                    err,
+                                  );
+                                }
                               }
                             }
-                          }
-                        }}
-                      />
-                    </div>
-
-                    {hasChoiceOptions(question) && (
-                      <div className="space-y-2 sm:space-y-3 md:space-y-4">
-                        {(question.choices ?? []).map((choice, index) => {
-                          const isSelected =
-                            currentAnswer.choiceId === choice.id;
-                          const letter = String.fromCharCode(65 + index);
-                          const isEliminated =
-                            eliminatedChoices.has(choice.id);
-                          const choiceImageUrl = getChoiceImageUrl(
-                            choice as Record<string, unknown>,
-                          );
-
-                          return (
-                            <div
-                              key={choice.id || index}
-                              className="relative w-full"
-                            >
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (isEliminationMode) {
-                                    setEliminatedChoices((prev) => {
-                                      const next = new Set(prev);
-                                      if (next.has(choice.id)) {
-                                        next.delete(choice.id);
-                                      } else {
-                                        next.add(choice.id);
-                                      }
-                                      return next;
-                                    });
-                                  } else {
-                                    handleAnswerChange({
-                                      choiceId: choice.id,
-                                      textAnswer: currentAnswer.textAnswer,
-                                    });
-                                  }
-                                }}
-                                className={`w-full p-2 sm:p-3 md:p-4 text-left border-2 rounded-lg text-xs sm:text-sm md:text-base flex items-start gap-2 md:gap-3 ${
-                                  isSelected
-                                    ? "border-black"
-                                    : isEliminated
-                                    ? "border-gray-300 bg-gray-100 opacity-60"
-                                    : "border-gray-200 hover:bg-gray-200 cursor-pointer"
-                                }`}
-                              >
-                                <div
-                                  className={`flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full font-bold border border-black text-[10px] sm:text-xs ${
-                                    isSelected
-                                      ? "bg-black text-white"
-                                      : "text-black"
-                                  }`}
-                                >
-                                  <span className="text-xs">{letter}</span>
-                                </div>
-                                <div
-                                  className={`flex-1 min-w-0 ${
-                                    isEliminated
-                                      ? "line-through text-gray-500"
-                                      : ""
-                                  }`}
-                                >
-                                  <span className="block">
-                                    {getChoiceText(choice) || `Choice ${letter}`}
-                                  </span>
-                                  {choiceImageUrl && (
-                                    <span className="block mt-3 bg-gray-100 rounded border border-gray-200 overflow-hidden p-1">
-                                      {/* Oddiy img – GCS rasmlari ishonchli yuklansin (Next/Image baʼzan tashqi URL da muammo qiladi) */}
-                                      <img
-                                        src={choiceImageUrl}
-                                        alt={`Variant ${letter}`}
-                                        className="rounded object-contain max-h-12 w-full bg-gray-100 min-h-[24px]"
-                                        loading="lazy"
-                                      />
-                                    </span>
-                                  )}
-                                </div>
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {isOpenAnswerQuestion(question) && (
-                      <div className="mt-3 pt-2 space-y-2">
-                        <input
-                          type="text"
-                          value={currentAnswer.textAnswer || ""}
-                          onChange={(e) =>
-                            handleAnswerChange({
-                              textAnswer: e.target.value,
-                              choiceId: currentAnswer.choiceId,
-                            })
-                          }
-                          placeholder="Enter your answer (e.g. 5.566, -5.566, 2/3, -2/3)"
-                          pattern="[0-9.\\-/]+"
-                          className="max-w-[180px] sm:max-w-[220px] md:max-w-[240px] w-full px-2 sm:px-3 py-1.5 sm:py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm md:text-base"
+                          }}
                         />
                       </div>
-                    )}
+
+                      {hasChoiceOptions(question) && (
+                        <div className="space-y-2 sm:space-y-3 md:space-y-4">
+                          {(question.choices ?? []).map((choice, index) => {
+                            const isSelected =
+                              currentAnswer.choiceId === choice.id;
+                            const letter = String.fromCharCode(65 + index);
+                            const isEliminated = eliminatedChoices.has(
+                              choice.id,
+                            );
+                            const choiceImageUrl = getChoiceImageUrl(
+                              choice as Record<string, unknown>,
+                            );
+
+                            return (
+                              <div
+                                key={choice.id || index}
+                                className="relative w-full"
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (isEliminationMode) {
+                                      setEliminatedChoices((prev) => {
+                                        const next = new Set(prev);
+                                        if (next.has(choice.id)) {
+                                          next.delete(choice.id);
+                                        } else {
+                                          next.add(choice.id);
+                                        }
+                                        return next;
+                                      });
+                                    } else {
+                                      handleAnswerChange({
+                                        choiceId: choice.id,
+                                        textAnswer: currentAnswer.textAnswer,
+                                      });
+                                    }
+                                  }}
+                                  className={`w-full p-2 sm:p-3 md:p-4 text-left border-2 rounded-lg text-xs sm:text-sm md:text-base flex items-start gap-2 md:gap-3 ${
+                                    isSelected
+                                      ? "border-black"
+                                      : isEliminated
+                                        ? "border-gray-300 bg-gray-100 opacity-60"
+                                        : "border-gray-200 hover:bg-gray-200 cursor-pointer"
+                                  }`}
+                                >
+                                  <div
+                                    className={`flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full font-bold border border-black text-[10px] sm:text-xs ${
+                                      isSelected
+                                        ? "bg-black text-white"
+                                        : "text-black"
+                                    }`}
+                                  >
+                                    <span className="text-xs">{letter}</span>
+                                  </div>
+                                  <div
+                                    className={`flex-1 min-w-0 ${
+                                      isEliminated
+                                        ? "line-through text-gray-500"
+                                        : ""
+                                    }`}
+                                  >
+                                    <span className="block">
+                                      {getChoiceText(choice) ||
+                                        `Choice ${letter}`}
+                                    </span>
+                                    {choiceImageUrl && (
+                                      <span className="block mt-3 bg-gray-100 rounded border border-gray-200 overflow-hidden p-1">
+                                        {/* Oddiy img – GCS rasmlari ishonchli yuklansin (Next/Image baʼzan tashqi URL da muammo qiladi) */}
+                                        <img
+                                          src={choiceImageUrl}
+                                          alt={`Variant ${letter}`}
+                                          className="rounded object-contain max-h-12 w-full bg-gray-100 min-h-[24px]"
+                                          loading="lazy"
+                                        />
+                                      </span>
+                                    )}
+                                  </div>
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {isOpenAnswerQuestion(question) && (
+                        <div className="mt-3 pt-2 space-y-2">
+                          <input
+                            type="text"
+                            value={currentAnswer.textAnswer || ""}
+                            onChange={(e) =>
+                              handleAnswerChange({
+                                textAnswer: e.target.value,
+                                choiceId: currentAnswer.choiceId,
+                              })
+                            }
+                            placeholder="Enter your answer (e.g. 5.566, -5.566, 2/3, -2/3)"
+                            pattern="[0-9.\\-/]+"
+                            className="max-w-[180px] sm:max-w-[220px] md:max-w-[240px] w-full px-2 sm:px-3 py-1.5 sm:py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm md:text-base"
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
                 </div>
               </div>
 
@@ -2461,27 +2612,74 @@ export default function TestTakingPage() {
                           Student-Produced Response Directions
                         </h2>
                         <ul className="list-disc pl-4 sm:pl-5 space-y-1 sm:space-y-1.5 mb-2 sm:mb-3 text-gray-800 text-xs sm:text-sm">
-                          <li>If you find more than one correct answer, enter only one answer.</li>
-                          <li>You can enter up to 5 characters for a positive answer and up to 6 (including the negative sign) for a negative answer.</li>
-                          <li>If your answer is a fraction that doesn&apos;t fit, enter the decimal equivalent.</li>
-                          <li>If your answer is a decimal that doesn&apos;t fit, enter it by truncating or rounding at the fourth digit.</li>
-                          <li>If your answer is a mixed number (e.g. 3½), enter it as an improper fraction (7/2) or decimal (3.5).</li>
-                          <li>Don&apos;t enter symbols such as %, comma, or $.</li>
+                          <li>
+                            If you find more than one correct answer, enter only
+                            one answer.
+                          </li>
+                          <li>
+                            You can enter up to 5 characters for a positive
+                            answer and up to 6 (including the negative sign) for
+                            a negative answer.
+                          </li>
+                          <li>
+                            If your answer is a fraction that doesn&apos;t fit,
+                            enter the decimal equivalent.
+                          </li>
+                          <li>
+                            If your answer is a decimal that doesn&apos;t fit,
+                            enter it by truncating or rounding at the fourth
+                            digit.
+                          </li>
+                          <li>
+                            If your answer is a mixed number (e.g. 3½), enter it
+                            as an improper fraction (7/2) or decimal (3.5).
+                          </li>
+                          <li>
+                            Don&apos;t enter symbols such as %, comma, or $.
+                          </li>
                         </ul>
-                        <p className="font-semibold text-black mb-1 sm:mb-1.5 text-xs sm:text-sm">Examples</p>
+                        <p className="font-semibold text-black mb-1 sm:mb-1.5 text-xs sm:text-sm">
+                          Examples
+                        </p>
                         <div className="overflow-x-auto border border-gray-300 rounded text-xs sm:text-sm">
                           <table className="w-full border-collapse">
                             <thead>
                               <tr className="bg-gray-100 border-b border-gray-300">
-                                <th className="text-left p-1 sm:p-1.5 font-semibold border-r border-gray-300">Answer</th>
-                                <th className="text-left p-1 sm:p-1.5 font-semibold border-r border-gray-300">Acceptable</th>
-                                <th className="text-left p-1 sm:p-1.5 font-semibold">Unacceptable</th>
+                                <th className="text-left p-1 sm:p-1.5 font-semibold border-r border-gray-300">
+                                  Answer
+                                </th>
+                                <th className="text-left p-1 sm:p-1.5 font-semibold border-r border-gray-300">
+                                  Acceptable
+                                </th>
+                                <th className="text-left p-1 sm:p-1.5 font-semibold">
+                                  Unacceptable
+                                </th>
                               </tr>
                             </thead>
                             <tbody>
-                              <tr className="border-b border-gray-200"><td className="p-1 sm:p-1.5 border-r">3.5</td><td className="p-1 sm:p-1.5 border-r">3.5, 3.50, 7/2</td><td className="p-1 sm:p-1.5">3 1/2</td></tr>
-                              <tr className="border-b border-gray-200"><td className="p-1 sm:p-1.5 border-r">2/3</td><td className="p-1 sm:p-1.5 border-r">2/3, .6666, .6667, 0.666, 0.667</td><td className="p-1 sm:p-1.5">0.66, .66, 0.67, .67</td></tr>
-                              <tr><td className="p-1 sm:p-1.5 border-r">-1/3</td><td className="p-1 sm:p-1.5 border-r">-1/3, -.3333, -0.333</td><td className="p-1 sm:p-1.5">-.33, -0.33</td></tr>
+                              <tr className="border-b border-gray-200">
+                                <td className="p-1 sm:p-1.5 border-r">3.5</td>
+                                <td className="p-1 sm:p-1.5 border-r">
+                                  3.5, 3.50, 7/2
+                                </td>
+                                <td className="p-1 sm:p-1.5">3 1/2</td>
+                              </tr>
+                              <tr className="border-b border-gray-200">
+                                <td className="p-1 sm:p-1.5 border-r">2/3</td>
+                                <td className="p-1 sm:p-1.5 border-r">
+                                  2/3, .6666, .6667, 0.666, 0.667
+                                </td>
+                                <td className="p-1 sm:p-1.5">
+                                  0.66, .66, 0.67, .67
+                                </td>
+                              </tr>
+                              <tr>
+                                <td className="p-1 sm:p-1.5 border-r">-1/3</td>
+                                <td className="p-1 sm:p-1.5 border-r">
+                                  -1/3, -.3333, -0.333
+                                </td>
+                                <td className="p-1 sm:p-1.5">-.33, -0.33</td>
+                              </tr>
                             </tbody>
                           </table>
                         </div>
@@ -2532,8 +2730,7 @@ export default function TestTakingPage() {
                         if (highlights.length > 0) {
                           saveHighlightsToStorage(question.id, highlights);
                         } else {
-                          const allHighlights =
-                            getAllHighlightsFromStorage();
+                          const allHighlights = getAllHighlightsFromStorage();
                           allHighlights.delete(question.id);
                           if (typeof window !== "undefined") {
                             try {
@@ -2599,7 +2796,10 @@ export default function TestTakingPage() {
                 <p className="text-white text-sm">
                   Question {testState.currentQuestionIndex + 1} of {totalQs}
                 </p>
-                <button className="p-1 rounded" style={{ pointerEvents: "none" }}>
+                <button
+                  className="p-1 rounded"
+                  style={{ pointerEvents: "none" }}
+                >
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
@@ -2607,7 +2807,11 @@ export default function TestTakingPage() {
                 <Button
                   variant="outline"
                   onClick={handlePrevious}
-                  disabled={testState.currentQuestionIndex === 0 || submitting || isQuestionLoading}
+                  disabled={
+                    testState.currentQuestionIndex === 0 ||
+                    submitting ||
+                    isQuestionLoading
+                  }
                   className="px-4 py-2 text-sm text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
                     backgroundColor: "rgb(51, 76, 199)",

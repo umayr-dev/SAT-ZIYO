@@ -1,5 +1,3 @@
-// @ts-nocheck
-/* eslint-disable */
 "use client";
 
 import { useMemo, useState } from "react";
@@ -10,34 +8,36 @@ import { Button } from "@/src/ui/button";
 import { Loading } from "@/src/ui/loading";
 import {
   Clock,
-  FileText,
-  Trophy,
   Play,
   RotateCcw,
-  Star,
-  BookOpen,
-  RefreshCw,
-  CheckCircle2,
-  Users,
   MessageCircle,
+  Trophy,
+  BookOpen,
+  CheckCircle2,
+  Timer,
 } from "lucide-react";
 import { usePracticeOverview } from "@/src/components/practice/usePracticeOverview";
 import type { Attempt, Test } from "@/src/services/practice.service";
 import { practiceService } from "@/src/services/practice.service";
 
-type FilterType = "all" | "new" | "free" | "in_progress" | "completed";
+type Tab = "all" | "in_progress" | "completed";
 
 export default function PracticePage() {
   const router = useRouter();
   const { data, isLoading, error } = usePracticeOverview();
-  const tests = useMemo(() => data?.tests ?? [], [data?.tests]);
-  const attempts = useMemo(() => data?.attempts ?? [], [data?.attempts]);
-  const [activeFilter, setActiveFilter] = useState<FilterType>("all");
-  const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest");
 
-  function getTestAttempts(testId: string): Attempt[] {
-    return attempts.filter((a) => a.testId === testId);
-  }
+  const tests = useMemo(() => data?.tests ?? [], [data?.tests]);
+
+  // Ignore ABANDONED attempts everywhere
+  const attempts = useMemo(
+    () => (data?.attempts ?? []).filter((a) => a.status !== "ABANDONED"),
+    [data?.attempts],
+  );
+
+  const [activeTab, setActiveTab] = useState<Tab>("all");
+  const [startingId, setStartingId] = useState<string | null>(null);
+
+  // ---- Helpers ----
 
   function getInProgressAttempt(testId: string): Attempt | undefined {
     return attempts.find(
@@ -45,145 +45,103 @@ export default function PracticePage() {
     );
   }
 
-  function getBestScore(testId: string): number | null {
-    const testAttempts = getTestAttempts(testId)
-      .filter((a) => a.status === "COMPLETED" && a.totalScore !== undefined)
-      .map((a) => a.totalScore!);
-    return testAttempts.length > 0 ? Math.max(...testAttempts) : null;
+  function getBestCompletedAttempt(testId: string): Attempt | undefined {
+    const completed = attempts.filter(
+      (a) =>
+        a.testId === testId &&
+        a.status === "COMPLETED" &&
+        a.totalScore != null,
+    );
+    if (!completed.length) return undefined;
+    return completed.reduce((best, a) =>
+      (a.totalScore ?? 0) > (best.totalScore ?? 0) ? a : best,
+    );
   }
 
-  // SAT total score: display in steps of 10, minimum 400 (backend may return raw e.g. 402)
-  function formatSatTotalScore(score: number): number {
-    return Math.max(400, Math.round(Number(score) / 10) * 10);
+  function roundScore(score: number, min: number): number {
+    return Math.max(min, Math.round(Number(score) / 10) * 10);
   }
 
   function calculateTotalDuration(test: Test): number {
-    if (!test.sections || !Array.isArray(test.sections)) {
-      return test.totalDuration || 0;
-    }
+    if (!test.sections?.length) return test.totalDuration ?? 0;
     return (
-      test.sections.reduce<number>(
-        (total, section) => total + (section.duration || 0),
-        0,
-      ) ||
+      test.sections.reduce((sum, s) => sum + (s.duration ?? 0), 0) ||
       test.totalDuration ||
       0
     );
   }
 
   function calculateTotalQuestions(test: Test): number {
-    if (!test.sections || !Array.isArray(test.sections)) {
-      return test.totalQuestions || 0;
-    }
-
+    if (!test.sections?.length) return test.totalQuestions ?? 0;
     let total = 0;
-
     for (const section of test.sections) {
-      if (!section.modules || !Array.isArray(section.modules)) {
-        continue;
-      }
-
-      for (const module of section.modules) {
-        total += module.questionCount || 0;
-      }
+      if (!section.modules?.length) continue;
+      for (const mod of section.modules) total += mod.questionCount ?? 0;
     }
-
     return total || test.totalQuestions || 0;
   }
 
-  // Filter and sort tests
-  const filteredAndSortedTests = useMemo(() => {
-    let filtered = [...tests];
+  function formatDate(iso: string): string {
+    return new Date(iso).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
 
-    // Apply filters
-    switch (activeFilter) {
-      case "new":
-        // New tests - tests with no attempts or recent attempts
-        filtered = filtered.filter((test) => {
-          const testAttempts = attempts.filter((a) => a.testId === test.id);
-          return testAttempts.length === 0;
-        });
-        break;
-      case "free":
-        // Free tests - default to FREE when accessType is not PREMIUM
-        filtered = filtered.filter((test) => {
-          const accessType = (test as any).accessType as
-            | "FREE"
-            | "PREMIUM"
-            | undefined;
-          return accessType !== "PREMIUM";
-        });
-        break;
-      case "in_progress":
-        filtered = filtered.filter((test) => {
-          const testAttempts = attempts.filter((a) => a.testId === test.id);
-          const hasInProgress = testAttempts.some(
-            (a) => a.status === "IN_PROGRESS",
-          );
-          const hasCompleted = testAttempts.some(
-            (a) => a.status === "COMPLETED",
-          );
-          // In progress = bor, lekin hali to'liq yakunlanmagan
-          return hasInProgress && !hasCompleted;
-        });
-        break;
-      case "completed":
-        filtered = filtered.filter((test) => {
-          const testAttempts = attempts.filter((a) => a.testId === test.id);
-          // Completed = kamida bitta COMPLETED attempt bor
-          return testAttempts.some((a) => a.status === "COMPLETED");
-        });
-        break;
-      case "all":
-      default:
-        break;
+  async function handleContinue(testId: string) {
+    if (startingId) return;
+    try {
+      setStartingId(testId);
+      const response = await practiceService.startTest(testId);
+      router.push(`/dashboard/practice/test/${response.attemptId}`);
+    } catch (err) {
+      console.error("Failed to resume test:", err);
+      setStartingId(null);
     }
+  }
 
-    // Sort tests
-    if (sortBy === "newest") {
-      filtered.sort((a, b) => {
-        // Sort by creation date or ID (newest first)
-        return (b.id || "").localeCompare(a.id || "");
-      });
-    } else {
-      filtered.sort((a, b) => {
-        return (a.id || "").localeCompare(b.id || "");
-      });
-    }
+  // ---- Derived section data ----
 
-    return filtered;
-  }, [tests, attempts, activeFilter, sortBy]);
+  const inProgressAttempts = useMemo(
+    () => attempts.filter((a) => a.status === "IN_PROGRESS"),
+    [attempts],
+  );
 
-  // Count tests by filter
-  const filterCounts = useMemo(() => {
-    return {
-      all: tests.length,
-      new: tests.filter(
-        (test) => attempts.filter((a) => a.testId === test.id).length === 0,
-      ).length,
-      free: tests.filter((test) => {
-        const accessType = (test as any).accessType as
-          | "FREE"
-          | "PREMIUM"
-          | undefined;
-        return accessType !== "PREMIUM";
-      }).length,
-      in_progress: tests.filter((test) => {
-        const testAttempts = attempts.filter((a) => a.testId === test.id);
-        const hasInProgress = testAttempts.some(
-          (a) => a.status === "IN_PROGRESS",
-        );
-        const hasCompleted = testAttempts.some(
-          (a) => a.status === "COMPLETED",
-        );
-        return hasInProgress && !hasCompleted;
-      }).length,
-      completed: tests.filter((test) => {
-        const testAttempts = attempts.filter((a) => a.testId === test.id);
-        return testAttempts.some((a) => a.status === "COMPLETED");
-      }).length,
-    };
-  }, [tests, attempts]);
+  const completedAttempts = useMemo(
+    () =>
+      attempts
+        .filter((a) => a.status === "COMPLETED")
+        .sort(
+          (a, b) =>
+            new Date(b.completedAt ?? "").getTime() -
+            new Date(a.completedAt ?? "").getTime(),
+        ),
+    [attempts],
+  );
+
+  // ---- Tabs config ----
+
+  const tabs: { id: Tab; label: string; icon: React.ReactNode; count: number }[] = [
+    {
+      id: "all",
+      label: "All Tests",
+      icon: <BookOpen className="w-4 h-4" />,
+      count: tests.length,
+    },
+    {
+      id: "in_progress",
+      label: "In Progress",
+      icon: <Timer className="w-4 h-4" />,
+      count: inProgressAttempts.length,
+    },
+    {
+      id: "completed",
+      label: "Completed",
+      icon: <CheckCircle2 className="w-4 h-4" />,
+      count: completedAttempts.length,
+    },
+  ];
 
   if (isLoading) {
     return (
@@ -195,181 +153,388 @@ export default function PracticePage() {
 
   return (
     <div className="w-full max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold text-brand-blue mb-2">
-          Official Practice Tests
+      {/* Page header */}
+      <div className="mb-6">
+        <h1 className="text-3xl md:text-4xl font-bold text-brand-blue mb-1">
+          Practice Tests
         </h1>
-        <p className="text-sm md:text-base text-brand-blue/80">
-          Real SAT-style tests from your dashboard. Jump back into your latest
-          attempt in one click.
+        <p className="text-sm text-brand-blue/70">
+          Official SAT-style full-length tests. Pick up where you left off or
+          start fresh.
         </p>
       </div>
 
       {error && (
         <Card className="p-4 bg-red-50 border-red-200 mb-6">
-          <p className="text-red-700">
+          <p className="text-red-700 text-sm">
             {error instanceof Error ? error.message : String(error)}
           </p>
         </Card>
       )}
 
-      {/* Test Cards Grid */}
-      {filteredAndSortedTests.length === 0 ? (
-        <Card className="p-12 text-center border border-dashed border-brand-blue/30 bg-brand-blue-50/60">
-          <p className="text-brand-blue text-base mb-2">
-            No practice tests available
-          </p>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredAndSortedTests.map((test, index) => {
-            const inProgressAttempt = getInProgressAttempt(test.id);
-            const bestScore = getBestScore(test.id);
-            const totalDuration = calculateTotalDuration(test);
-            const totalQuestions = calculateTotalQuestions(test);
-            const testAttempts = getTestAttempts(test.id);
-            const completedAttempts = testAttempts.filter(
-              (a) => a.status === "COMPLETED",
-            );
-            const peopleTook = completedAttempts.length;
-            const allAttemptsForTest = attempts.filter(
-              (a) => a.testId === test.id,
-            );
-            const totalPeopleTook = allAttemptsForTest.length;
-
-            const statusBadge = inProgressAttempt
-              ? { label: "In progress", color: "bg-brand-blue-50 text-brand-blue" }
-              : completedAttempts.length > 0
-              ? { label: "Completed", color: "bg-brand-orange-light text-brand-orange" }
-              : { label: "Unsolved", color: "bg-brand-blue-light text-brand-blue" };
-
-            const hasAttempts = totalPeopleTook > 0;
-            const title =
-              test.title ||
-              `Test #${filteredAndSortedTests.length - index}`;
-
-            const accessType = ((test as any).accessType ??
-              "FREE") as "FREE" | "PREMIUM";
-            const accessLabel =
-              accessType === "PREMIUM" ? "Premium" : "Free";
-            const accessClasses =
-              accessType === "PREMIUM"
-                ? "bg-brand-orange-light text-brand-orange border border-brand-orange/30"
-                : "bg-brand-blue-50 text-brand-blue border border-brand-blue/30";
-
-            return (
-              <Card
-                key={test.id}
-                className="p-4 md:p-5 bg-white border border-brand-blue-light hover:border-brand-blue/40 hover:shadow-md transition-all duration-200 rounded-2xl"
+      {/* Tab bar */}
+      <div className="flex items-center gap-2 flex-wrap mb-6">
+        {tabs.map((tab) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                isActive
+                  ? "bg-gray-900 text-white shadow-sm"
+                  : "bg-white text-gray-500 border border-gray-200 hover:border-gray-300 hover:text-gray-700"
+              }`}
+            >
+              {tab.icon}
+              {tab.label}
+              <span
+                className={`ml-0.5 text-xs rounded-full px-1.5 py-0.5 font-semibold ${
+                  isActive ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
+                }`}
               >
-                <div className="space-y-3">
-                  {/* Top: tile with logo + glass effect, test name centered */}
-                  <div className="relative overflow-hidden rounded-2xl h-44 md:h-52 bg-gradient-to-br from-brand-orange-light via-brand-orange/20 to-brand-blue">
-                    {/* Logo: larger so more visible */}
-                    <div className="absolute inset-0 flex items-center justify-center opacity-40">
-                      <div className="relative w-44 h-44 md:w-56 md:h-56">
-                        <Image
-                          src="/logo.png"
-                          alt="SAT Ziyo"
-                          fill
-                          className="object-contain"
-                          sizes="224px"
-                          priority
-                        />
-                      </div>
-                    </div>
-                    {/* Glass effect overlays */}
-                    <div className="absolute inset-0 pointer-events-none">
-                      <div className="absolute -top-10 left-0 w-40 h-32 bg-brand-orange/50 rounded-full blur-3xl" />
-                      <div className="absolute bottom-0 right-[-40px] w-48 h-32 bg-brand-blue/60 rounded-full blur-3xl" />
-                    </div>
-                    {/* Test name centered */}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-lg md:text-xl font-semibold text-white drop-shadow-md text-center px-4">
-                        {title}
-                      </span>
-                    </div>
-                  </div>
+                {tab.count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
-                  {/* Middle: meta + attempts */}
-                  <div className="flex items-center justify-between text-[11px] md:text-xs text-brand-blue/80">
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5" />
-                        <span>{totalDuration} min</span>
+      {/* ── Tab: All Tests ── */}
+      {activeTab === "all" && (
+        <>
+          {tests.length === 0 ? (
+            <Card className="p-12 text-center border border-dashed border-brand-blue/30">
+              <p className="text-brand-blue/60">No practice tests available</p>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {tests.map((test, index) => {
+                const inProgress = getInProgressAttempt(test.id);
+                const bestAttempt = getBestCompletedAttempt(test.id);
+                const totalDuration = calculateTotalDuration(test);
+                const totalQuestions = calculateTotalQuestions(test);
+                const isStarting = startingId === test.id;
+
+                const accessType = (
+                  (test as { accessType?: string }).accessType ?? "FREE"
+                ) as "FREE" | "PREMIUM";
+                const accessLabel = accessType === "PREMIUM" ? "Premium" : "Free";
+                const accessClasses =
+                  accessType === "PREMIUM"
+                    ? "bg-brand-orange-light text-brand-orange border border-brand-orange/30"
+                    : "bg-brand-blue-50 text-brand-blue border border-brand-blue/30";
+
+                const statusBadge = inProgress
+                  ? { label: "In Progress", color: "bg-brand-blue-50 text-brand-blue" }
+                  : bestAttempt
+                    ? { label: "Completed", color: "bg-brand-orange-light text-brand-orange" }
+                    : { label: "Not Started", color: "bg-gray-100 text-gray-500" };
+
+                const title = test.title || `Test #${tests.length - index}`;
+
+                return (
+                  <Card
+                    key={test.id}
+                    className="p-4 bg-white border border-brand-blue-light hover:border-brand-blue/40 hover:shadow-md transition-all duration-200 rounded-2xl"
+                  >
+                    <div className="space-y-3">
+                      {/* Thumbnail */}
+                      <div className="relative overflow-hidden rounded-2xl h-40 bg-gradient-to-br from-brand-orange-light via-brand-orange/20 to-brand-blue">
+                        <div className="absolute inset-0 flex items-center justify-center opacity-40">
+                          <div className="relative w-40 h-40">
+                            <Image
+                              src="/logo.png"
+                              alt="SAT Ziyo"
+                              fill
+                              className="object-contain"
+                              sizes="160px"
+                              priority
+                            />
+                          </div>
+                        </div>
+                        <div className="absolute inset-0 pointer-events-none">
+                          <div className="absolute -top-10 left-0 w-36 h-28 bg-brand-orange/50 rounded-full blur-3xl" />
+                          <div className="absolute bottom-0 right-[-30px] w-40 h-28 bg-brand-blue/60 rounded-full blur-3xl" />
+                        </div>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-base font-semibold text-white drop-shadow-md text-center px-4">
+                            {title}
+                          </span>
+                        </div>
                       </div>
-                      <span className="h-1 w-1 rounded-full bg-brand-blue/40" />
-                      <span>{totalQuestions} questions</span>
-                    </div>
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${statusBadge.color}`}
-                    >
-                      {statusBadge.label}
-                    </span>
-                  </div>
-                  <div className="text-[11px] md:text-xs text-brand-blue/70 flex items-center justify-between">
-                    <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${accessClasses}`}
-                    >
-                      {accessLabel}
-                    </span>
-                    <span>
-                      {hasAttempts ? (
-                        bestScore !== null ? (
-                          <>Best score: {formatSatTotalScore(bestScore)} · {totalPeopleTook} attempts</>
+
+                      {/* Meta row */}
+                      <div className="flex items-center justify-between text-[11px] text-brand-blue/80">
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            <span>{totalDuration} min</span>
+                          </div>
+                          <span className="h-1 w-1 rounded-full bg-brand-blue/40" />
+                          <span>{totalQuestions} q</span>
+                        </div>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${statusBadge.color}`}
+                        >
+                          {statusBadge.label}
+                        </span>
+                      </div>
+
+                      {/* Access + score */}
+                      <div className="flex items-center justify-between text-[11px] text-brand-blue/70">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${accessClasses}`}
+                        >
+                          {accessLabel}
+                        </span>
+                        {bestAttempt?.totalScore != null ? (
+                          <span>
+                            Best:{" "}
+                            <span className="font-semibold text-brand-blue">
+                              {roundScore(bestAttempt.totalScore, 400)}
+                            </span>
+                          </span>
+                        ) : inProgress ? (
+                          <span className="text-brand-blue/50">In progress</span>
                         ) : (
-                          <>{totalPeopleTook} attempts so far</>
-                        )
-                      ) : (
-                        <>No attempts yet</>
-                      )}
-                    </span>
-                  </div>
+                          <span className="text-gray-400">Not taken</span>
+                        )}
+                      </div>
 
-                  {/* Bottom: primary action + comments */}
-                  <div className="pt-1 md:pt-2 flex items-center gap-2">
-                    <Button
-                      onClick={() =>
-                        router.push(
-                          inProgressAttempt
-                            ? `/dashboard/practice/test/${inProgressAttempt.id}`
-                            : `/dashboard/practice/test/${test.id}/start`,
-                        )
-                      }
-                      className="flex-1 bg-brand-blue hover:bg-brand-blue/90 text-white rounded-xl py-2.5 text-sm font-semibold"
-                    >
-                      {inProgressAttempt ? (
-                        <>
-                          <RotateCcw className="w-4 h-4 mr-2" />
-                          Continue test
-                        </>
-                      ) : (
-                        <>
-                          <Play className="w-4 h-4 mr-2" />
-                          Start test
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() =>
-                        router.push(
-                          `/dashboard/practice/test/${test.id}/comments`,
-                        )
-                      }
-                      className="bg-white border-brand-blue-light hover:bg-brand-orange-light rounded-xl px-3 py-2"
-                      title="Comments / Discussion"
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
+                      {/* Buttons */}
+                      <div className="flex items-center gap-2 pt-1">
+                        {inProgress ? (
+                          <Button
+                            onClick={() => handleContinue(inProgress.testId)}
+                            disabled={!!startingId}
+                            className="flex-1 bg-brand-blue hover:bg-brand-blue/90 text-white rounded-xl py-2 text-sm font-semibold"
+                          >
+                            {isStarting ? (
+                              <Loading size="sm" />
+                            ) : (
+                              <>
+                                <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                                Continue
+                              </>
+                            )}
+                          </Button>
+                        ) : (
+                          <Button
+                            onClick={() =>
+                              router.push(
+                                `/dashboard/practice/test/${test.id}/start`,
+                              )
+                            }
+                            className="flex-1 bg-gray-900 hover:bg-gray-800 text-white rounded-xl py-2 text-sm font-semibold"
+                          >
+                            {bestAttempt ? (
+                              <>
+                                <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                                Retake
+                              </>
+                            ) : (
+                              <>
+                                <Play className="w-3.5 h-3.5 mr-1.5" />
+                                Start Test
+                              </>
+                            )}
+                          </Button>
+                        )}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() =>
+                            router.push(
+                              `/dashboard/practice/test/${test.id}/comments`,
+                            )
+                          }
+                          className="bg-white border-gray-200 hover:bg-gray-50 rounded-xl px-3 py-2"
+                          title="Discussion"
+                        >
+                          <MessageCircle className="w-4 h-4 text-gray-500" />
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── Tab: In Progress ── */}
+      {activeTab === "in_progress" && (
+        <>
+          {inProgressAttempts.length === 0 ? (
+            <Card className="p-12 text-center border border-dashed border-gray-200">
+              <Timer className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500 font-medium">No tests in progress</p>
+              <p className="text-sm text-gray-400 mt-1">
+                Start a test from the All Tests tab to see it here.
+              </p>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {inProgressAttempts.map((attempt) => {
+                const isStarting = startingId === attempt.testId;
+                return (
+                  <Card
+                    key={attempt.id}
+                    className="p-5 border border-brand-blue-light rounded-2xl bg-white hover:shadow-md transition-all duration-200"
+                  >
+                    <div className="flex flex-col gap-4 h-full">
+                      {/* Header */}
+                      <div className="flex items-start gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-brand-blue-50 flex items-center justify-center flex-shrink-0">
+                          <Timer className="w-4.5 h-4.5 text-brand-blue" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-brand-blue text-sm leading-tight line-clamp-2">
+                            {attempt.testTitle}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            Started {formatDate(attempt.startedAt)}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Status pill */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-brand-blue animate-pulse" />
+                        <span className="text-xs text-brand-blue font-medium">
+                          In Progress
+                        </span>
+                      </div>
+
+                      {/* Button */}
+                      <Button
+                        onClick={() => handleContinue(attempt.testId)}
+                        disabled={!!startingId}
+                        className="w-full bg-brand-blue hover:bg-brand-blue/90 text-white rounded-xl py-2.5 text-sm font-semibold mt-auto"
+                      >
+                        {isStarting ? (
+                          <Loading size="sm" />
+                        ) : (
+                          <>
+                            <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                            Continue Test
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── Tab: Completed ── */}
+      {activeTab === "completed" && (
+        <>
+          {completedAttempts.length === 0 ? (
+            <Card className="p-12 text-center border border-dashed border-gray-200">
+              <Trophy className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500 font-medium">No completed tests yet</p>
+              <p className="text-sm text-gray-400 mt-1">
+                Finish a test to see your scores here.
+              </p>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {completedAttempts.map((attempt) => {
+                const total =
+                  attempt.totalScore != null
+                    ? roundScore(attempt.totalScore, 400)
+                    : null;
+                const rw =
+                  attempt.readingWritingScore != null
+                    ? roundScore(attempt.readingWritingScore, 200)
+                    : null;
+                const math =
+                  attempt.mathScore != null
+                    ? roundScore(attempt.mathScore, 200)
+                    : null;
+
+                return (
+                  <Card
+                    key={attempt.id}
+                    className="p-5 border border-brand-blue-light rounded-2xl bg-white hover:shadow-md transition-all duration-200"
+                  >
+                    <div className="flex flex-col gap-4 h-full">
+                      {/* Header */}
+                      <div className="flex items-start gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-brand-orange-light flex items-center justify-center flex-shrink-0">
+                          <Trophy className="w-4.5 h-4.5 text-brand-orange" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-brand-blue text-sm leading-tight line-clamp-2">
+                            {attempt.testTitle}
+                          </p>
+                          {attempt.completedAt && (
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              {formatDate(attempt.completedAt)}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Scores */}
+                      <div className="bg-gray-50 rounded-xl p-3 space-y-2">
+                        {total != null ? (
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-3xl font-bold text-brand-blue">
+                              {total}
+                            </span>
+                            <span className="text-xs text-gray-400">/1600</span>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-gray-400">Score unavailable</span>
+                        )}
+                        {(rw != null || math != null) && (
+                          <div className="flex items-center gap-3 text-xs text-gray-500">
+                            {rw != null && (
+                              <span>
+                                R&amp;W{" "}
+                                <span className="font-semibold text-brand-blue">
+                                  {rw}
+                                </span>
+                              </span>
+                            )}
+                            {math != null && (
+                              <span>
+                                Math{" "}
+                                <span className="font-semibold text-brand-blue">
+                                  {math}
+                                </span>
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Button */}
+                      <Button
+                        variant="outline"
+                        onClick={() =>
+                          router.push(
+                            `/dashboard/practice/test/${attempt.id}/finish`,
+                          )
+                        }
+                        className="w-full border-brand-blue-light text-brand-blue hover:bg-brand-blue-50 rounded-xl py-2.5 text-sm font-semibold mt-auto"
+                      >
+                        View Results
+                      </Button>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

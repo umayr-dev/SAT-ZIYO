@@ -32,9 +32,11 @@ export interface Attempt {
   testId: string;
   testTitle: string;
   status: "IN_PROGRESS" | "COMPLETED" | "ABANDONED";
-  totalScore?: number;
+  totalScore?: number | null;
+  readingWritingScore?: number | null;
+  mathScore?: number | null;
   startedAt: string;
-  completedAt?: string;
+  completedAt?: string | null;
 }
 
 export interface StartTestResponse {
@@ -193,6 +195,13 @@ export interface TestResults {
   correctAnswers: number;
   wrongAnswers: number;
   completedAt: string;
+  performance?: {
+    totalQuestions: number;
+    correct: number;
+    incorrect: number;
+    unanswered: number;
+    accuracy: number;
+  };
   sections: SectionResult[];
   domainPerformance?: Record<
     string,
@@ -209,6 +218,12 @@ export interface SectionResult {
   rawScore?: number;
   totalQuestions?: number;
   module2Difficulty?: "EASY" | "HARD";
+  performance?: {
+    correct: number;
+    incorrect: number;
+    unanswered: number;
+    accuracy: number;
+  };
   modules: ModuleResult[];
 }
 
@@ -218,27 +233,41 @@ export interface ModuleResult {
   assignedDifficulty?: "EASY" | "HARD" | null;
   score: number;
   correctCount: number;
+  incorrectCount?: number;
+  unansweredCount?: number;
   totalCount: number;
   questions: QuestionResult[];
 }
 
 export interface QuestionResult {
   questionId: string;
+  questionNumber?: number;
+  moduleNumber?: number;
+  sectionType?: "ENGLISH" | "MATH";
   questionText: string;
   questionType: "MULTIPLE_CHOICE" | "STUDENT_PRODUCED";
   difficulty: "EASY" | "MEDIUM" | "HARD";
   contentDomain?: string;
+  imageUrl?: string | null;
+  passage?: string | null;
+  sharedPassage?: {
+    title?: string | null;
+    content: string;
+    source?: string | null;
+  } | null;
   userChoiceId?: string;
   userTextAnswer?: string;
   correctChoiceId?: string;
   correctAnswer?: string;
   isCorrect: boolean;
-  explanation?: string;
+  isUnanswered?: boolean;
+  explanation?: string | null;
   choices?: {
     id: string;
     choiceText: string;
     isCorrect: boolean;
-    imageUrl?: string;
+    imageUrl?: string | null;
+    orderIndex?: number;
   }[];
 }
 
