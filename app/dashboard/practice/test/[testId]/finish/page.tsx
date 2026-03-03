@@ -51,6 +51,7 @@ export default function FinishTestPage() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewQuestions, setReviewQuestions] = useState<QuestionResult[]>([]);
   const [reviewIndex, setReviewIndex] = useState(0);
+  const [showAnswer, setShowAnswer] = useState(false);
 
   // Get storage key for answers (same as test page: test_answers_attemptId, keys inside s0_m1_0 etc.)
   const getStorageKey = useCallback(() => `test_answers_${attemptId}`, [attemptId]);
@@ -255,6 +256,11 @@ export default function FinishTestPage() {
   useEffect(() => {
     submitTest();
   }, [submitTest]);
+
+  // Reset "Show Answer" toggle whenever the user navigates to a different question or opens the modal
+  useEffect(() => {
+    setShowAnswer(false);
+  }, [reviewIndex, reviewOpen]);
 
   // ---- Helpers ----
 
@@ -620,9 +626,21 @@ export default function FinishTestPage() {
               <ChevronLeft className="w-4 h-4" />
               Previous
             </Button>
-            <span className="text-sm text-gray-500">
-              {reviewIndex + 1} / {reviewQuestions.length}
-            </span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowAnswer((v) => !v)}
+                className={`h-8 px-3 rounded-md text-xs font-medium border transition-colors ${
+                  showAnswer
+                    ? "bg-gray-800 text-white border-gray-800"
+                    : "bg-white text-gray-600 border-gray-300 hover:border-gray-400"
+                }`}
+              >
+                {showAnswer ? "Hide Answer" : "Show Answer"}
+              </button>
+              <span className="text-sm text-gray-400">
+                {reviewIndex + 1} / {reviewQuestions.length}
+              </span>
+            </div>
             <Button
               variant="outline"
               className="h-8 px-3 text-sm flex items-center gap-1"
@@ -712,25 +730,37 @@ export default function FinishTestPage() {
                       const letter = String.fromCharCode(65 + idx);
                       const isCorrect = choice.isCorrect;
                       const isUser = choice.id === reviewQuestion.userChoiceId;
+
+                      // showAnswer OFF → user's pick = grey, everything else = neutral
+                      // showAnswer ON  → correct = green, user's wrong pick = red, rest = neutral
+                      let borderClass = "border-gray-200 bg-white";
+                      let circleClass = "bg-gray-100 text-gray-600";
+                      let label: string | null = null;
+
+                      if (!showAnswer) {
+                        if (isUser) {
+                          borderClass = "border-gray-400 bg-gray-100";
+                          circleClass = "bg-gray-400 text-white";
+                        }
+                      } else {
+                        if (isCorrect) {
+                          borderClass = "border-green-500 bg-green-50";
+                          circleClass = "bg-green-500 text-white";
+                          label = isUser ? "Your answer · Correct" : "Correct answer";
+                        } else if (isUser) {
+                          borderClass = "border-red-400 bg-red-50";
+                          circleClass = "bg-red-400 text-white";
+                          label = "Your answer";
+                        }
+                      }
+
                       return (
                         <div
                           key={choice.id}
-                          className={`flex items-start gap-3 p-3 rounded-lg border-2 ${
-                            isCorrect
-                              ? "border-green-500 bg-green-50"
-                              : isUser
-                              ? "border-red-400 bg-red-50"
-                              : "border-gray-200 bg-white"
-                          }`}
+                          className={`flex items-start gap-3 p-3 rounded-lg border-2 transition-colors ${borderClass}`}
                         >
                           <span
-                            className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-semibold ${
-                              isCorrect
-                                ? "bg-green-500 text-white"
-                                : isUser
-                                ? "bg-red-400 text-white"
-                                : "bg-gray-100 text-gray-600"
-                            }`}
+                            className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-semibold ${circleClass}`}
                           >
                             {letter}
                           </span>
@@ -747,23 +777,11 @@ export default function FinishTestPage() {
                                 className="mt-1 max-h-16 rounded object-contain"
                               />
                             )}
-                            <div className="flex gap-2 mt-0.5">
-                              {isCorrect && (
-                                <span className="text-xs font-semibold text-green-600">
-                                  Correct answer
-                                </span>
-                              )}
-                              {isUser && !isCorrect && (
-                                <span className="text-xs font-semibold text-red-500">
-                                  Your answer
-                                </span>
-                              )}
-                              {isUser && isCorrect && (
-                                <span className="text-xs font-semibold text-green-600">
-                                  Your answer · Correct
-                                </span>
-                              )}
-                            </div>
+                            {label && (
+                              <p className={`text-xs font-semibold mt-0.5 ${isCorrect ? "text-green-600" : "text-red-500"}`}>
+                                {label}
+                              </p>
+                            )}
                           </div>
                         </div>
                       );
@@ -774,18 +792,32 @@ export default function FinishTestPage() {
               {/* Student-produced answer */}
               {isOpenAnswerQuestion(reviewQuestion) && (
                 <div className="space-y-2">
-                  <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                  {/* Always show user's answer; neutral grey when showAnswer is off */}
+                  <div className={`p-3 rounded-lg border ${
+                    showAnswer
+                      ? reviewQuestion.isCorrect
+                        ? "bg-green-50 border-green-200"
+                        : "bg-red-50 border-red-200"
+                      : "bg-gray-100 border-gray-200"
+                  }`}>
                     <p className="text-xs text-gray-500 mb-1">Your Answer</p>
-                    <p className="font-mono text-gray-900 text-sm">
+                    <p className={`font-mono text-sm ${
+                      showAnswer
+                        ? reviewQuestion.isCorrect ? "text-green-800" : "text-red-700"
+                        : "text-gray-700"
+                    }`}>
                       {reviewQuestion.userTextAnswer || "No answer provided"}
                     </p>
                   </div>
-                  <div className="p-3 bg-green-50 border border-green-100 rounded-lg">
-                    <p className="text-xs text-gray-500 mb-1">Correct Answer</p>
-                    <p className="font-mono text-gray-900 text-sm">
-                      {reviewQuestion.correctAnswer || "—"}
-                    </p>
-                  </div>
+                  {/* Only show correct answer when showAnswer is on and user was wrong */}
+                  {showAnswer && !reviewQuestion.isCorrect && (
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <p className="text-xs text-gray-500 mb-1">Correct Answer</p>
+                      <p className="font-mono text-green-800 text-sm">
+                        {reviewQuestion.correctAnswer || "—"}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
