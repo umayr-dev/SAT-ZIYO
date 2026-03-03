@@ -54,7 +54,7 @@ export function ProfilePageClient() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-gray-600">Loading...</div>
       </div>
     );
@@ -65,7 +65,7 @@ export function ProfilePageClient() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 ">
+    <div className="min-h-screen bg-white ">
       {/* Sidebar - Client Component for navigation */}
       <DashboardSidebar />
 

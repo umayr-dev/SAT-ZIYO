@@ -174,4 +174,5 @@ export async function logout(): Promise<LogoutResponse> {
   }
 
   return response.json();
+  
 }

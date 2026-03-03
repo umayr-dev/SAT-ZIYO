@@ -304,7 +304,9 @@ export function DashboardSidebar() {
                           : "gap-3 px-4 py-3",
                         isActive
                           ? "bg-brand-blue text-white shadow-md"
-                          : "text-brand-blue hover:bg-brand-blue-50 hover:text-brand-blue",
+                          : item.label === "Support"
+                            ? "text-black hover:bg-brand-blue-50"
+                            : "text-brand-blue hover:bg-brand-blue-50 hover:text-brand-blue",
                       )}
                       title={isCollapsed ? item.label : undefined}
                     >
@@ -313,7 +315,9 @@ export function DashboardSidebar() {
                           "transition-colors duration-200",
                           isActive
                             ? "text-white"
-                            : "text-brand-blue/70 group-hover:text-brand-blue",
+                            : item.label === "Support"
+                              ? "text-black group-hover:text-black"
+                              : "text-brand-blue/70 group-hover:text-brand-blue",
                         )}
                       >
                         {item.icon}

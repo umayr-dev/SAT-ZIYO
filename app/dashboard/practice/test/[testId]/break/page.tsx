@@ -82,7 +82,7 @@ export default function BreakPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-white">
         <Loading size="lg" />
       </div>
     );
@@ -90,7 +90,7 @@ export default function BreakPage() {
 
   if (error || !breakStatus) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-white p-4">
         <Card className="p-6 text-center">
           <p className="text-red-700 mb-4">{error || "Break status not found"}</p>
           <Button
@@ -109,7 +109,7 @@ export default function BreakPage() {
   const formatted = `${minutes}:${seconds.toString().padStart(2, "0")}`;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-white flex items-center justify-center p-4">
       <Card className="max-w-2xl w-full p-8 text-center">
         <div className="mb-8">
           <Coffee className="w-16 h-16 mx-auto text-orange-500 mb-4" />

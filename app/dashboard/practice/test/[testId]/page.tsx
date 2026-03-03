@@ -1952,7 +1952,7 @@ export default function TestTakingPage() {
 
   if (!testState || !testState.question) {
     return (
-      <div className="flex min-h-screen bg-gray-50 items-center justify-center">
+      <div className="flex min-h-screen bg-white items-center justify-center">
         <Card className="p-8 max-w-md w-full">
           <div className="text-center">
             <h2 className="text-2xl font-bold mb-4 text-red-600">Error</h2>
@@ -2002,7 +2002,7 @@ export default function TestTakingPage() {
   };
 
   return (
-    <div className="flex h-screen w-full bg-gray-50 overflow-hidden px-2 sm:px-4 md:px-5">
+    <div className="flex h-screen w-full bg-white overflow-hidden px-2 sm:px-4 md:px-5">
       {/* Desmos Calculator Panel (Math only, non-blocking, draggable, resizable from corner) */}
       {showCalculator && testState.currentSection.type === "MATH" && (
         <DesmosCalculatorPanel
@@ -2073,7 +2073,7 @@ export default function TestTakingPage() {
         <div className="fixed inset-0 pointer-events-none z-0 flex items-center justify-center overflow-hidden">
           <div className="relative w-full h-full">
             {/* Glass blur background */}
-            <div className="absolute inset-0 backdrop-blur-xl bg-gradient-to-br from-white/20 via-white/10 to-transparent"></div>
+            <div className="absolute inset-0 bg-white/5" aria-hidden="true"></div>
             {/* Watermark text */}
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-7xl md:text-9xl lg:text-[12rem] font-extrabold text-gray-300/20 select-none transform -rotate-12 tracking-wider">

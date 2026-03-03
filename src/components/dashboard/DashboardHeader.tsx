@@ -33,7 +33,7 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
             <h1 className="text-xl font-bold text-brand-blue">
               Welcome back, {displayName}
             </h1>
-            <p className="text-sm text-brand-blue/80 mt-0.5">
+            <p className="text-sm text-black mt-0.5">
               Ready to ace your SAT? Let&apos;s get started!
             </p>
           </div>

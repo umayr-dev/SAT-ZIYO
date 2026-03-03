@@ -166,14 +166,14 @@ export default function ModuleReviewPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-white">
         <p className="text-gray-600 text-sm">Loading module review...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-10">
+    <div className="min-h-screen bg-white py-10">
       <div className="container mx-auto px-4 max-w-5xl">
         {/* Header */}
         <div className="mb-8 text-center">
