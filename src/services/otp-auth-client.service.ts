@@ -162,7 +162,7 @@ export async function logout(): Promise<LogoutResponse> {
       // ignore
     }
   }
-
+  
   const response = await fetch("/api/auth/logout", {
     method: "POST",
     credentials: "include", // Important: include cookies
