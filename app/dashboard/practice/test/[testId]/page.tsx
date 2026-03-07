@@ -2242,19 +2242,109 @@ export default function TestTakingPage() {
               </div>
             </div>
 
-            {/* Markaz – katta ekranlarda (>= lg) ikki ustun, kichik va planshet ekranlarda bitta ustun */}
+            {/* Markaz – katta ekranlarda (>= lg): Math = bitta ustun (ustma-ust), R&W = ikki ustun */}
             <div className="flex-1 min-h-0 flex flex-col relative min-w-0 overflow-hidden">
-              {/* Desktop / large (>= lg): 2 ustun – bitta umumiy scroll */}
+              {/* Desktop / large (>= lg) */}
               <div
                 className="relative hidden lg:flex lg:flex-col flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden"
                 ref={layoutContainerRef}
                 style={{ WebkitOverflowScrolling: "touch" }}
               >
+                {/* Math: bitta ustun, ustma-ust, o‘rtadagi column array yo‘q */}
+                {testState.currentSection.type === "MATH" ? (
+                  <div className="w-full flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+                    <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 pb-6">
+                      {isOpenAnswerQuestion(question) && (
+                        <div className="p-3 sm:p-4 md:p-5 bg-gray-50/80 rounded-lg text-xs sm:text-sm md:text-base leading-relaxed mb-4">
+                          <h2 className="text-sm sm:text-base md:text-lg font-bold text-black mb-2 sm:mb-3 md:mb-4">
+                            Student-Produced Response Directions
+                          </h2>
+                          <ul className="list-disc pl-4 sm:pl-5 space-y-1 sm:space-y-2 mb-2 sm:mb-3 md:mb-4 text-gray-800">
+                            <li>If you find more than one correct answer, enter only one answer.</li>
+                            <li>You can enter up to 5 characters for a positive answer and up to 6 characters (including the negative sign) for a negative answer.</li>
+                            <li>If your answer is a fraction that doesn&apos;t fit in the provided space, enter the decimal equivalent.</li>
+                            <li>If your answer is a decimal that doesn&apos;t fit in the provided space, enter it by truncating or rounding at the fourth digit.</li>
+                            <li>If your answer is a mixed number (such as 3½), enter it as an improper fraction (7/2) or its decimal equivalent (3.5).</li>
+                            <li>Don&apos;t enter symbols such as a percent sign, comma, or dollar sign.</li>
+                          </ul>
+                          <p className="font-semibold text-black mb-1 sm:mb-2 text-xs sm:text-sm">Examples</p>
+                          <div className="overflow-x-auto border border-gray-300 rounded-lg">
+                            <table className="w-full text-xs sm:text-sm border-collapse">
+                              <thead>
+                                <tr className="bg-gray-100 border-b border-gray-300">
+                                  <th className="text-left p-1 sm:p-2 font-semibold text-black border-r border-gray-300">Answer</th>
+                                  <th className="text-left p-1 sm:p-2 font-semibold text-black border-r border-gray-300">Acceptable ways to enter answer</th>
+                                  <th className="text-left p-1 sm:p-2 font-semibold text-black">Unacceptable: will NOT receive credit</th>
+                                </tr>
+                              </thead>
+                              <tbody className="text-gray-800">
+                                <tr className="border-b border-gray-200"><td className="p-1 sm:p-2 border-r border-gray-200">3.5</td><td className="p-1 sm:p-2 border-r border-gray-200">3.5, 3.50, 7/2</td><td className="p-1 sm:p-2">3 1/2</td></tr>
+                                <tr className="border-b border-gray-200"><td className="p-1 sm:p-2 border-r border-gray-200">2/3</td><td className="p-1 sm:p-2 border-r border-gray-200">2/3, .6666, .6667, 0.666, 0.667</td><td className="p-1 sm:p-2">0.66, .66, 0.67, .67</td></tr>
+                                <tr><td className="p-1 sm:p-2 border-r border-gray-200">-1/3</td><td className="p-1 sm:p-2 border-r border-gray-200">-1/3, -.3333, -0.333</td><td className="p-1 sm:p-2">-.33, -0.33</td></tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between bg-gray-200 rounded-lg mb-2 sm:mb-3 md:mb-4 py-0.5 sm:py-1">
+                        <div className="flex items-center h-full">
+                          <p className="question-index font-semibold bg-black text-white text-xs sm:text-sm h-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-l rounded-r-none">
+                            {testState.currentQuestionIndex + 1}
+                          </p>
+                          <button type="button" onClick={handleToggleFlag} className="flex items-center text-xs sm:text-sm text-gray-600 hover:text-black mr-1 sm:mr-2 h-full px-1 sm:px-2">
+                            <Flag className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-500 ${isFlagged ? "fill-orange-500 text-orange-500" : ""}`} />
+                            <span className="ml-0.5 sm:ml-1 text-xs sm:text-sm">Mark for Review</span>
+                          </button>
+                        </div>
+                        {hasChoiceOptions(question) && (
+                          <button type="button" onClick={() => { setIsEliminationMode((prev) => !prev); if (isEliminationMode) setEliminatedChoices(new Set()); }} className={`hidden xl:flex items-center text-sm text-gray-600 hover:text-black mr-2 h-full relative border border-gray-300 rounded w-8 h-8 justify-center bg-transparent ${isEliminationMode ? "bg-blue-100" : ""}`}>
+                            <span className="text-[12px] font-medium text-gray-600">ABC</span>
+                            {isEliminationMode && <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="absolute w-8 h-8 text-gray-500 pointer-events-none"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M18 6L6 18" /></svg>}
+                          </button>
+                        )}
+                      </div>
+                      <div className="prose prose-sm sm:prose max-w-none mb-2 sm:mb-3 md:mb-4 text-xs sm:text-sm md:text-base">
+                        <QuestionDisplay key={question.id} question={question} selectedChoiceId={currentAnswer.choiceId} textAnswer={currentAnswer.textAnswer} onSelectChoice={(choiceId) => handleAnswerChange({ choiceId, textAnswer: currentAnswer.textAnswer })} onTextAnswerChange={(text) => handleAnswerChange({ textAnswer: text, choiceId: currentAnswer.choiceId })} isFlagged={isFlagged} hidePassage showOnlyQuestionText isMarkupEnabled={isMarkupEnabled} attemptId={attemptId} onHighlightsChange={(highlights) => { if (highlights.length > 0) saveHighlightsToStorage(question.id, highlights); else { const all = getAllHighlightsFromStorage(); all.delete(question.id); if (typeof window !== "undefined") try { const o = {}; all.forEach((v, k) => { (o as any)[k] = v; }); localStorage.setItem(getHighlightsStorageKey(), JSON.stringify(o)); } catch (e) { console.error(e); } } }} />
+                      </div>
+                      {getQuestionImageUrl(question) && (
+                        <div className="mt-2 sm:mt-3 md:mt-4 p-2 sm:p-3 bg-white rounded-lg border border-gray-200 flex items-center justify-center overflow-hidden mb-4">
+                          <img src={getQuestionImageUrl(question)!} alt="Question" className="w-full h-auto rounded-lg object-contain max-h-[140px] sm:max-h-[180px] bg-white" loading="lazy" />
+                        </div>
+                      )}
+                      {hasChoiceOptions(question) && (
+                        <div className="space-y-2 sm:space-y-3 md:space-y-4">
+                          {(question.choices ?? []).map((choice, index) => {
+                            const isSelected = currentAnswer.choiceId === choice.id;
+                            const letter = String.fromCharCode(65 + index);
+                            const isEliminated = eliminatedChoices.has(choice.id);
+                            const choiceImageUrl = getChoiceImageUrl(choice as Record<string, unknown>);
+                            return (
+                              <div key={choice.id || index} className="relative w-full">
+                                <button type="button" onClick={() => { if (isEliminationMode) setEliminatedChoices((prev) => { const next = new Set(prev); if (next.has(choice.id)) next.delete(choice.id); else next.add(choice.id); return next; }); else handleAnswerChange({ choiceId: choice.id, textAnswer: currentAnswer.textAnswer }); }} className={`w-full p-2 sm:p-3 md:p-4 text-left border-2 rounded-lg text-xs sm:text-sm md:text-base flex items-start gap-2 md:gap-3 ${isSelected ? "border-black" : isEliminated ? "border-gray-300 bg-gray-100 opacity-60" : "border-gray-200 hover:bg-gray-200 cursor-pointer"}`}>
+                                  <div className={`flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full font-bold border border-black text-[10px] sm:text-xs ${isSelected ? "bg-black text-white" : "text-black"}`}><span className="text-xs">{letter}</span></div>
+                                  <div className={`flex-1 min-w-0 ${isEliminated ? "line-through text-gray-500" : ""}`}>
+                                    <span className="block">{getChoiceText(choice) || `Choice ${letter}`}</span>
+                                    {choiceImageUrl && <span className="block mt-3 bg-white rounded border border-gray-200 overflow-hidden p-1"><img src={choiceImageUrl} alt={`Variant ${letter}`} className="rounded object-contain max-h-12 w-full bg-white min-h-[24px]" loading="lazy" /></span>}
+                                  </div>
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {isOpenAnswerQuestion(question) && (
+                        <div className="mt-3 pt-2 space-y-2">
+                          <input type="text" value={currentAnswer.textAnswer || ""} onChange={(e) => handleAnswerChange({ textAnswer: e.target.value, choiceId: currentAnswer.choiceId })} placeholder="Enter your answer (e.g. 5.566, -5.566, 2/3, -2/3)" pattern="[0-9.\\-/]+" className="max-w-[180px] sm:max-w-[220px] md:max-w-[240px] w-full px-2 sm:px-3 py-1.5 sm:py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm md:text-base" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
                 <div
                   className="flex flex-1 gap-0 items-stretch"
                   style={{ minHeight: "min-content" }}
                 >
-                  {/* Left Column */}
+                  {/* Left Column – passage (R&W) */}
                   <div
                     className="content-pane flex-shrink-0 pr-1 md:pr-2 min-w-0"
                     style={{
@@ -2263,96 +2353,8 @@ export default function TestTakingPage() {
                     }}
                   >
                     <div className="pr-2 md:pr-4 pb-4 md:pb-6 pl-0.5 md:pl-1">
-                      {/* Math + yozma javob (grid-in): chapda Student-Produced Response Directions */}
-                      {testState.currentSection.type === "MATH" &&
-                      isOpenAnswerQuestion(question) ? (
-                        <div className="p-3 sm:p-4 md:p-5 bg-gray-50/80 rounded-lg text-xs sm:text-sm md:text-base leading-relaxed">
-                          <h2 className="text-sm sm:text-base md:text-lg font-bold text-black mb-2 sm:mb-3 md:mb-4">
-                            Student-Produced Response Directions
-                          </h2>
-                          <ul className="list-disc pl-4 sm:pl-5 space-y-1 sm:space-y-2 mb-2 sm:mb-3 md:mb-4 text-gray-800">
-                            <li>
-                              If you find more than one correct answer, enter
-                              only one answer.
-                            </li>
-                            <li>
-                              You can enter up to 5 characters for a positive
-                              answer and up to 6 characters (including the
-                              negative sign) for a negative answer.
-                            </li>
-                            <li>
-                              If your answer is a fraction that doesn&apos;t fit
-                              in the provided space, enter the decimal
-                              equivalent.
-                            </li>
-                            <li>
-                              If your answer is a decimal that doesn&apos;t fit
-                              in the provided space, enter it by truncating or
-                              rounding at the fourth digit.
-                            </li>
-                            <li>
-                              If your answer is a mixed number (such as 3½),
-                              enter it as an improper fraction (7/2) or its
-                              decimal equivalent (3.5).
-                            </li>
-                            <li>
-                              Don&apos;t enter symbols such as a percent sign,
-                              comma, or dollar sign.
-                            </li>
-                          </ul>
-                          <p className="font-semibold text-black mb-1 sm:mb-2 text-xs sm:text-sm">
-                            Examples
-                          </p>
-                          <div className="overflow-x-auto border border-gray-300 rounded-lg">
-                            <table className="w-full text-xs sm:text-sm border-collapse">
-                              <thead>
-                                <tr className="bg-gray-100 border-b border-gray-300">
-                                  <th className="text-left p-1 sm:p-2 font-semibold text-black border-r border-gray-300">
-                                    Answer
-                                  </th>
-                                  <th className="text-left p-1 sm:p-2 font-semibold text-black border-r border-gray-300">
-                                    Acceptable ways to enter answer
-                                  </th>
-                                  <th className="text-left p-1 sm:p-2 font-semibold text-black">
-                                    Unacceptable: will NOT receive credit
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody className="text-gray-800">
-                                <tr className="border-b border-gray-200">
-                                  <td className="p-1 sm:p-2 border-r border-gray-200">
-                                    3.5
-                                  </td>
-                                  <td className="p-1 sm:p-2 border-r border-gray-200">
-                                    3.5, 3.50, 7/2
-                                  </td>
-                                  <td className="p-1 sm:p-2">3 1/2</td>
-                                </tr>
-                                <tr className="border-b border-gray-200">
-                                  <td className="p-1 sm:p-2 border-r border-gray-200">
-                                    2/3
-                                  </td>
-                                  <td className="p-1 sm:p-2 border-r border-gray-200">
-                                    2/3, .6666, .6667, 0.666, 0.667
-                                  </td>
-                                  <td className="p-1 sm:p-2">
-                                    0.66, .66, 0.67, .67
-                                  </td>
-                                </tr>
-                                <tr>
-                                  <td className="p-1 sm:p-2 border-r border-gray-200">
-                                    -1/3
-                                  </td>
-                                  <td className="p-1 sm:p-2 border-r border-gray-200">
-                                    -1/3, -.3333, -0.333
-                                  </td>
-                                  <td className="p-1 sm:p-2">-.33, -0.33</td>
-                                </tr>
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      ) : question.sharedPassage?.content ||
+                      {/* R&W: passage chapda */}
+                      {question.sharedPassage?.content ||
                         question.passage ? (
                         <div className="p-3 sm:p-4 md:p-5 bg-gray-50/80 rounded-lg">
                           <p className="text-xs sm:text-sm md:text-base leading-relaxed whitespace-pre-wrap">
@@ -2599,6 +2601,7 @@ export default function TestTakingPage() {
                     </div>
                   </div>
                 </div>
+                )}
               </div>
 
               {/* Mobil / planshet (< lg) – bitta ustun, bitta scroll, to‘liq responsive */}
