@@ -140,8 +140,10 @@ export async function GET(request: NextRequest) {
       .map(norm)
       .filter((a) => completedStatuses.has(a.status));
     const sorted = [...completed].sort((a, b) => {
-      const dateA = a.completedAt ?? a.startedAt ?? a.started_at ? new Date(a.completedAt ?? a.startedAt ?? a.started_at).getTime() : 0;
-      const dateB = b.completedAt ?? b.startedAt ?? b.started_at ? new Date(b.completedAt ?? b.startedAt ?? b.started_at).getTime() : 0;
+      const rawA = a.completedAt ?? a.startedAt ?? a.started_at;
+      const rawB = b.completedAt ?? b.startedAt ?? b.started_at;
+      const dateA = rawA ? new Date(rawA).getTime() : 0;
+      const dateB = rawB ? new Date(rawB).getTime() : 0;
       return dateB - dateA;
     });
 
