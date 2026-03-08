@@ -2111,7 +2111,7 @@ export default function TestTakingPage() {
           >
             {/* Header – doimiy balandlik, o‘zgarmaydi, yuqorida qotib turadi */}
             <div
-              className="flex-shrink-0 flex-none h-14 bg-white text-gray-800 flex items-center justify-between border-b border-gray-300 relative"
+              className="flex-shrink-0 flex-none h-14 bg-white text-gray-800 flex items-center justify-between border-b border-gray-300 relative mb-[15px]"
               style={{
                 minHeight: 56,
                 maxHeight: 56,
@@ -2271,12 +2271,12 @@ export default function TestTakingPage() {
                 ref={layoutContainerRef}
                 style={{ WebkitOverflowScrolling: "touch" }}
               >
-                {/* Math: ko‘p tanlov = bitta ustun; grid-in (ochiq savol) = ikki ustun (English kabi, chapda directions) */}
-                {testState.currentSection.type === "MATH" && !isOpenAnswerQuestion(question) ? (
+                {/* Math: faqat ko‘p tanlov (A/B/C/D) = bitta ustun; grid-in yoki ochiq savol = ikki ustun */}
+                {testState.currentSection.type === "MATH" && hasChoiceOptions(question) ? (
                   <div className="w-full flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
                     <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 pb-6">
                       {isOpenAnswerQuestion(question) && (
-                        <div className="p-3 sm:p-4 md:p-5 bg-gray-50/80 rounded-lg text-xs sm:text-sm md:text-base leading-relaxed mb-4">
+                        <div className="pt-5 p-3 sm:p-4 md:p-5 bg-gray-50/80 rounded-lg text-xs sm:text-sm md:text-base leading-relaxed mb-4">
                           <h2 className="text-sm sm:text-base md:text-lg font-bold text-black mb-2 sm:mb-3 md:mb-4">
                             Student-Produced Response Directions
                           </h2>
@@ -2307,7 +2307,7 @@ export default function TestTakingPage() {
                           </div>
                         </div>
                       )}
-                      <div className="flex items-center justify-between bg-gray-200 rounded-lg mb-2 sm:mb-3 md:mb-4 py-0.5 sm:py-1">
+                      <div className="flex items-center justify-between bg-gray-200 rounded-lg mb-4 sm:mb-5 md:mb-6 py-0.5 sm:py-1 pt-5">
                         <div className="flex items-center h-full">
                           <p className="question-index font-semibold bg-black text-white text-xs sm:text-sm h-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-l rounded-r-none">
                             {testState.currentQuestionIndex + 1}
@@ -2377,7 +2377,7 @@ export default function TestTakingPage() {
                       {/* Math + grid-in: chapda Student-Produced Response Directions */}
                       {testState.currentSection.type === "MATH" &&
                       isOpenAnswerQuestion(question) ? (
-                        <div className="p-3 sm:p-4 md:p-5 bg-gray-50/80 rounded-lg text-xs sm:text-sm md:text-base leading-relaxed">
+                        <div className="pt-5 p-3 sm:p-4 md:p-5 bg-gray-50/80 rounded-lg text-xs sm:text-sm md:text-base leading-relaxed">
                           <h2 className="text-sm sm:text-base md:text-lg font-bold text-black mb-2 sm:mb-3 md:mb-4">
                             Student-Produced Response Directions
                           </h2>
@@ -2451,7 +2451,7 @@ export default function TestTakingPage() {
                   >
                     <div className="px-2 md:px-4 pb-4 md:pb-6">
                       {/* O'ng ustun: savol raqami + Mark for Review + ABC */}
-                      <div className="flex items-center justify-between bg-gray-200 rounded-lg mb-2 sm:mb-3 md:mb-4 py-0.5 sm:py-1">
+                      <div className="flex items-center justify-between bg-gray-200 rounded-lg mb-4 sm:mb-5 md:mb-6 py-0.5 sm:py-1 pt-5">
                         <div className="flex items-center h-full">
                           <p className="question-index font-semibold bg-black text-white text-xs sm:text-sm h-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-l rounded-r-none">
                             {testState.currentQuestionIndex + 1}
@@ -2663,7 +2663,7 @@ export default function TestTakingPage() {
                   {/* Math + grid-in: mobil da ham directions */}
                   {testState.currentSection.type === "MATH" &&
                     isOpenAnswerQuestion(question) && (
-                      <div className="p-3 sm:p-4 mb-3 sm:mb-5 bg-gray-50/80 rounded-lg text-xs sm:text-sm leading-relaxed">
+                      <div className="pt-5 p-3 sm:p-4 mb-3 sm:mb-5 bg-gray-50/80 rounded-lg text-xs sm:text-sm leading-relaxed">
                         <h2 className="text-sm sm:text-base md:text-lg font-bold text-black mb-2 sm:mb-3">
                           Student-Produced Response Directions
                         </h2>
@@ -2741,7 +2741,7 @@ export default function TestTakingPage() {
                         </div>
                       </div>
                     )}
-                  <div className="question-index-container flex items-center justify-between bg-gray-200 rounded-lg mb-3 sm:mb-5 py-0.5 sm:py-1">
+                  <div className="question-index-container flex items-center justify-between bg-gray-200 rounded-lg mb-4 sm:mb-6 py-0.5 sm:py-1 pt-5">
                     <div className="flex items-center h-full">
                       <p className="question-index font-semibold bg-black text-white text-xs sm:text-sm h-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-l">
                         {testState.currentQuestionIndex + 1}
