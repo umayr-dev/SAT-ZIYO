@@ -33,6 +33,7 @@ interface ProgressStats {
   lastScore: number | null;
   testsCompleted: number;
   accuracy: number | null;
+  previousAccuracy?: number | null;
   questionsPracticed?: number;
 }
 
@@ -85,13 +86,15 @@ export function ProgressOverview() {
         const res = await fetch("/api/auth/progress", {
           method: "GET",
           credentials: "include",
+          headers: { Accept: "application/json" },
         });
+        const data = await res.json().catch(() => ({}));
         if (res.ok) {
-          const data = await res.json();
           setProgressStats({
             lastScore: data.lastScore ?? null,
             testsCompleted: data.testsCompleted ?? 0,
             accuracy: data.accuracy ?? null,
+            previousAccuracy: data.previousAccuracy ?? null,
             questionsPracticed: data.questionsPracticed ?? 0,
           });
         } else {
@@ -99,6 +102,7 @@ export function ProgressOverview() {
             lastScore: null,
             testsCompleted: 0,
             accuracy: null,
+            previousAccuracy: null,
             questionsPracticed: 0,
           });
         }
@@ -107,6 +111,7 @@ export function ProgressOverview() {
           lastScore: null,
           testsCompleted: 0,
           accuracy: null,
+          previousAccuracy: null,
           questionsPracticed: 0,
         });
       } finally {
@@ -325,7 +330,15 @@ export function ProgressOverview() {
                     : "—"}
                 </p>
                 <p className="text-xs text-black mt-0.5">
-                  oxirgi test
+                  {progressStats?.previousAccuracy != null &&
+                   progressStats?.accuracy != null &&
+                   progressStats.accuracy > progressStats.previousAccuracy
+                    ? `↑ oshdi (oldingi: ${progressStats.previousAccuracy}%)`
+                    : progressStats?.previousAccuracy != null &&
+                      progressStats?.accuracy != null &&
+                      progressStats.accuracy < progressStats.previousAccuracy
+                    ? `oldingi: ${progressStats.previousAccuracy}%`
+                    : "oxirgi test"}
                 </p>
               </div>
             </div>

@@ -18,20 +18,29 @@ function getTokenFromRequest(request: NextRequest): string | null {
 
 interface AttemptFromApi {
   id: string;
-  testId: string;
+  testId?: string;
+  test_id?: string;
   testTitle?: string;
   status: string;
   totalScore?: number;
-  startedAt: string;
+  total_score?: number;
+  startedAt?: string;
+  started_at?: string;
   completedAt?: string;
+  completed_at?: string;
 }
 
 interface ResultsFromApi {
-  totalScore: number;
-  totalQuestions: number;
-  correctAnswers: number;
+  totalScore?: number;
+  total_score?: number;
+  totalQuestions?: number;
+  total_questions?: number;
+  correctAnswers?: number;
+  correct_answers?: number;
   wrongAnswers?: number;
+  wrong_answers?: number;
   completedAt?: string;
+  completed_at?: string;
 }
 
 export async function GET(request: NextRequest) {
@@ -54,14 +63,39 @@ export async function GET(request: NextRequest) {
 
     if (progressRes.ok) {
       const data = await progressRes.json().catch(() => ({}));
-      return NextResponse.json(data, { status: 200 });
+      const hasProgress =
+        data != null &&
+        (data.lastScore != null ||
+          (typeof data.testsCompleted === "number" && data.testsCompleted > 0) ||
+          data.accuracy != null);
+      if (hasProgress) {
+        return NextResponse.json(
+          {
+            lastScore: data.lastScore ?? null,
+            testsCompleted: data.testsCompleted ?? 0,
+            accuracy: data.accuracy ?? null,
+            previousAccuracy: data.previousAccuracy ?? null,
+            questionsPracticed: data.questionsPracticed ?? 0,
+          },
+          { status: 200 },
+        );
+      }
     }
 
     // 2) Derive from practice: my-attempts + latest attempt results
-    const attemptsRes = await fetch(
+    let attemptsRes = await fetch(
       `${API_CONFIG.baseURL}/practice/my-attempts`,
       { method: "GET", headers },
     );
+    if (!attemptsRes.ok && request.nextUrl?.origin) {
+      const origin = request.nextUrl.origin;
+      if (origin.startsWith("http")) {
+        attemptsRes = await fetch(`${origin}/api/practice/my-attempts`, {
+          method: "GET",
+          headers: { Cookie: request.headers.get("cookie") ?? "" },
+        });
+      }
+    }
 
     if (!attemptsRes.ok) {
       return NextResponse.json(
@@ -69,48 +103,84 @@ export async function GET(request: NextRequest) {
           lastScore: null,
           testsCompleted: 0,
           accuracy: null,
+          previousAccuracy: null,
           questionsPracticed: 0,
         },
         { status: 200 },
       );
     }
 
-    const attempts: AttemptFromApi[] = await attemptsRes.json().catch(() => []);
-    const completed = Array.isArray(attempts)
-      ? attempts.filter((a) => a.status === "COMPLETED")
-      : [];
+    const rawAttempts = await attemptsRes.json().catch(() => ({}));
+    const attemptsList: AttemptFromApi[] = Array.isArray(rawAttempts)
+      ? rawAttempts
+      : Array.isArray(rawAttempts?.data)
+        ? rawAttempts.data
+        : Array.isArray(rawAttempts?.attempts)
+          ? rawAttempts.attempts
+          : Array.isArray(rawAttempts?.items)
+            ? rawAttempts.items
+            : [];
+
+    const completedStatuses = new Set([
+      "COMPLETED",
+      "completed",
+      "Completed",
+      "SUBMITTED",
+      "submitted",
+      "DONE",
+      "done",
+    ]);
+    const norm = (a: AttemptFromApi) => ({
+      ...a,
+      status: (a.status || "").toString().trim(),
+      completedAt: a.completedAt ?? a.completed_at,
+      totalScore: a.totalScore ?? a.total_score,
+    });
+    const completed = attemptsList
+      .map(norm)
+      .filter((a) => completedStatuses.has(a.status));
     const sorted = [...completed].sort((a, b) => {
-      const dateA = a.completedAt ? new Date(a.completedAt).getTime() : 0;
-      const dateB = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+      const dateA = a.completedAt ?? a.startedAt ?? a.started_at ? new Date(a.completedAt ?? a.startedAt ?? a.started_at).getTime() : 0;
+      const dateB = b.completedAt ?? b.startedAt ?? b.started_at ? new Date(b.completedAt ?? b.startedAt ?? b.started_at).getTime() : 0;
       return dateB - dateA;
     });
 
     const testsCompleted = sorted.length;
     const latestAttempt = sorted[0];
+    const previousAttempt = sorted[1];
     let lastScore: number | null =
       latestAttempt?.totalScore != null ? latestAttempt.totalScore : null;
     let accuracy: number | null = null;
+    let previousAccuracy: number | null = null;
     let questionsPracticed = 0;
 
-    if (latestAttempt?.id) {
-      const resultsRes = await fetch(
-        `${API_CONFIG.baseURL}/practice/attempts/${latestAttempt.id}/results`,
+    async function getAccuracyForAttempt(attemptId: string): Promise<{ accuracy: number; total: number; score: number | null } | null> {
+      const res = await fetch(
+        `${API_CONFIG.baseURL}/practice/attempts/${attemptId}/results`,
         { method: "GET", headers },
       );
-      if (resultsRes.ok) {
-        const results: ResultsFromApi = await resultsRes
-          .json()
-          .catch(() => ({}));
-        const total = results.totalQuestions ?? 0;
-        const correct = results.correctAnswers ?? 0;
-        if (total > 0) {
-          accuracy = Math.round((correct / total) * 100);
-        }
-        questionsPracticed = total;
-        if (lastScore == null && results.totalScore != null) {
-          lastScore = results.totalScore;
-        }
+      if (!res.ok) return null;
+      const raw = await res.json().catch(() => ({}));
+      const total = raw.totalQuestions ?? raw.total_questions ?? 0;
+      const correct = raw.correctAnswers ?? raw.correct_answers ?? 0;
+      const score = raw.totalScore ?? raw.total_score ?? null;
+      if (total > 0) {
+        return { accuracy: Math.round((correct / total) * 100), total, score };
       }
+      return null;
+    }
+
+    if (latestAttempt?.id) {
+      const latestResults = await getAccuracyForAttempt(latestAttempt.id);
+      if (latestResults) {
+        accuracy = latestResults.accuracy;
+        questionsPracticed = latestResults.total;
+        if (lastScore == null && latestResults.score != null) lastScore = latestResults.score;
+      }
+    }
+    if (previousAttempt?.id) {
+      const prevResults = await getAccuracyForAttempt(previousAttempt.id);
+      if (prevResults) previousAccuracy = prevResults.accuracy;
     }
 
     return NextResponse.json(
@@ -118,6 +188,7 @@ export async function GET(request: NextRequest) {
         lastScore,
         testsCompleted,
         accuracy,
+        previousAccuracy,
         questionsPracticed,
       },
       { status: 200 },
@@ -129,6 +200,7 @@ export async function GET(request: NextRequest) {
         lastScore: null,
         testsCompleted: 0,
         accuracy: null,
+        previousAccuracy: null,
         questionsPracticed: 0,
       },
       { status: 200 },

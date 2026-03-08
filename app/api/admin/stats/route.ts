@@ -63,16 +63,38 @@ export async function GET(request: NextRequest) {
         },
       });
 
-      const attemptsResponse = await fetch(
-        `${API_CONFIG.baseURL}/admin/attempts`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: token ? `Bearer ${token}` : "",
-            "Content-Type": "application/json",
+      const attemptEndpoints = [
+        "/admin/attempts",
+        "/admin/test-attempts",
+        "/attempts",
+      ];
+      let attempts: any[] = [];
+      for (const path of attemptEndpoints) {
+        const attemptsResponse = await fetch(
+          `${API_CONFIG.baseURL}${path}`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: token ? `Bearer ${token}` : "",
+              "Content-Type": "application/json",
+            },
           },
-        },
-      );
+        );
+        if (attemptsResponse.ok) {
+          const attemptsData = await attemptsResponse.json().catch(() => ({}));
+          const list = Array.isArray(attemptsData)
+            ? attemptsData
+            : Array.isArray(attemptsData?.data)
+              ? attemptsData.data
+              : [];
+          attempts = normalizeAttempts(list);
+          console.log(`[Admin Stats] Fetched ${attempts.length} attempts from ${path}`);
+          break;
+        }
+      }
+      if (attempts.length === 0) {
+        console.warn("[Admin Stats] No attempts from any admin endpoint");
+      }
 
       let users: any[] = [];
       let usersTotal = 0;
@@ -121,34 +143,22 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      let attempts: any[] = [];
-      if (attemptsResponse.ok) {
-        const attemptsData = await attemptsResponse.json();
-        attempts = Array.isArray(attemptsData)
-          ? attemptsData
-          : Array.isArray(attemptsData?.data)
-            ? attemptsData.data
-            : [];
-        console.log(`[Admin Stats] Fetched ${attempts.length} attempts`);
-      } else {
-        console.warn(
-          `[Admin Stats] Attempts fetch failed: ${attemptsResponse.status} ${attemptsResponse.statusText}`,
-        );
-      }
-
       const hourDistribution = calculateHourDistribution(attempts);
+      const dayDistribution = calculateDayDistribution(attempts);
 
       return NextResponse.json(
         {
           usersCount: usersTotal,
           testsCount: testsTotal,
           hourDistribution,
+          dayDistribution,
+          totalAttempts: attempts.length,
         },
         { status: 200 },
       );
     } catch (backendError) {
       console.warn(
-        "Backend endpoints not available, using mock data:",
+        "Backend endpoints not available, returning empty stats:",
         backendError,
       );
 
@@ -156,7 +166,9 @@ export async function GET(request: NextRequest) {
         {
           usersCount: 0,
           testsCount: 0,
-          hourDistribution: generateMockHourDistribution(),
+          hourDistribution: emptyHourDistribution(),
+          dayDistribution: [],
+          totalAttempts: 0,
         },
         { status: 200 },
       );
@@ -167,48 +179,71 @@ export async function GET(request: NextRequest) {
       {
         usersCount: 0,
         testsCount: 0,
-        hourDistribution: generateMockHourDistribution(),
+        hourDistribution: emptyHourDistribution(),
+        dayDistribution: [],
+        totalAttempts: 0,
       },
       { status: 200 },
     );
   }
 }
 
+/** Normalize attempt objects: support startedAt, createdAt, start_time (snake_case) */
+function normalizeAttempts(list: any[]): any[] {
+  return list.map((a) => ({
+    ...a,
+    startedAt:
+      a.startedAt ?? a.createdAt ?? a.start_time ?? a.started_at ?? null,
+  }));
+}
+
 function calculateHourDistribution(
   attempts: any[],
 ): { hour: number; count: number }[] {
-  const hourCounts: { [key: number]: number } = {};
-
-  for (let i = 0; i < 24; i++) {
-    hourCounts[i] = 0;
-  }
+  const hourCounts: Record<number, number> = {};
+  for (let i = 0; i < 24; i++) hourCounts[i] = 0;
 
   attempts.forEach((attempt) => {
-    if (attempt.startedAt) {
-      const date = new Date(attempt.startedAt);
-      const hour = date.getHours();
-      hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+    const at = attempt.startedAt ?? attempt.createdAt ?? attempt.start_time ?? attempt.started_at;
+    if (at) {
+      const hour = new Date(at).getHours();
+      if (hour >= 0 && hour <= 23) hourCounts[hour] = (hourCounts[hour] ?? 0) + 1;
     }
   });
 
   return Object.entries(hourCounts).map(([hour, count]) => ({
-    hour: parseInt(hour),
+    hour: parseInt(hour, 10),
     count,
   }));
 }
 
-function generateMockHourDistribution(): { hour: number; count: number }[] {
-  const distribution = [];
-  for (let i = 0; i < 24; i++) {
-    let count = 0;
-    if (i >= 9 && i <= 11) {
-      count = Math.floor(Math.random() * 20) + 10;
-    } else if (i >= 19 && i <= 21) {
-      count = Math.floor(Math.random() * 15) + 8;
-    } else {
-      count = Math.floor(Math.random() * 5);
-    }
-    distribution.push({ hour: i, count });
+/** Son qancha kun bo‘yicha: har kuni nechta attempt (UTC date key) */
+function calculateDayDistribution(
+  attempts: any[],
+  daysBack = 30,
+): { date: string; count: number }[] {
+  const dayCounts: Record<string, number> = {};
+  const today = new Date();
+  for (let d = 0; d < daysBack; d++) {
+    const date = new Date(today);
+    date.setUTCDate(date.getUTCDate() - d);
+    const key = date.toISOString().slice(0, 10);
+    dayCounts[key] = 0;
   }
-  return distribution;
+
+  attempts.forEach((attempt) => {
+    const at = attempt.startedAt ?? attempt.createdAt ?? attempt.start_time ?? attempt.started_at;
+    if (at) {
+      const key = new Date(at).toISOString().slice(0, 10);
+      if (dayCounts[key] !== undefined) dayCounts[key] = (dayCounts[key] ?? 0) + 1;
+    }
+  });
+
+  return Object.entries(dayCounts)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, count]) => ({ date, count }));
+}
+
+function emptyHourDistribution(): { hour: number; count: number }[] {
+  return Array.from({ length: 24 }, (_, i) => ({ hour: i, count: 0 }));
 }

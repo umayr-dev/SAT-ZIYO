@@ -55,7 +55,7 @@ export default function TestAttemptHoursChart() {
           Test Attempts by Hour
         </h3>
         <p className="text-sm text-gray-600 mt-1">
-          Distribution of when users start taking tests throughout the day
+          Qaysi soatda nechta test boshlangan. Jami: {stats?.totalAttempts ?? 0} ta attempt.
         </p>
       </div>
       <ResponsiveContainer width="100%" height={300}>
@@ -85,6 +85,33 @@ export default function TestAttemptHoursChart() {
           />
         </BarChart>
       </ResponsiveContainer>
+      {stats?.dayDistribution && stats.dayDistribution.length > 0 && (
+        <>
+          <div className="mt-6 mb-2">
+            <h4 className="text-sm font-semibold text-gray-800">
+              Kun bo‘yicha (oxirgi 30 kun)
+            </h4>
+          </div>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart
+              data={stats.dayDistribution.slice(-14).map((d) => ({
+                date: d.date.slice(5),
+                count: d.count,
+                fullDate: d.date,
+              }))}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 12 }} />
+              <Tooltip
+                formatter={(value: number | undefined) => [`${value ?? 0} attempts`, "Count"]}
+                labelFormatter={(_, payload) => payload?.[0]?.payload?.fullDate ?? ""}
+              />
+              <Bar dataKey="count" fill="#ea580c" name="Attempts" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </>
+      )}
     </Card>
   );
 }

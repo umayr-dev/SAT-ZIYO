@@ -7,10 +7,17 @@ export interface HourDistribution {
   count: number;
 }
 
+export interface DayDistribution {
+  date: string;
+  count: number;
+}
+
 export interface AdminStats {
   usersCount: number;
   testsCount: number;
   hourDistribution: HourDistribution[];
+  dayDistribution?: DayDistribution[];
+  totalAttempts?: number;
 }
 
 async function fetchAdminStats(): Promise<AdminStats> {
