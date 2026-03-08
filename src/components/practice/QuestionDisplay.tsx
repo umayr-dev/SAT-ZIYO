@@ -15,7 +15,7 @@ import {
   getChoiceText,
   getChoiceImageUrl,
 } from "@/src/services/practice.service";
-import { MathRenderer } from "@/src/components/math/MathRenderer";
+import { MarkdownRenderer } from "@/src/components/markdown/MarkdownRenderer";
 
 type HighlightStyle =
   | "yellow"
@@ -595,7 +595,7 @@ export function QuestionDisplay({
         ) : (
           <div className="text-sm sm:text-base text-gray-900 leading-relaxed">
             {question.questionText ? (
-              parseMathContent(question.questionText)
+              <MarkdownRenderer content={question.questionText} />
             ) : (
               <span className="text-gray-500 italic">
                 No question text available
@@ -693,41 +693,4 @@ export function QuestionDisplay({
       )}
     </div>
   );
-}
-
-// Simple LaTeX-aware text parser: splits plain text and $...$ inline math,
-// and renders math parts through MathRenderer.
-function parseMathContent(text: string): React.ReactNode {
-  const parts: React.ReactNode[] = [];
-  let lastIndex = 0;
-
-  // Inline math: $...$
-  const inlineRegex = /\$([^$]+)\$/g;
-  let match: RegExpExecArray | null;
-
-  while ((match = inlineRegex.exec(text)) !== null) {
-    // Push plain text before math
-    if (match.index > lastIndex) {
-      parts.push(text.substring(lastIndex, match.index));
-    }
-
-    // Push math expression
-    parts.push(
-      <MathRenderer
-        key={`inline-${match.index}`}
-        content={match[1]}
-        displayMode={false}
-        className="inline-block"
-      />,
-    );
-
-    lastIndex = match.index + match[0].length;
-  }
-
-  // Remaining plain text
-  if (lastIndex < text.length) {
-    parts.push(text.substring(lastIndex));
-  }
-
-  return parts.length > 0 ? parts : text;
 }

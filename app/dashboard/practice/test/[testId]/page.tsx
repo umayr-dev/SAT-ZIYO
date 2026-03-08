@@ -25,6 +25,7 @@ import {
 import { ApiClientError } from "@/src/lib/api-client";
 import { TestTimer } from "@/src/components/practice/TestTimer";
 import { QuestionDisplay } from "@/src/components/practice/QuestionDisplay";
+import { HighlightablePassage } from "@/src/components/practice/HighlightablePassage";
 import { QuestionNavigator } from "@/src/components/practice/QuestionNavigator";
 import {
   Calculator,
@@ -337,6 +338,7 @@ export default function TestTakingPage() {
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [newNoteText, setNewNoteText] = useState("");
   const [isQuestionLoading, setIsQuestionLoading] = useState(false);
+  const [showRefreshModal, setShowRefreshModal] = useState(false);
 
   // localStorage key for notes
   const getNotesStorageKey = useCallback(
@@ -379,6 +381,8 @@ export default function TestTakingPage() {
   }, [newNoteText, questionNotes, testState, saveNotesToStorage]);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  /** Timer 0 ga yetganda handleTimeUp faqat bir marta chaqirilsin */
+  const timeUpHandledRef = useRef(false);
   const wasFullscreenRef = useRef(false);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const loadAnswersTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -553,6 +557,30 @@ export default function TestTakingPage() {
       window.removeEventListener("mouseup", handleMouseUp);
     };
   }, []);
+
+  // Refresh / leave confirmation: show modal on F5 or Ctrl+R; beforeunload for browser refresh/close
+  useEffect(() => {
+    if (!testState) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F5" || (e.ctrlKey && e.key === "r")) {
+        e.preventDefault();
+        setShowRefreshModal(true);
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [testState]);
 
   const handleDividerMouseDown = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -1312,11 +1340,10 @@ export default function TestTakingPage() {
         !Number.isNaN(savedSeconds) &&
         savedSeconds > 0
       ) {
+        timeUpHandledRef.current = false;
         setRemainingTimeSeconds(savedSeconds);
-      } else if (
-        state?.currentModule?.duration &&
-        remainingTimeSeconds === null
-      ) {
+      } else if (state?.currentModule?.duration) {
+        timeUpHandledRef.current = false;
         const durationSeconds = state.currentModule.duration * 60;
         setRemainingTimeSeconds(durationSeconds);
       }
@@ -1833,7 +1860,8 @@ export default function TestTakingPage() {
   }
 
   const handleTimeUp = useCallback(async () => {
-    if (!testState) return;
+    if (!testState || timeUpHandledRef.current) return;
+    timeUpHandledRef.current = true;
     try {
       setSubmitting(true);
       handleAnswer();
@@ -1867,7 +1895,8 @@ export default function TestTakingPage() {
           break;
         case "MODULE_2":
         case "NEW_SECTION":
-          router.push(`/dashboard/practice/test/${attemptId}`);
+          // Sahifa o‘zgarmaydi – state ni qayta yuklash, keyingi modul ko‘rinsin
+          await loadTestState();
           break;
         case "SUBMIT_TEST":
         case "COMPLETE":
@@ -1876,6 +1905,7 @@ export default function TestTakingPage() {
           break;
       }
     } catch (err) {
+      timeUpHandledRef.current = false;
       if (
         err instanceof ApiClientError &&
         err.status === 400 &&
@@ -1916,14 +1946,14 @@ export default function TestTakingPage() {
     }
   }, [router, submitAllPendingAnswers, submitAllHighlights]);
 
-  // Timer countdown effect
+  // Timer countdown effect – 00:00 da bir marta handleTimeUp, keyin keyingi module/break/finish
   useEffect(() => {
     if (remainingTimeSeconds === null || remainingTimeSeconds <= 0) {
       if (timerIntervalRef.current) {
         clearInterval(timerIntervalRef.current);
         timerIntervalRef.current = null;
       }
-      if (remainingTimeSeconds === 0) {
+      if (remainingTimeSeconds === 0 && !timeUpHandledRef.current) {
         handleTimeUp();
       }
       return;
@@ -2410,10 +2440,23 @@ export default function TestTakingPage() {
                       ) : question.sharedPassage?.content ||
                         question.passage ? (
                         <div className="p-3 sm:p-4 md:p-5 bg-gray-50/80 rounded-lg">
-                          <p className="text-xs sm:text-sm md:text-base leading-relaxed whitespace-pre-wrap">
-                            {question.sharedPassage?.content ||
-                              question.passage}
-                          </p>
+                          <HighlightablePassage
+                            passageText={question.sharedPassage?.content || question.passage || ""}
+                            isMarkupEnabled={isMarkupEnabled}
+                            attemptId={attemptId}
+                            questionId={question.id}
+                            onHighlightsChange={(highlights) => {
+                              if (highlights.length > 0) {
+                                const key = getHighlightsStorageKey();
+                                try {
+                                  const raw = typeof window !== "undefined" ? localStorage.getItem(key) : null;
+                                  const all = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+                                  all[`${question.id}_passage`] = highlights;
+                                  if (typeof window !== "undefined") localStorage.setItem(key, JSON.stringify(all));
+                                } catch (e) { console.error(e); }
+                              }
+                            }}
+                          />
                         </div>
                       ) : (
                         <div className="text-gray-500 text-sm italic">
@@ -2927,6 +2970,35 @@ export default function TestTakingPage() {
           onGoToReview={handleGoToModuleReview}
         />
       )}
+
+      {/* Refresh confirmation modal */}
+      <Dialog open={showRefreshModal} onOpenChange={setShowRefreshModal}>
+        <DialogContent className="sm:max-w-sm" onPointerDownOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Refresh the page?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-gray-600">
+            If you refresh, you will leave the test. You can continue without refreshing.
+          </p>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowRefreshModal(false)}
+            >
+              Continue
+            </Button>
+            <Button
+              variant="default"
+              onClick={() => {
+                setShowRefreshModal(false);
+                window.location.reload();
+              }}
+            >
+              Refresh
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Notes Panel - Right Side */}
       {showNotesModal && (
