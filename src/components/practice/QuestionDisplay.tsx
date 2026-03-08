@@ -637,9 +637,9 @@ export function QuestionDisplay({
                       </span>
                       <div className="flex-1 min-w-0">
                         {getChoiceText(choice) ? (
-                          <span className="block text-gray-900">
-                            {getChoiceText(choice)}
-                          </span>
+                          <div className="block text-gray-900">
+                            <MarkdownRenderer content={getChoiceText(choice)} className="text-inherit" />
+                          </div>
                         ) : (
                           <span className="block text-gray-500 italic">
                             Choice {letter}

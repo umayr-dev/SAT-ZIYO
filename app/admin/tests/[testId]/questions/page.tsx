@@ -939,15 +939,18 @@ export default function TestQuestionsPage() {
                                       />
                                     </div>
                                     {kind === "text" ? (
-                                      <Input
-                                        placeholder={`Javob ${letter} (matn)`}
+                                      <MarkdownEditor
                                         value={textVal}
-                                        onChange={(e) =>
+                                        onChange={(v) =>
                                           updateSlot(mid, i, {
-                                            [textKey]: e.target.value,
+                                            [textKey]: v,
                                           })
                                         }
-                                        className="text-sm"
+                                        placeholder={`Javob ${letter} (matn)`}
+                                        minHeight="56px"
+                                        rows={2}
+                                        showTable={false}
+                                        showMathTools={false}
                                       />
                                     ) : (
                                       <div className="space-y-2">
@@ -985,6 +988,7 @@ export default function TestQuestionsPage() {
                                                 if (dataUrl)
                                                   updateSlot(mid, i, {
                                                     [imageUrlKey]: dataUrl,
+                                                    [textKey]: "",
                                                   });
                                               };
                                               reader.readAsDataURL(file);

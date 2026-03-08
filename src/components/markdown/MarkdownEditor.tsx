@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useCallback, useState, useEffect } from "react";
-import { Bold, Italic, List, ListOrdered, Table2, Sigma, ChevronDown } from "lucide-react";
+import { Bold, Italic, List, ListOrdered, Table2, Sigma, ChevronDown, Underline } from "lucide-react";
 
 interface MarkdownEditorProps {
   value: string;
@@ -12,6 +12,8 @@ interface MarkdownEditorProps {
   className?: string;
   /** Show math (LaTeX) insert button — e.g. only for Math module */
   showMathTools?: boolean;
+  /** Show table insert button — e.g. false for variant (choice) input */
+  showTable?: boolean;
   "data-testid"?: string;
 }
 
@@ -66,6 +68,7 @@ export function MarkdownEditor({
   rows = 4,
   className = "",
   showMathTools = false,
+  showTable = true,
 }: MarkdownEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -85,6 +88,7 @@ export function MarkdownEditor({
 
   const handleBold = () => applyFormat("**", "**");
   const handleItalic = () => applyFormat("*", "*");
+  const handleUnderline = () => applyFormat("<u>", "</u>");
   const handleBulletList = () => {
     const ta = textareaRef.current;
     if (!ta) return;
@@ -255,6 +259,14 @@ export function MarkdownEditor({
         </button>
         <button
           type="button"
+          onClick={handleUnderline}
+          className="p-1.5 rounded hover:bg-gray-200"
+          title="Underline (&lt;u&gt;)"
+        >
+          <Underline className="w-4 h-4" />
+        </button>
+        <button
+          type="button"
           onClick={handleBulletList}
           className="p-1.5 rounded hover:bg-gray-200"
           title="Bullet list (- item)"
@@ -269,14 +281,16 @@ export function MarkdownEditor({
         >
           <ListOrdered className="w-4 h-4" />
         </button>
-        <button
-          type="button"
-          onClick={handleInsertTable}
-          className="p-1.5 rounded hover:bg-gray-200"
-          title="Insert table (Markdown)"
-        >
-          <Table2 className="w-4 h-4" />
-        </button>
+        {showTable && (
+          <button
+            type="button"
+            onClick={handleInsertTable}
+            className="p-1.5 rounded hover:bg-gray-200"
+            title="Insert table (Markdown)"
+          >
+            <Table2 className="w-4 h-4" />
+          </button>
+        )}
         {showMathTools && (
           <div className="relative flex items-center" ref={mathMenuRef}>
             <button
