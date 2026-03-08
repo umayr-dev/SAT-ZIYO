@@ -1833,43 +1833,62 @@ export default function TestTakingPage() {
   }
 
   const handleTimeUp = useCallback(async () => {
-    if (testState) {
-      // Call handleFinishSection directly
-      try {
-        setSubmitting(true);
-        // Save current answer before finishing
-        handleAnswer();
+    if (!testState) return;
+    try {
+      setSubmitting(true);
+      handleAnswer();
+      await Promise.all([submitAllPendingAnswers(), submitAllHighlights()]);
 
-        // Submit all pending answers and highlights
-        await Promise.all([submitAllPendingAnswers(), submitAllHighlights()]);
+      // Joriy modul javoblarini yuborish, keyin finishModule – keyingi module/break/finish ga o‘tish
+      const prefix = getCurrentModulePrefix();
+      const stored = typeof window !== "undefined" ? localStorage.getItem(getStorageKey()) : null;
+      const answersObj = stored ? (JSON.parse(stored) as Record<string, Record<string, unknown>>) : {};
+      const answersArray = Object.entries(answersObj)
+        .filter(([key]) => key.startsWith(prefix))
+        .map(([, a]) => ({
+          questionId: (a.questionId as string) ?? "",
+          choiceId: a.choiceId as string | undefined,
+          textAnswer: a.textAnswer as string | undefined,
+          markedForReview: a.markedForReview as boolean | undefined,
+          eliminatedChoices: a.eliminatedChoices as string[] | undefined,
+        }))
+        .filter((a) => !!a.questionId);
 
-        // Submit test – but backend may already have finalized attempt
-        try {
-          await practiceService.submitTest(attemptId);
-        } catch (err) {
-          if (
-            err instanceof ApiClientError &&
-            err.status === 400 &&
-            /not in progress/i.test(err.message)
-          ) {
-            // Attempt already completed or not active – treat as graceful finish
-            console.warn(
-              "[Test Page] Attempt already not in progress, skipping submitTest",
-            );
-          } else {
-            console.error("Failed to submit test on time up:", err);
-            setError("Failed to finish section. Please try again.");
-            return;
-          }
-        }
-
-        router.push(`/dashboard/practice/test/${attemptId}/finish`);
-      } catch (err) {
-        console.error("Failed to finish section:", err);
-        setError("Failed to finish section. Please try again.");
-      } finally {
-        setSubmitting(false);
+      if (answersArray.length > 0) {
+        await practiceService.submitAnswersBatch(attemptId, answersArray);
       }
+
+      const result = await practiceService.finishModule(attemptId);
+      loadStateCache = null;
+
+      switch (result.nextStep) {
+        case "BREAK":
+          router.push(`/dashboard/practice/test/${attemptId}/break`);
+          break;
+        case "MODULE_2":
+        case "NEW_SECTION":
+          router.push(`/dashboard/practice/test/${attemptId}`);
+          break;
+        case "SUBMIT_TEST":
+        case "COMPLETE":
+        default:
+          router.push(`/dashboard/practice/test/${attemptId}/finish`);
+          break;
+      }
+    } catch (err) {
+      if (
+        err instanceof ApiClientError &&
+        err.status === 400 &&
+        /not in progress/i.test(err.message)
+      ) {
+        loadStateCache = null;
+        router.push(`/dashboard/practice/test/${attemptId}/finish`);
+        return;
+      }
+      console.error("Failed on time up:", err);
+      setError("Vaqt tugadi. Keyingi bo‘limga o‘tishda xatolik. Qaytadan urinib ko‘ring.");
+    } finally {
+      setSubmitting(false);
     }
   }, [
     testState,
@@ -1878,6 +1897,8 @@ export default function TestTakingPage() {
     submitAllPendingAnswers,
     submitAllHighlights,
     handleAnswer,
+    getCurrentModulePrefix,
+    getStorageKey,
   ]);
 
   // Handle save and exit
@@ -2250,8 +2271,8 @@ export default function TestTakingPage() {
                 ref={layoutContainerRef}
                 style={{ WebkitOverflowScrolling: "touch" }}
               >
-                {/* Math: bitta ustun, ustma-ust, o‘rtadagi column array yo‘q */}
-                {testState.currentSection.type === "MATH" ? (
+                {/* Math: ko‘p tanlov = bitta ustun; grid-in (ochiq savol) = ikki ustun (English kabi, chapda directions) */}
+                {testState.currentSection.type === "MATH" && !isOpenAnswerQuestion(question) ? (
                   <div className="w-full flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
                     <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 pb-6">
                       {isOpenAnswerQuestion(question) && (
@@ -2344,7 +2365,7 @@ export default function TestTakingPage() {
                   className="flex flex-1 gap-0 items-stretch"
                   style={{ minHeight: "min-content" }}
                 >
-                  {/* Left Column – passage (R&W) */}
+                  {/* Left Column – passage (R&W) yoki Math grid-in directions */}
                   <div
                     className="content-pane flex-shrink-0 pr-1 md:pr-2 min-w-0"
                     style={{
@@ -2353,8 +2374,40 @@ export default function TestTakingPage() {
                     }}
                   >
                     <div className="pr-2 md:pr-4 pb-4 md:pb-6 pl-0.5 md:pl-1">
-                      {/* R&W: passage chapda */}
-                      {question.sharedPassage?.content ||
+                      {/* Math + grid-in: chapda Student-Produced Response Directions */}
+                      {testState.currentSection.type === "MATH" &&
+                      isOpenAnswerQuestion(question) ? (
+                        <div className="p-3 sm:p-4 md:p-5 bg-gray-50/80 rounded-lg text-xs sm:text-sm md:text-base leading-relaxed">
+                          <h2 className="text-sm sm:text-base md:text-lg font-bold text-black mb-2 sm:mb-3 md:mb-4">
+                            Student-Produced Response Directions
+                          </h2>
+                          <ul className="list-disc pl-4 sm:pl-5 space-y-1 sm:space-y-2 mb-2 sm:mb-3 md:mb-4 text-gray-800">
+                            <li>If you find more than one correct answer, enter only one answer.</li>
+                            <li>You can enter up to 5 characters for a positive answer and up to 6 characters (including the negative sign) for a negative answer.</li>
+                            <li>If your answer is a fraction that doesn&apos;t fit in the provided space, enter the decimal equivalent.</li>
+                            <li>If your answer is a decimal that doesn&apos;t fit in the provided space, enter it by truncating or rounding at the fourth digit.</li>
+                            <li>If your answer is a mixed number (such as 3½), enter it as an improper fraction (7/2) or its decimal equivalent (3.5).</li>
+                            <li>Don&apos;t enter symbols such as a percent sign, comma, or dollar sign.</li>
+                          </ul>
+                          <p className="font-semibold text-black mb-1 sm:mb-2 text-xs sm:text-sm">Examples</p>
+                          <div className="overflow-x-auto border border-gray-300 rounded-lg">
+                            <table className="w-full text-xs sm:text-sm border-collapse">
+                              <thead>
+                                <tr className="bg-gray-100 border-b border-gray-300">
+                                  <th className="text-left p-1 sm:p-2 font-semibold text-black border-r border-gray-300">Answer</th>
+                                  <th className="text-left p-1 sm:p-2 font-semibold text-black border-r border-gray-300">Acceptable ways to enter answer</th>
+                                  <th className="text-left p-1 sm:p-2 font-semibold text-black">Unacceptable: will NOT receive credit</th>
+                                </tr>
+                              </thead>
+                              <tbody className="text-gray-800">
+                                <tr className="border-b border-gray-200"><td className="p-1 sm:p-2 border-r border-gray-200">3.5</td><td className="p-1 sm:p-2 border-r border-gray-200">3.5, 3.50, 7/2</td><td className="p-1 sm:p-2">3 1/2</td></tr>
+                                <tr className="border-b border-gray-200"><td className="p-1 sm:p-2 border-r border-gray-200">2/3</td><td className="p-1 sm:p-2 border-r border-gray-200">2/3, .6666, .6667, 0.666, 0.667</td><td className="p-1 sm:p-2">0.66, .66, 0.67, .67</td></tr>
+                                <tr><td className="p-1 sm:p-2 border-r border-gray-200">-1/3</td><td className="p-1 sm:p-2 border-r border-gray-200">-1/3, -.3333, -0.333</td><td className="p-1 sm:p-2">-.33, -0.33</td></tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      ) : question.sharedPassage?.content ||
                         question.passage ? (
                         <div className="p-3 sm:p-4 md:p-5 bg-gray-50/80 rounded-lg">
                           <p className="text-xs sm:text-sm md:text-base leading-relaxed whitespace-pre-wrap">
