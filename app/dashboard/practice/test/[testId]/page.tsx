@@ -1937,6 +1937,17 @@ export default function TestTakingPage() {
       // Submit all pending answers and highlights before exiting
       await Promise.all([submitAllPendingAnswers(), submitAllHighlights()]);
 
+      // Persist remaining timer for current section/module so user can continue later
+      if (
+        typeof window !== "undefined" &&
+        testState?.currentSection &&
+        testState?.currentModule &&
+        remainingTimeSeconds != null
+      ) {
+        const timerKey = `test_timer_${attemptId}_s${testState.currentSection.orderIndex}_m${testState.currentModule.moduleNumber}`;
+        sessionStorage.setItem(timerKey, String(remainingTimeSeconds));
+      }
+
       // Navigate to practice page
       router.push("/dashboard/practice");
     } catch (err) {
@@ -1944,7 +1955,15 @@ export default function TestTakingPage() {
       // Still navigate even if save fails
       router.push("/dashboard/practice");
     }
-  }, [router, submitAllPendingAnswers, submitAllHighlights]);
+  }, [
+    attemptId,
+    remainingTimeSeconds,
+    router,
+    submitAllPendingAnswers,
+    submitAllHighlights,
+    testState?.currentModule,
+    testState?.currentSection,
+  ]);
 
   // Timer countdown effect – 00:00 da bir marta handleTimeUp, keyin keyingi module/break/finish
   useEffect(() => {
