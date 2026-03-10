@@ -124,10 +124,10 @@ html {
 }
 
 .divider-inline {
-  width: 8px;
-  min-width: 8px;
+  width: 4px;
+  min-width: 4px;
   flex-shrink: 0;
-  background: rgba(148, 163, 184, 0.15);
+  background: rgba(148, 163, 184, 0.12);
   cursor: col-resize;
   border-left: 1px solid #e2e8f0;
   border-right: 1px solid #e2e8f0;

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
+import Image from "next/image";
 import { Card } from "@/src/ui/card";
 import { Button } from "@/src/ui/button";
 import { Loading } from "@/src/ui/loading";
@@ -250,14 +251,16 @@ function ReferenceSheetPanel({
           </button>
         </div>
         <div className="flex-1 min-h-0 overflow-auto relative bg-gray-100">
-          <img
+          <Image
             src="/reference-sheet.png"
             alt="Math Reference Sheet - formulas and facts"
             className="w-full h-auto object-contain block"
+            width={1200}
+            height={800}
             onError={(e) => {
-              (e.target as HTMLImageElement).style.display = "none";
-              const fallback = (e.target as HTMLImageElement)
-                .nextElementSibling;
+              const target = e.target as HTMLImageElement;
+              target.style.display = "none";
+              const fallback = target.nextElementSibling;
               if (fallback instanceof HTMLElement) fallback.hidden = false;
             }}
           />
@@ -577,26 +580,19 @@ export default function TestTakingPage() {
     };
   }, []);
 
-  // Refresh / leave confirmation: show modal on F5 or Ctrl+R; beforeunload for browser refresh/close
+  // Refresh / leave confirmation: show modal on F5 or Ctrl+R (custom dialog only, no browser default alert)
   useEffect(() => {
     if (!testState) return;
 
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = "";
-    };
-
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "F5" || (e.ctrlKey && e.key === "r")) {
+      if (e.key === "F5" || (e.ctrlKey && e.key.toLowerCase() === "r")) {
         e.preventDefault();
         setShowRefreshModal(true);
       }
     };
 
-    window.addEventListener("beforeunload", handleBeforeUnload);
     document.addEventListener("keydown", handleKeyDown);
     return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [testState]);
@@ -2158,20 +2154,6 @@ export default function TestTakingPage() {
       )}
 
       <div className="flex-1 min-h-0 flex flex-col transition-all duration-300 relative overflow-hidden">
-        {/* Watermark with glass blur effect */}
-        <div className="fixed inset-0 pointer-events-none z-0 flex items-center justify-center overflow-hidden">
-          <div className="relative w-full h-full">
-            {/* Glass blur background */}
-            <div className="absolute inset-0 bg-white/5" aria-hidden="true"></div>
-            {/* Watermark text */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-7xl md:text-9xl lg:text-[12rem] font-extrabold text-gray-300/20 select-none transform -rotate-12 tracking-wider">
-                SATZIYO
-              </div>
-            </div>
-          </div>
-        </div>
-
         <main className="flex-1 min-h-0 relative z-10 flex flex-col">
           <div
             className="flex-1 min-h-0 flex flex-col font-noto-serif transition-all duration-300 text-xs sm:text-sm md:text-base"
@@ -2445,7 +2427,7 @@ export default function TestTakingPage() {
                       {/* Math + grid-in: chapda Student-Produced Response Directions */}
                       {testState.currentSection.type === "MATH" &&
                       isOpenAnswerQuestion(question) ? (
-                        <div className="pt-5 p-3 sm:p-4 md:p-5 bg-gray-50/80 rounded-lg text-xs sm:text-sm md:text-base leading-relaxed">
+                        <div className="pt-5 p-3 sm:p-4 md:p-5 bg-white rounded-lg text-xs sm:text-sm md:text-base leading-relaxed">
                           <h2 className="text-sm sm:text-base md:text-lg font-bold text-black mb-2 sm:mb-3 md:mb-4">
                             Student-Produced Response Directions
                           </h2>
@@ -2477,7 +2459,7 @@ export default function TestTakingPage() {
                         </div>
                       ) : question.sharedPassage?.content ||
                         question.passage ? (
-                        <div className="p-3 sm:p-4 md:p-5 bg-gray-50/80 rounded-lg">
+                        <div className="p-3 sm:p-4 md:p-5 bg-white rounded-lg">
                           <HighlightablePassage
                             passageText={question.sharedPassage?.content || question.passage || ""}
                             isMarkupEnabled={isMarkupEnabled}
@@ -3027,12 +3009,12 @@ export default function TestTakingPage() {
             </Button>
             <Button
               variant="default"
-              onClick={() => {
+              onClick={async () => {
                 setShowRefreshModal(false);
-                window.location.reload();
+                await handleSaveAndExit();
               }}
             >
-              Refresh
+              Save and Exit
             </Button>
           </DialogFooter>
         </DialogContent>
