@@ -404,6 +404,25 @@ export default function TestTakingPage() {
   const layoutContainerRef = useRef<HTMLDivElement | null>(null);
   const isDraggingDividerRef = useRef(false);
 
+  // Persist timer on every tick so reload / hard refresh keeps exact remaining time
+  useEffect(() => {
+    if (
+      typeof window === "undefined" ||
+      remainingTimeSeconds == null ||
+      !testState?.currentSection ||
+      !testState?.currentModule
+    ) {
+      return;
+    }
+    const key = `test_timer_${attemptId}_s${testState.currentSection.orderIndex}_m${testState.currentModule.moduleNumber}`;
+    sessionStorage.setItem(key, String(remainingTimeSeconds));
+  }, [
+    attemptId,
+    remainingTimeSeconds,
+    testState?.currentSection,
+    testState?.currentModule,
+  ]);
+
   // localStorage key for answers (one key per attempt; inside we use s{section}_m{module}_{index})
   const getStorageKey = useCallback(
     () => `test_answers_${attemptId}`,
