@@ -71,7 +71,7 @@ export default function BreakPage() {
       const msg = err instanceof Error ? err.message : "Failed to continue test";
       if (msg.includes("404") || msg.includes("skip-break") || msg.includes("end-break")) {
         setError(
-          "Tanaffusni erta tugatish hozircha serverda qo‘llab-quvvatlanmaydi. Taymer tugaguncha kuting yoki sahifani yangilab ko‘ring."
+          "Ending the break early is not supported by the server yet. Please wait until the timer finishes or refresh the page."
         );
       } else {
         setError(msg);
@@ -155,7 +155,7 @@ export default function BreakPage() {
             Exit to Dashboard
           </Button>
           <Button onClick={handleContinueTest} disabled={continuing}>
-            {continuing ? "Davom etilmoqda…" : "Davom etaverish"}
+            {continuing ? "Continuing…" : "Continue to Next Section"}
           </Button>
         </div>
         {continueError && (

@@ -291,7 +291,7 @@ export function ProgressOverview() {
                 <div className="flex items-center gap-2 mb-2">
                   <TrendingUp className="h-4 w-4 text-brand-blue/70" />
                   <span className="text-sm text-black">
-                    Oxirgi ball
+                    Latest score
                   </span>
                 </div>
                 <p className="text-2xl font-bold text-brand-blue">
@@ -308,15 +308,13 @@ export function ProgressOverview() {
                 <div className="flex items-center gap-2 mb-2">
                   <ClipboardCheck className="h-4 w-4 text-brand-blue/80" />
                   <span className="text-sm text-black">
-                    Ishlagan testlar
+                    Completed tests
                   </span>
                 </div>
                 <p className="text-2xl font-bold text-brand-blue">
                   {progressStats?.testsCompleted ?? 0}
                 </p>
-                <p className="text-xs text-black mt-0.5">
-                  tugatilgan
-                </p>
+                <p className="text-xs text-black mt-0.5">finished</p>
               </div>
               {/* Accuracy */}
               <div className="p-4 bg-white border border-brand-blue-light rounded-xl">
@@ -333,12 +331,12 @@ export function ProgressOverview() {
                   {progressStats?.previousAccuracy != null &&
                    progressStats?.accuracy != null &&
                    progressStats.accuracy > progressStats.previousAccuracy
-                    ? `↑ oshdi (oldingi: ${progressStats.previousAccuracy}%)`
+                    ? `↑ improved (previous: ${progressStats.previousAccuracy}%)`
                     : progressStats?.previousAccuracy != null &&
                       progressStats?.accuracy != null &&
                       progressStats.accuracy < progressStats.previousAccuracy
-                    ? `oldingi: ${progressStats.previousAccuracy}%`
-                    : "oxirgi test"}
+                    ? `previous: ${progressStats.previousAccuracy}%`
+                    : "latest test"}
                 </p>
               </div>
             </div>

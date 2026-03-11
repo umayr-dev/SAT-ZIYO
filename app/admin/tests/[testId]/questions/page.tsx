@@ -447,7 +447,7 @@ export default function TestQuestionsPage() {
 
   const handleSubmit = async () => {
     if (!payload?.modules?.length) {
-      setError("Kamida bitta savol matnini kiriting va Yuborish bosing.");
+      setError("Please enter at least one question text and click Submit.");
       return;
     }
     setSubmitting(true);
@@ -467,19 +467,19 @@ export default function TestQuestionsPage() {
       setSubmitProgress({ current: sent, total: totalToSend });
       setSuccess(
         sent === 1
-          ? "1 ta savol qo'shildi. Rasm backend (GCS) da saqlanadi — barcha qurilmalarda ko'rinadi."
-          : `${sent} ta savol qo'shildi. Rasmlar backend da saqlanadi — barcha qurilmalarda ko'rinadi.`,
+          ? "1 question was added. The image is stored in backend (GCS) and will be visible on all devices."
+          : `${sent} questions were added. Images are stored in the backend and will be visible on all devices.`,
       );
       invalidateTest(testId);
       void refetch();
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Saqlash xatosi";
+      const msg = e instanceof Error ? e.message : "Save error";
       const isBulkUnavailable =
         msg.includes("Bulk add failed") ||
         msg.includes("404") ||
         msg.includes("Not Found");
       if (isBulkUnavailable && totalToSend > 0) {
-        // Fallback: 1 ta 1 ta yuborish, lekin batch va delay bilan (429 kamayadi)
+        // Fallback: send questions one by one with small batches and delay (reduces 429 errors)
         const BATCH_SIZE = 5;
         const DELAY_MS = 400;
         try {
@@ -496,31 +496,31 @@ export default function TestQuestionsPage() {
           }
           setSuccess(
             sent === 1
-              ? "1 ta savol qo'shildi."
-              : `${sent} ta savol qo'shildi.`,
+              ? "1 question was added."
+              : `${sent} questions were added.`,
           );
           invalidateTest(testId);
           void refetch();
         } catch (fallbackErr) {
           const fallbackMsg =
-            fallbackErr instanceof Error ? fallbackErr.message : "Saqlash xatosi";
+            fallbackErr instanceof Error ? fallbackErr.message : "Save error";
           setError(
             sent > 0
-              ? `${sent} ta saqlandi. Keyingi savol xato: ${fallbackMsg}`
+              ? `${sent} were saved. Next question failed: ${fallbackMsg}`
               : fallbackMsg,
           );
         }
       } else {
-        const isStorage500 =
+          const isStorage500 =
           msg.includes("upload image to storage") ||
           msg.includes("500") ||
           msg.includes("Failed to upload");
         const hint = isStorage500
-          ? " Backend (GCS) sozlamalarini va loglarni tekshiring — api.satziyo.uz."
+          ? " Check backend (GCS) configuration and logs — api.satziyo.uz."
           : "";
         setError(
           sent > 0
-            ? `${sent} ta saqlandi. Keyingi savol xato: ${msg}${hint}`
+            ? `${sent} were saved. Next question failed: ${msg}${hint}`
             : `${msg}${hint}`,
         );
       }
@@ -549,7 +549,7 @@ export default function TestQuestionsPage() {
           className="mt-4"
           onClick={() => router.push("/admin/tests")}
         >
-          Testlar
+          Back to Tests
         </Button>
       </div>
     );
@@ -566,7 +566,7 @@ export default function TestQuestionsPage() {
             {testInfo?.title}
           </h2>
           <p className="text-sm text-gray-500 mt-0.5">
-            Modulni tanlang, savollarni to‘ldiring va pastda <strong>Yuborish</strong> bosing.
+            Select a module, fill in the questions, then click <strong>Submit</strong> below.
           </p>
         </div>
         <Button
@@ -575,7 +575,7 @@ export default function TestQuestionsPage() {
           onClick={() => router.push("/admin/tests")}
           className="gap-1.5"
         >
-          ← Testlar
+          ← Back to Tests
         </Button>
       </div>
 
@@ -631,13 +631,16 @@ export default function TestQuestionsPage() {
         <Card className="p-4 rounded-xl border-gray-200 shadow-sm">
           <div className="flex items-center justify-between gap-2 mb-4">
             <h3 className="font-semibold text-gray-900">
-              {selectedModule.sectionType} Module {selectedModule.moduleNumber} — savollar
+              {selectedModule.sectionType} Module {selectedModule.moduleNumber} — questions
             </h3>
           </div>
           {selectedModule.sectionType === "MATH" && (
             <div className="mb-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900">
               <p className="font-medium mb-1">Math:</p>
-              <p>Grid-in uchun to‘g‘ri javobni son/kasr yozing (mas: 4, 3/4, 0.75). Variantli bo‘lsa A–D to‘ldiring va to‘g‘ri javobni belgilang.</p>
+              <p>
+                For grid-in questions, enter the correct answer as a number or fraction (e.g. 4, 3/4, 0.75).
+                For multiple-choice, fill in choices A–D and mark the correct answer.
+              </p>
             </div>
           )}
           <div className="space-y-2">
@@ -1076,12 +1079,12 @@ export default function TestQuestionsPage() {
                                     slot.questionId,
                                     slotToQuestionInputForUpdate(slot, i),
                                   );
-                                  setSuccess("Savol tahrirlandi, saqlandi.");
+                                  setSuccess("Question updated and saved.");
                                 } catch (e) {
                                   const msg =
                                     e instanceof Error
                                       ? e.message
-                                      : "Saqlash xatosi";
+                                      : "Save error";
                                   const isAnswered =
                                     /answered|cannot update question|tahrirlab bo'lmaydi/i.test(
                                       msg
@@ -1093,9 +1096,9 @@ export default function TestQuestionsPage() {
                                   let displayMsg = msg;
                                   if (isAnswered) {
                                     displayMsg =
-                                      "Bu savol allaqachon talabalar tomonidan javob berilgan. Natijalarni saqlash uchun tahrirlashga ruxsat berilmaydi. O'zgartirish kerak bo'lsa, yangi savol qo'shing (bo'sh slotdan foydalaning).";
+                                      "This question has already been answered by students. To preserve results, editing is not allowed. If you need changes, create a new question (use an empty slot).";
                                   } else if (isStorage500) {
-                                    displayMsg += " Backend (GCS) sozlamalarini tekshiring.";
+                                    displayMsg += " Check backend (GCS) configuration.";
                                   }
                                   setError(displayMsg);
                                 } finally {

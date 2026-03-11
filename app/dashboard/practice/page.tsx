@@ -232,9 +232,9 @@ export default function PracticePage() {
                     : "bg-brand-blue-50 text-brand-blue border border-brand-blue/30";
 
                 const statusBadge = inProgress
-                  ? { label: "In Progress", color: "bg-brand-blue-50 text-brand-blue" }
+                  ? { label: "In Progress", color: "bg-brand-orange/20 text-brand-orange border border-brand-orange/40" }
                   : bestAttempt
-                    ? { label: "Completed", color: "bg-brand-orange-light text-brand-orange" }
+                    ? { label: "Completed", color: "bg-brand-orange-light text-brand-orange border border-brand-orange/30" }
                     : { label: "Not Started", color: "bg-gray-100 text-gray-500" };
 
                 const title = test.title || `Test #${tests.length - index}`;
@@ -242,12 +242,12 @@ export default function PracticePage() {
                 return (
                   <Card
                     key={test.id}
-                    className="p-4 bg-white border border-brand-orange-light hover:border-brand-orange/60 hover:shadow-md transition-all duration-200 rounded-2xl"
+                    className="p-4 bg-white border border-brand-orange/70 hover:border-brand-orange hover:shadow-lg transition-all duration-200 rounded-2xl"
                   >
                     <div className="space-y-3">
-                      {/* Thumbnail */}
-                      <div className="relative overflow-hidden rounded-2xl h-40 bg-gradient-to-br from-brand-orange-light via-brand-orange/20 to-brand-blue">
-                        <div className="absolute inset-0 flex items-center justify-center opacity-40">
+                      {/* Thumbnail – orange gradient, logo, glass, main text */}
+                      <div className="relative overflow-hidden rounded-2xl h-40 bg-gradient-to-br from-brand-orange/40 via-brand-orange/70 to-brand-orange/50">
+                        <div className="absolute inset-0 flex items-center justify-center opacity-30">
                           <div className="relative w-40 h-40">
                             <Image
                               src="/logo.png"
@@ -259,25 +259,26 @@ export default function PracticePage() {
                             />
                           </div>
                         </div>
+                        <div className="absolute inset-0 pointer-events-none bg-white/10 backdrop-blur-[1px]" />
                         <div className="absolute inset-0 pointer-events-none">
-                          <div className="absolute -top-10 left-0 w-36 h-28 bg-brand-orange/50 rounded-full blur-3xl" />
-                          <div className="absolute bottom-0 right-[-30px] w-40 h-28 bg-brand-blue/60 rounded-full blur-3xl" />
+                          <div className="absolute -top-10 left-0 w-36 h-28 bg-brand-orange rounded-full blur-3xl opacity-60" />
+                          <div className="absolute bottom-0 right-[-30px] w-40 h-28 bg-brand-orange/80 rounded-full blur-3xl opacity-50" />
                         </div>
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-base font-semibold text-white drop-shadow-md text-center px-4">
+                          <span className="text-base font-semibold text-white drop-shadow-lg text-center px-4">
                             {title}
                           </span>
                         </div>
                       </div>
 
                       {/* Meta row */}
-                      <div className="flex items-center justify-between text-[11px] text-brand-blue/80">
+                      <div className="flex items-center justify-between text-[11px] text-brand-orange/90">
                         <div className="flex items-center gap-2">
                           <div className="flex items-center gap-1">
                             <Clock className="w-3 h-3" />
                             <span>{totalDuration} min</span>
                           </div>
-                          <span className="h-1 w-1 rounded-full bg-brand-blue/40" />
+                          <span className="h-1 w-1 rounded-full bg-brand-orange/50" />
                           <span>{totalQuestions} q</span>
                         </div>
                         <span
@@ -288,7 +289,7 @@ export default function PracticePage() {
                       </div>
 
                       {/* Access + score */}
-                      <div className="flex items-center justify-between text-[11px] text-brand-blue/70">
+                      <div className="flex items-center justify-between text-[11px] text-brand-orange/80">
                         <span
                           className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${accessClasses}`}
                         >
@@ -297,12 +298,12 @@ export default function PracticePage() {
                         {bestAttempt?.totalScore != null ? (
                           <span>
                             Best:{" "}
-                            <span className="font-semibold text-brand-blue">
+                            <span className="font-semibold text-brand-orange">
                               {roundScore(bestAttempt.totalScore, 400)}
                             </span>
                           </span>
                         ) : inProgress ? (
-                          <span className="text-brand-blue/50">In progress</span>
+                          <span className="text-brand-orange/70">In progress</span>
                         ) : (
                           <span className="text-gray-400">Not taken</span>
                         )}
@@ -314,7 +315,7 @@ export default function PracticePage() {
                           <Button
                             onClick={() => handleContinue(inProgress.testId)}
                             disabled={!!startingId}
-                            className="flex-1 bg-brand-blue hover:bg-brand-blue/90 text-white rounded-xl py-2 text-sm font-semibold"
+                            className="flex-1 bg-brand-orange hover:bg-brand-orange/90 text-white rounded-xl py-2 text-sm font-semibold"
                           >
                             {isStarting ? (
                               <Loading size="sm" />
@@ -374,10 +375,10 @@ export default function PracticePage() {
       {activeTab === "in_progress" && (
         <>
           {inProgressAttempts.length === 0 ? (
-            <Card className="p-12 text-center border border-dashed border-gray-200">
-              <Timer className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500 font-medium">No tests in progress</p>
-              <p className="text-sm text-gray-400 mt-1">
+            <Card className="p-12 text-center border border-dashed border-brand-orange/30">
+              <Timer className="w-10 h-10 text-brand-orange/40 mx-auto mb-3" />
+              <p className="text-brand-orange/70 font-medium">No tests in progress</p>
+              <p className="text-sm text-brand-orange/50 mt-1">
                 Start a test from the All Tests tab to see it here.
               </p>
             </Card>
@@ -385,50 +386,90 @@ export default function PracticePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {inProgressAttempts.map((attempt) => {
                 const isStarting = startingId === attempt.testId;
+                const test = tests.find((t) => t.id === attempt.testId);
+                const totalDuration = test ? calculateTotalDuration(test) : 0;
+                const totalQuestions = test ? calculateTotalQuestions(test) : 0;
+                const title = attempt.testTitle || "Practice Test";
                 return (
                   <Card
                     key={attempt.id}
-                    className="p-5 border border-brand-blue-light rounded-2xl bg-white hover:shadow-md transition-all duration-200"
+                    className="p-4 bg-white border border-brand-orange/70 hover:border-brand-orange hover:shadow-lg transition-all duration-200 rounded-2xl"
                   >
-                    <div className="flex flex-col gap-4 h-full">
-                      {/* Header */}
-                      <div className="flex items-start gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-brand-blue-50 flex items-center justify-center flex-shrink-0">
-                          <Timer className="w-4.5 h-4.5 text-brand-blue" />
+                    <div className="space-y-3">
+                      {/* Thumbnail – same as All Tests: image, orange gradient, glass, main text */}
+                      <div className="relative overflow-hidden rounded-2xl h-40 bg-gradient-to-br from-brand-orange/40 via-brand-orange/70 to-brand-orange/50">
+                        <div className="absolute inset-0 flex items-center justify-center opacity-30">
+                          <div className="relative w-40 h-40">
+                            <Image
+                              src="/logo.png"
+                              alt="SAT Ziyo"
+                              fill
+                              className="object-contain"
+                              sizes="160px"
+                            />
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-brand-blue text-sm leading-tight line-clamp-2">
-                            {attempt.testTitle}
-                          </p>
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            Started {formatDate(attempt.startedAt)}
-                          </p>
+                        <div className="absolute inset-0 pointer-events-none bg-white/10 backdrop-blur-[1px]" />
+                        <div className="absolute inset-0 pointer-events-none">
+                          <div className="absolute -top-10 left-0 w-36 h-28 bg-brand-orange rounded-full blur-3xl opacity-60" />
+                          <div className="absolute bottom-0 right-[-30px] w-40 h-28 bg-brand-orange/80 rounded-full blur-3xl opacity-50" />
+                        </div>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-base font-semibold text-white drop-shadow-lg text-center px-4">
+                            {title}
+                          </span>
                         </div>
                       </div>
 
-                      {/* Status pill */}
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-brand-blue animate-pulse" />
-                        <span className="text-xs text-brand-blue font-medium">
+                      {/* Meta row */}
+                      <div className="flex items-center justify-between text-[11px] text-brand-orange/90">
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            <span>{totalDuration} min</span>
+                          </div>
+                          <span className="h-1 w-1 rounded-full bg-brand-orange/50" />
+                          <span>{totalQuestions} q</span>
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-brand-orange/20 text-brand-orange border border-brand-orange/40">
                           In Progress
                         </span>
                       </div>
 
-                      {/* Button */}
-                      <Button
-                        onClick={() => handleContinue(attempt.testId)}
-                        disabled={!!startingId}
-                        className="w-full bg-brand-blue hover:bg-brand-blue/90 text-white rounded-xl py-2.5 text-sm font-semibold mt-auto"
-                      >
-                        {isStarting ? (
-                          <Loading size="sm" />
-                        ) : (
-                          <>
-                            <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
-                            Continue Test
-                          </>
-                        )}
-                      </Button>
+                      <p className="text-xs text-brand-orange/70">
+                        Started {formatDate(attempt.startedAt)}
+                      </p>
+
+                      {/* Buttons */}
+                      <div className="flex items-center gap-2 pt-1">
+                        <Button
+                          onClick={() => handleContinue(attempt.testId)}
+                          disabled={!!startingId}
+                          className="flex-1 bg-brand-orange hover:bg-brand-orange/90 text-white rounded-xl py-2 text-sm font-semibold"
+                        >
+                          {isStarting ? (
+                            <Loading size="sm" />
+                          ) : (
+                            <>
+                              <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                              Continue
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() =>
+                            router.push(
+                              `/dashboard/practice/test/${attempt.testId}/comments`,
+                            )
+                          }
+                          className="bg-white border-gray-200 hover:bg-gray-50 rounded-xl px-3 py-2"
+                          title="Discussion"
+                        >
+                          <MessageCircle className="w-4 h-4 text-gray-500" />
+                        </Button>
+                      </div>
                     </div>
                   </Card>
                 );
@@ -442,10 +483,10 @@ export default function PracticePage() {
       {activeTab === "completed" && (
         <>
           {completedAttempts.length === 0 ? (
-            <Card className="p-12 text-center border border-dashed border-gray-200">
-              <Trophy className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500 font-medium">No completed tests yet</p>
-              <p className="text-sm text-gray-400 mt-1">
+            <Card className="p-12 text-center border border-dashed border-brand-orange/30">
+              <Trophy className="w-10 h-10 text-brand-orange/40 mx-auto mb-3" />
+              <p className="text-brand-orange/70 font-medium">No completed tests yet</p>
+              <p className="text-sm text-brand-orange/50 mt-1">
                 Finish a test to see your scores here.
               </p>
             </Card>
@@ -464,48 +505,69 @@ export default function PracticePage() {
                   attempt.mathScore != null
                     ? roundScore(attempt.mathScore, 200)
                     : null;
+                const title = attempt.testTitle || "Practice Test";
 
                 return (
                   <Card
                     key={attempt.id}
-                    className="p-5 border border-brand-blue-light rounded-2xl bg-white hover:shadow-md transition-all duration-200"
+                    className="p-4 bg-white border border-brand-orange/70 hover:border-brand-orange hover:shadow-lg transition-all duration-200 rounded-2xl"
                   >
-                    <div className="flex flex-col gap-4 h-full">
-                      {/* Header */}
-                      <div className="flex items-start gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-brand-orange-light flex items-center justify-center flex-shrink-0">
-                          <Trophy className="w-4.5 h-4.5 text-brand-orange" />
+                    <div className="space-y-3">
+                      {/* Thumbnail – same as All Tests: image, orange gradient, glass, main text */}
+                      <div className="relative overflow-hidden rounded-2xl h-40 bg-gradient-to-br from-brand-orange/40 via-brand-orange/70 to-brand-orange/50">
+                        <div className="absolute inset-0 flex items-center justify-center opacity-30">
+                          <div className="relative w-40 h-40">
+                            <Image
+                              src="/logo.png"
+                              alt="SAT Ziyo"
+                              fill
+                              className="object-contain"
+                              sizes="160px"
+                            />
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-brand-blue text-sm leading-tight line-clamp-2">
-                            {attempt.testTitle}
-                          </p>
-                          {attempt.completedAt && (
-                            <p className="text-xs text-gray-400 mt-0.5">
-                              {formatDate(attempt.completedAt)}
-                            </p>
-                          )}
+                        <div className="absolute inset-0 pointer-events-none bg-white/10 backdrop-blur-[1px]" />
+                        <div className="absolute inset-0 pointer-events-none">
+                          <div className="absolute -top-10 left-0 w-36 h-28 bg-brand-orange rounded-full blur-3xl opacity-60" />
+                          <div className="absolute bottom-0 right-[-30px] w-40 h-28 bg-brand-orange/80 rounded-full blur-3xl opacity-50" />
+                        </div>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-base font-semibold text-white drop-shadow-lg text-center px-4">
+                            {title}
+                          </span>
                         </div>
                       </div>
 
+                      {/* Meta row */}
+                      <div className="flex items-center justify-between text-[11px] text-brand-orange/90">
+                        <div className="flex items-center gap-2">
+                          {attempt.completedAt && (
+                            <span>{formatDate(attempt.completedAt)}</span>
+                          )}
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-brand-orange-light text-brand-orange border border-brand-orange/30">
+                          Completed
+                        </span>
+                      </div>
+
                       {/* Scores */}
-                      <div className="bg-gray-50 rounded-xl p-3 space-y-2">
+                      <div className="bg-brand-orange-light/50 rounded-xl p-3 space-y-2 border border-brand-orange/20">
                         {total != null ? (
                           <div className="flex items-baseline gap-1">
-                            <span className="text-3xl font-bold text-brand-blue">
+                            <span className="text-3xl font-bold text-brand-orange">
                               {total}
                             </span>
-                            <span className="text-xs text-gray-400">/1600</span>
+                            <span className="text-xs text-brand-orange/70">/1600</span>
                           </div>
                         ) : (
-                          <span className="text-sm text-gray-400">Score unavailable</span>
+                          <span className="text-sm text-brand-orange/60">Score unavailable</span>
                         )}
                         {(rw != null || math != null) && (
-                          <div className="flex items-center gap-3 text-xs text-gray-500">
+                          <div className="flex items-center gap-3 text-xs text-brand-orange/80">
                             {rw != null && (
                               <span>
                                 R&amp;W{" "}
-                                <span className="font-semibold text-brand-blue">
+                                <span className="font-semibold text-brand-orange">
                                   {rw}
                                 </span>
                               </span>
@@ -513,7 +575,7 @@ export default function PracticePage() {
                             {math != null && (
                               <span>
                                 Math{" "}
-                                <span className="font-semibold text-brand-blue">
+                                <span className="font-semibold text-brand-orange">
                                   {math}
                                 </span>
                               </span>
@@ -522,18 +584,33 @@ export default function PracticePage() {
                         )}
                       </div>
 
-                      {/* Button */}
-                      <Button
-                        variant="outline"
-                        onClick={() =>
-                          router.push(
-                            `/dashboard/practice/test/${attempt.id}/finish`,
-                          )
-                        }
-                        className="w-full border-brand-blue-light text-brand-blue hover:bg-brand-blue-50 rounded-xl py-2.5 text-sm font-semibold mt-auto"
-                      >
-                        View Results
-                      </Button>
+                      {/* Buttons */}
+                      <div className="flex items-center gap-2 pt-1">
+                        <Button
+                          variant="outline"
+                          onClick={() =>
+                            router.push(
+                              `/dashboard/practice/test/${attempt.id}/finish`,
+                            )
+                          }
+                          className="flex-1 border-brand-orange/70 text-brand-orange hover:bg-brand-orange-light rounded-xl py-2 text-sm font-semibold"
+                        >
+                          View Results
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() =>
+                            router.push(
+                              `/dashboard/practice/test/${attempt.testId}/comments`,
+                            )
+                          }
+                          className="bg-white border-gray-200 hover:bg-gray-50 rounded-xl px-3 py-2"
+                          title="Discussion"
+                        >
+                          <MessageCircle className="w-4 h-4 text-gray-500" />
+                        </Button>
+                      </div>
                     </div>
                   </Card>
                 );

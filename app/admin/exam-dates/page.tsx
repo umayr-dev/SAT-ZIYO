@@ -53,7 +53,7 @@ export default function AdminExamDatesPage() {
   async function handleAdd() {
     const dateStr = newDate.trim().slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-      setError("Sana tanlang yoki YYYY-MM-DD ko‘rinishida kiriting.");
+      setError("Select a date or enter it in YYYY-MM-DD format.");
       return;
     }
     setSaving(true);
@@ -70,7 +70,7 @@ export default function AdminExamDatesPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to add");
-      setSuccess("Exam date qo‘shildi.");
+      setSuccess("Exam date added.");
       setNewDate("");
       await fetchDates();
     } catch (e) {
@@ -95,7 +95,7 @@ export default function AdminExamDatesPage() {
     if (!editingId) return;
     const dateStr = editDate.trim().slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-      setError("Sana tanlang yoki YYYY-MM-DD ko‘rinishida kiriting.");
+      setError("Select a date or enter it in YYYY-MM-DD format.");
       return;
     }
     setSaving(true);
@@ -114,20 +114,20 @@ export default function AdminExamDatesPage() {
       );
       const data = await res.json();
       if (!res.ok)
-        throw new Error(data.message || "Tahrirlash muvaffaqiyatsiz");
-      setSuccess("Sana yangilandi.");
+        throw new Error(data.message || "Edit failed");
+      setSuccess("Date updated.");
       setEditingId(null);
       setEditDate("");
       await fetchDates();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Tahrirlash muvaffaqiyatsiz");
+      setError(e instanceof Error ? e.message : "Edit failed");
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDelete(d: ExamDateItem) {
-    if (!confirm(`"${d.label || d.date}" sanasini o‘chirishni xohlaysizmi?`))
+    if (!confirm(`Are you sure you want to delete "${d.label || d.date}"?`))
       return;
     setDeletingId(d.id);
     setError("");
@@ -141,12 +141,12 @@ export default function AdminExamDatesPage() {
       );
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || "O‘chirish muvaffaqiyatsiz");
+        throw new Error(data.message || "Delete failed");
       }
-      setSuccess("Sana o‘chirildi.");
+      setSuccess("Date deleted.");
       await fetchDates();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "O‘chirish muvaffaqiyatsiz");
+      setError(e instanceof Error ? e.message : "Delete failed");
     } finally {
       setDeletingId(null);
     }

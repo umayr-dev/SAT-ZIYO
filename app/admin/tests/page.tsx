@@ -103,10 +103,10 @@ export default function TestsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
-        <h2 className="text-xl font-bold text-gray-900">Testlar</h2>
+        <h2 className="text-xl font-bold text-gray-900">Tests</h2>
         <Button onClick={() => router.push("/admin/tests/create")} size="sm" className="gap-1.5 shadow-sm">
           <Plus className="w-4 h-4" />
-          Yangi test
+          New test
         </Button>
       </div>
 
@@ -122,9 +122,9 @@ export default function TestsPage() {
         </div>
       ) : (tests as Test[]).length === 0 ? (
         <Card className="p-6 text-center">
-          <p className="text-gray-600 mb-3">Testlar yo‘q</p>
+          <p className="text-gray-600 mb-3">No tests found</p>
           <Button onClick={() => router.push("/admin/tests/create")} size="sm">
-            Yangi test qo‘shish
+            Create new test
           </Button>
         </Card>
       ) : (
@@ -164,7 +164,7 @@ export default function TestsPage() {
                         test.isActive ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-600"
                       }`}
                     >
-                      {test.isActive ? "Faol" : "Nofaol"}
+                      {test.isActive ? "Active" : "Inactive"}
                     </span>
                     <span className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${accessClasses}`}>
                       {accessLabel}

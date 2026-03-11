@@ -2091,7 +2091,7 @@ export default function TestTakingPage() {
   };
 
   return (
-    <div className="flex h-screen w-full bg-white overflow-hidden px-2 sm:px-4 md:px-5">
+    <div className="fixed inset-0 flex bg-white overflow-hidden">
       {/* Desmos Calculator Panel (Math only, non-blocking, draggable, resizable from corner) */}
       {showCalculator && testState.currentSection.type === "MATH" && (
         <DesmosCalculatorPanel
@@ -2318,7 +2318,7 @@ export default function TestTakingPage() {
             </div>
 
             {/* Markaz – katta ekranlarda (>= lg): Math = bitta ustun (ustma-ust), R&W = ikki ustun */}
-            <div className="flex-1 min-h-0 flex flex-col relative min-w-0 overflow-hidden">
+            <div className="flex-1 min-h-0 flex flex-col relative min-w-0 overflow-hidden px-5">
               {/* Desktop / large (>= lg) */}
               <div
                 className="relative hidden lg:flex lg:flex-col flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden"
@@ -2328,7 +2328,7 @@ export default function TestTakingPage() {
                 {/* Math: faqat ko‘p tanlov (A/B/C/D) = bitta ustun; grid-in yoki ochiq savol = ikki ustun */}
                 {testState.currentSection.type === "MATH" && hasChoiceOptions(question) ? (
                   <div className="w-full flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-                    <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 pb-6">
+                    <div className="w-full px-0 pb-6">
                       {isOpenAnswerQuestion(question) && (
                         <div className="pt-5 p-3 sm:p-4 md:p-5 bg-gray-50/80 rounded-lg text-xs sm:text-sm md:text-base leading-relaxed mb-4">
                           <h2 className="text-sm sm:text-base md:text-lg font-bold text-black mb-2 sm:mb-3 md:mb-4">
@@ -2758,7 +2758,7 @@ export default function TestTakingPage() {
 
               {/* Mobil / planshet (< lg) – bitta ustun, bitta scroll, to‘liq responsive */}
               <div className="flex lg:hidden flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden overscroll-contain">
-                <div className="w-full min-w-0 px-2 sm:px-3 md:px-4 pb-4 sm:pb-6">
+                <div className="w-full min-w-0 px-0 pb-4 sm:pb-6">
                   {/* Math + grid-in: mobil da ham directions */}
                   {testState.currentSection.type === "MATH" &&
                     isOpenAnswerQuestion(question) && (
@@ -2924,7 +2924,7 @@ export default function TestTakingPage() {
 
             {/* Footer – doimiy balandlik, o‘zgarmaydi, pastda qotib turadi */}
             <div
-              className="flex-shrink-0 flex-none h-12 bg-blue-100 flex justify-between items-center"
+              className="flex-shrink-0 flex-none h-12 bg-blue-100 flex justify-between items-center px-5"
               style={{
                 minHeight: 48,
                 maxHeight: 48,
