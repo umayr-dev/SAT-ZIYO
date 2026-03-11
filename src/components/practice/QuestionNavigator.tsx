@@ -76,13 +76,13 @@ export function QuestionNavigator({
               <span>Unanswered</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded border-2 border-gray-400 bg-white flex items-center justify-center">
-                <Flag className="w-3 h-3 text-red-500" />
+              <div className="w-5 h-5 rounded border-2 border-orange-400 bg-orange-50 flex items-center justify-center">
+                <Flag className="w-4 h-4 text-orange-500" />
               </div>
               <span>For Review</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-blue-500 border-2 border-blue-500"></div>
+              <div className="w-4 h-4 rounded bg-orange-500 border-2 border-orange-500"></div>
               <span>Answered</span>
             </div>
           </div>
@@ -100,16 +100,16 @@ export function QuestionNavigator({
               const isFlagged = flaggedSet.has(i);
 
               let buttonClass =
-                "w-10 h-10 rounded border-2 text-sm font-medium flex items-center justify-center transition-all relative";
+                "w-11 h-11 rounded border-2 text-sm font-medium flex items-center justify-center transition-all relative";
 
               if (isCurrent) {
-                buttonClass += " border-gray-400 bg-white text-gray-900";
+                buttonClass += " border-gray-500 bg-white text-gray-900";
               } else if (isFlagged && !isAnswered) {
-                buttonClass += " border-gray-400 bg-white text-gray-900 border-dashed";
+                buttonClass += " border-orange-400 bg-orange-50 text-gray-900 border-dashed";
               } else if (isAnswered) {
-                buttonClass += " border-blue-500 bg-blue-500 text-white";
+                buttonClass += " border-orange-500 bg-orange-500 text-white";
               } else {
-                buttonClass += " border-gray-400 bg-white text-gray-900 border-dashed";
+                buttonClass += " border-gray-300 bg-white text-gray-900 border-dashed";
               }
 
               return (
@@ -123,10 +123,10 @@ export function QuestionNavigator({
                   title={`Question ${i + 1}${isAnswered ? " (answered)" : ""}${isFlagged ? " (flagged)" : ""}`}
                 >
                   {isCurrent && (
-                    <MapPin className="absolute -top-1 -right-1 w-3 h-3 text-gray-600" />
+                    <MapPin className="absolute -top-1 -right-1 w-3 h-3 text-gray-700" />
                   )}
                   {isFlagged && !isCurrent && (
-                    <Flag className="absolute top-0.5 right-0.5 w-3 h-3 text-red-500" />
+                    <Flag className="absolute -top-1 -right-1 w-4 h-4 text-orange-500" />
                   )}
                   <span className={isCurrent ? "mt-1" : ""}>{i + 1}</span>
                 </button>

@@ -193,11 +193,11 @@ export default function ModuleReviewPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <Card className="p-4 border border-green-200 bg-green-50">
-            <p className="text-xs uppercase tracking-wide text-green-700 font-semibold mb-1">
+          <Card className="p-4 border border-orange-200 bg-orange-50">
+            <p className="text-xs uppercase tracking-wide text-orange-700 font-semibold mb-1">
               Answered
             </p>
-            <p className="text-2xl font-bold text-green-900">
+            <p className="text-2xl font-bold text-orange-900">
               {answeredCount}/{totalQuestions}
             </p>
           </Card>
@@ -233,12 +233,12 @@ export default function ModuleReviewPage() {
               let cls =
                 "w-9 h-9 sm:w-10 sm:h-10 rounded-lg border text-xs sm:text-sm flex items-center justify-center cursor-pointer transition-all";
               if (isAnswered) {
-                cls += " bg-blue-500 border-blue-500 text-white";
+                cls += " bg-orange-500 border-orange-500 text-white";
               } else {
                 cls += " bg-white border-gray-300 text-gray-800";
               }
               if (isFlagged) {
-                cls += " ring-2 ring-yellow-400";
+                cls += " ring-2 ring-orange-400";
               }
 
               return (

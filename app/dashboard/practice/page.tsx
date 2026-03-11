@@ -155,10 +155,10 @@ export default function PracticePage() {
     <div className="w-full max-w-5xl mx-auto">
       {/* Page header */}
       <div className="mb-6">
-        <h1 className="text-3xl md:text-4xl font-bold text-brand-blue mb-1">
+        <h1 className="text-3xl md:text-4xl font-bold text-black mb-1">
           Practice Tests
         </h1>
-        <p className="text-sm text-brand-blue/70">
+        <p className="text-sm text-gray-700">
           Official SAT-style full-length tests. Pick up where you left off or
           start fresh.
         </p>
@@ -182,7 +182,9 @@ export default function PracticePage() {
               onClick={() => setActiveTab(tab.id)}
               className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all ${
                 isActive
-                  ? "bg-gray-900 text-white shadow-sm"
+                  ? tab.id === "all"
+                    ? "bg-brand-blue text-white shadow-sm"
+                    : "bg-gray-900 text-white shadow-sm"
                   : "bg-white text-gray-500 border border-gray-200 hover:border-gray-300 hover:text-gray-700"
               }`}
             >
@@ -190,7 +192,11 @@ export default function PracticePage() {
               {tab.label}
               <span
                 className={`ml-0.5 text-xs rounded-full px-1.5 py-0.5 font-semibold ${
-                  isActive ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
+                  isActive
+                    ? tab.id === "all"
+                      ? "bg-white/20 text-white"
+                      : "bg-white/20 text-white"
+                    : "bg-gray-100 text-gray-500"
                 }`}
               >
                 {tab.count}
@@ -236,7 +242,7 @@ export default function PracticePage() {
                 return (
                   <Card
                     key={test.id}
-                    className="p-4 bg-white border border-brand-blue-light hover:border-brand-blue/40 hover:shadow-md transition-all duration-200 rounded-2xl"
+                    className="p-4 bg-white border border-brand-orange-light hover:border-brand-orange/60 hover:shadow-md transition-all duration-200 rounded-2xl"
                   >
                     <div className="space-y-3">
                       {/* Thumbnail */}

@@ -25,12 +25,12 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
         {/* Welcome Section – profile name va text blue */}
         <div className="flex items-center gap-4">
           <div className="relative">
-            <div className="w-12 h-12 bg-brand-blue rounded-2xl flex items-center justify-center shadow-sm">
+            <div className="w-12 h-12 bg-brand-orange rounded-2xl flex items-center justify-center shadow-sm">
               <span className="text-base font-bold text-white">{initials}</span>
             </div>
           </div>
           <div>
-            <h1 className="text-xl font-bold text-brand-blue">
+            <h1 className="text-xl font-bold text-brand-orange">
               Welcome back, {displayName}
             </h1>
             <p className="text-sm text-black mt-0.5">

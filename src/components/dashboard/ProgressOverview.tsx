@@ -287,14 +287,14 @@ export function ProgressOverview() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {/* Last score */}
-              <div className="p-4 bg-white border border-brand-orange-light rounded-xl">
+              <div className="p-4 bg-white border border-brand-blue-light rounded-xl">
                 <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp className="h-4 w-4 text-brand-orange/70" />
+                  <TrendingUp className="h-4 w-4 text-brand-blue/70" />
                   <span className="text-sm text-black">
                     Oxirgi ball
                   </span>
                 </div>
-                <p className="text-2xl font-bold text-brand-orange">
+                <p className="text-2xl font-bold text-brand-blue">
                   {progressStats?.lastScore != null
                     ? progressStats.lastScore
                     : "—"}
@@ -304,14 +304,14 @@ export function ProgressOverview() {
                 </p>
               </div>
               {/* Completed tests */}
-              <div className="p-4 bg-white border border-brand-orange/40 rounded-xl">
+              <div className="p-4 bg-white border border-brand-blue-light rounded-xl">
                 <div className="flex items-center gap-2 mb-2">
-                  <ClipboardCheck className="h-4 w-4 text-brand-orange/80" />
+                  <ClipboardCheck className="h-4 w-4 text-brand-blue/80" />
                   <span className="text-sm text-black">
                     Ishlagan testlar
                   </span>
                 </div>
-                <p className="text-2xl font-bold text-brand-orange">
+                <p className="text-2xl font-bold text-brand-blue">
                   {progressStats?.testsCompleted ?? 0}
                 </p>
                 <p className="text-xs text-black mt-0.5">
@@ -319,12 +319,12 @@ export function ProgressOverview() {
                 </p>
               </div>
               {/* Accuracy */}
-              <div className="p-4 bg-white border border-brand-orange-light rounded-xl">
+              <div className="p-4 bg-white border border-brand-blue-light rounded-xl">
                 <div className="flex items-center gap-2 mb-2">
-                  <Percent className="h-4 w-4 text-brand-orange/70" />
+                  <Percent className="h-4 w-4 text-brand-blue/70" />
                   <span className="text-sm text-black">Accuracy</span>
                 </div>
-                <p className="text-2xl font-bold text-brand-orange">
+                <p className="text-2xl font-bold text-brand-blue">
                   {progressStats?.accuracy != null
                     ? `${progressStats.accuracy}%`
                     : "—"}
