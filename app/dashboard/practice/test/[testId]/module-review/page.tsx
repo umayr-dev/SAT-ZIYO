@@ -5,6 +5,7 @@ import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { Card } from "@/src/ui/card";
 import { Button } from "@/src/ui/button";
 import { practiceService } from "@/src/services/practice.service";
+import { Flag } from "lucide-react";
 
 interface LocalAnswer {
   questionId: string;
@@ -231,14 +232,15 @@ export default function ModuleReviewPage() {
               const isFlagged = flaggedSet.has(i);
 
               let cls =
-                "w-9 h-9 sm:w-10 sm:h-10 rounded-lg border text-xs sm:text-sm flex items-center justify-center cursor-pointer transition-all";
-              if (isAnswered) {
+                "relative w-9 h-9 sm:w-10 sm:h-10 rounded-lg border text-xs sm:text-sm flex items-center justify-center cursor-pointer transition-all";
+              if (isAnswered && isFlagged) {
+                cls += " bg-orange-500 border-black text-white";
+              } else if (isAnswered) {
                 cls += " bg-orange-500 border-orange-500 text-white";
+              } else if (isFlagged) {
+                cls += " bg-white border-orange-400 text-gray-800 ring-2 ring-orange-400";
               } else {
                 cls += " bg-white border-gray-300 text-gray-800";
-              }
-              if (isFlagged) {
-                cls += " ring-2 ring-orange-400";
               }
 
               return (
@@ -251,6 +253,11 @@ export default function ModuleReviewPage() {
                     isAnswered ? " (answered)" : " (unanswered)"
                   }${isFlagged ? " • flagged" : ""}`}
                 >
+                  {isFlagged && (
+                    <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full border border-black bg-orange-400 flex items-center justify-center">
+                      <Flag className="w-2.5 h-2.5 text-black" />
+                    </div>
+                  )}
                   {i + 1}
                 </button>
               );

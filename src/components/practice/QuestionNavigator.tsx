@@ -104,6 +104,9 @@ export function QuestionNavigator({
 
               if (isCurrent) {
                 buttonClass += " border-gray-500 bg-white text-gray-900";
+              } else if (isFlagged && isAnswered) {
+                // Answered + flagged: stronger style
+                buttonClass += " border-black bg-orange-500 text-white";
               } else if (isFlagged && !isAnswered) {
                 buttonClass += " border-orange-400 bg-orange-50 text-gray-900 border-dashed";
               } else if (isAnswered) {
@@ -126,7 +129,9 @@ export function QuestionNavigator({
                     <MapPin className="absolute -top-1 -right-1 w-3 h-3 text-gray-700" />
                   )}
                   {isFlagged && !isCurrent && (
-                    <Flag className="absolute -top-1 -right-1 w-4 h-4 text-orange-500" />
+                    <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full border border-black bg-orange-400 flex items-center justify-center">
+                      <Flag className="w-2.5 h-2.5 text-black" />
+                    </div>
                   )}
                   <span className={isCurrent ? "mt-1" : ""}>{i + 1}</span>
                 </button>

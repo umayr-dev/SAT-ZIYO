@@ -34,7 +34,8 @@ export default function BreakPage() {
         const remaining = Math.max(0, Math.floor((endTime - now) / 1000));
         setRemainingSeconds(remaining);
 
-        if (remaining === 0 && breakStatus.nextStep === "NEW_SECTION") {
+        // When break timer finishes, always move user to the next module/section
+        if (remaining === 0) {
           router.push(`/dashboard/practice/test/${attemptId}`);
         }
       };

@@ -129,7 +129,7 @@ function DesmosCalculatorPanel({
     <div className="pointer-events-none fixed inset-0 z-40">
       <div
         ref={panelRef}
-        className="pointer-events-auto absolute bottom-20 right-4 bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden border border-gray-200"
+        className="pointer-events-auto absolute top-24 left-4 bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden border border-gray-200"
         style={{ width: `${width}px`, height: `${height}px` }}
         onMouseDown={handleDragStart}
       >
@@ -147,7 +147,7 @@ function DesmosCalculatorPanel({
         </div>
         <div className="flex-1 bg-black/5 min-h-0 relative">
           <iframe
-            src="https://www.desmos.com/calculator"
+            src="https://www.desmos.com/calculator?embed"
             title="Desmos Calculator"
             className="w-full h-full border-0 absolute inset-0"
           />
@@ -269,8 +269,8 @@ function ReferenceSheetPanel({
             className="p-4 text-sm text-gray-600 text-center"
             aria-hidden="true"
           >
-            Add <code className="bg-gray-200 px-1">reference-sheet.png</code> to
-            the <code className="bg-gray-200 px-1">public</code> folder for the
+            Add <span className="bg-gray-200 px-1 font-mono">reference-sheet.png</span> to
+            the <span className="bg-gray-200 px-1 font-mono">public</span> folder for the
             formula reference image.
           </div>
           <div
@@ -1494,7 +1494,6 @@ export default function TestTakingPage() {
     }, 500); // Wait 500ms after last call
   }
 
-  // Save answer to localStorage only when user has actually selected an answer (no server request during test)
   const handleAnswer = useCallback(() => {
     if (!testState?.question) return;
 
@@ -1510,7 +1509,11 @@ export default function TestTakingPage() {
       eliminatedChoices: Array.from(eliminatedChoices),
     };
 
-    if (hasAnswer) {
+    const hasMeta =
+      flaggedQuestions.has(currentIndex) || eliminatedChoices.size > 0;
+
+    // Always persist to localStorage if there is an answer or any meta (flag/eliminated)
+    if (hasAnswer || hasMeta) {
       saveAnswerToStorage(currentIndex, answerData);
       setPendingAnswers((prev) => {
         const next = new Map(prev);
@@ -1523,6 +1526,7 @@ export default function TestTakingPage() {
         return next;
       });
     } else {
+      // No answer and no meta: clean up storage and in‑memory state
       removeAnswerFromStorage(currentIndex);
       setPendingAnswers((prev) => {
         const next = new Map(prev);
@@ -2525,10 +2529,10 @@ export default function TestTakingPage() {
                             className="flex items-center text-xs sm:text-sm text-gray-600 hover:text-black mr-1 sm:mr-2 h-full px-1 sm:px-2"
                           >
                             <Flag
-                              className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-500 ${
+                              className={`w-5 h-5 sm:w-6 sm:h-6 ${
                                 isFlagged
-                                  ? "fill-orange-500 text-orange-500"
-                                  : ""
+                                  ? "fill-orange-500 text-orange-500 drop-shadow-sm"
+                                  : "text-gray-500"
                               }`}
                             />
                             <span className="ml-0.5 sm:ml-1 text-xs sm:text-sm">
@@ -2633,45 +2637,58 @@ export default function TestTakingPage() {
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    if (isEliminationMode) {
-                                      setEliminatedChoices((prev) => {
-                                        const next = new Set(prev);
-                                        if (next.has(choice.id)) {
-                                          next.delete(choice.id);
-                                        } else {
-                                          next.add(choice.id);
-                                        }
-                                        return next;
-                                      });
-                                    } else {
-                                      handleAnswerChange({
-                                        choiceId: choice.id,
-                                        textAnswer: currentAnswer.textAnswer,
-                                      });
-                                    }
+                                    // Always treat main row click as answer select (elimination is controlled by the letter button)
+                                    handleAnswerChange({
+                                      choiceId: choice.id,
+                                      textAnswer: currentAnswer.textAnswer,
+                                    });
                                   }}
                                   className={`w-full p-2 sm:p-3 md:p-4 text-left border-2 rounded-lg text-xs sm:text-sm md:text-base flex items-start gap-2 md:gap-3 ${
                                     isSelected
                                       ? "border-black"
                                       : isEliminated
-                                        ? "border-gray-300 bg-gray-100 opacity-60"
+                                        ? "border-gray-300 bg-white"
                                         : "border-gray-200 hover:bg-gray-200 cursor-pointer"
                                   }`}
                                 >
-                                  <div
-                                    className={`flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full font-bold border border-black text-[10px] sm:text-xs ${
-                                      isSelected
-                                        ? "bg-black text-white"
-                                        : "text-black"
-                                    }`}
-                                  >
-                                    <span className="text-xs">{letter}</span>
-                                  </div>
+                                  {isEliminationMode ? (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEliminatedChoices((prev) => {
+                                          const next = new Set(prev);
+                                          if (next.has(choice.id)) {
+                                            next.delete(choice.id);
+                                          } else {
+                                            next.add(choice.id);
+                                          }
+                                          return next;
+                                        });
+                                      }}
+                                      className={`flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full font-bold border text-[10px] sm:text-xs ${
+                                        isEliminated
+                                          ? "border-black bg-black text-white"
+                                          : "border-gray-400 bg-white text-gray-700"
+                                      }`}
+                                      aria-label={`Eliminate choice ${letter}`}
+                                    >
+                                      <span className="text-xs">{letter}</span>
+                                    </button>
+                                  ) : (
+                                    <div
+                                      className={`flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full font-bold border border-black text-[10px] sm:text-xs ${
+                                        isSelected
+                                          ? "bg-black text-white"
+                                          : "text-black"
+                                      }`}
+                                    >
+                                      <span className="text-xs">{letter}</span>
+                                    </div>
+                                  )}
                                   <div
                                     className={`flex-1 min-w-0 ${
-                                      isEliminated
-                                        ? "line-through text-gray-500"
-                                        : ""
+                                      isEliminated ? "text-gray-700" : ""
                                     }`}
                                   >
                                     <span className="block">
@@ -2690,7 +2707,26 @@ export default function TestTakingPage() {
                                       </span>
                                     )}
                                   </div>
+                                  {isEliminated && (
+                                    <button
+                                      type="button"
+                                      className="ml-2 text-[11px] sm:text-xs font-medium text-blue-600 hover:underline"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEliminatedChoices((prev) => {
+                                          const next = new Set(prev);
+                                          next.delete(choice.id);
+                                          return next;
+                                        });
+                                      }}
+                                    >
+                                      Undo
+                                    </button>
+                                  )}
                                 </button>
+                                {isEliminated && (
+                                  <div className="pointer-events-none absolute left-6 right-6 top-1/2 h-[1.5px] bg-gray-400/80 rounded-full" />
+                                )}
                               </div>
                             );
                           })}
