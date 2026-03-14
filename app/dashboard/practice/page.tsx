@@ -158,7 +158,7 @@ export default function PracticePage() {
         <h1 className="text-3xl md:text-4xl font-bold text-black mb-1">
           Practice Tests
         </h1>
-        <p className="text-sm text-gray-700">
+        <p className="text-sm text-black">
           Official SAT-style full-length tests. Pick up where you left off or
           start fresh.
         </p>
@@ -172,7 +172,7 @@ export default function PracticePage() {
         </Card>
       )}
 
-      {/* Tab bar */}
+      {/* Tab bar: active = blue bg + white text; inactive = gray border + gray text */}
       <div className="flex items-center gap-2 flex-wrap mb-6">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
@@ -182,21 +182,15 @@ export default function PracticePage() {
               onClick={() => setActiveTab(tab.id)}
               className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all ${
                 isActive
-                  ? tab.id === "all"
-                    ? "bg-brand-blue text-white shadow-sm"
-                    : "bg-gray-900 text-white shadow-sm"
-                  : "bg-white text-gray-500 border border-gray-200 hover:border-gray-300 hover:text-gray-700"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "bg-white text-gray-600 border-2 border-gray-400 hover:bg-gray-50 hover:border-gray-500"
               }`}
             >
               {tab.icon}
               {tab.label}
               <span
                 className={`ml-0.5 text-xs rounded-full px-1.5 py-0.5 font-semibold ${
-                  isActive
-                    ? tab.id === "all"
-                      ? "bg-white/20 text-white"
-                      : "bg-white/20 text-white"
-                    : "bg-gray-100 text-gray-500"
+                  isActive ? "bg-white/20 text-white" : "bg-gray-100 text-gray-600"
                 }`}
               >
                 {tab.count}
@@ -242,13 +236,14 @@ export default function PracticePage() {
                 return (
                   <Card
                     key={test.id}
-                    className="p-4 bg-white border border-brand-orange/70 hover:border-brand-orange hover:shadow-lg transition-all duration-200 rounded-2xl"
+                    className="p-4 bg-white border-2 border-orange-500 hover:border-orange-600 hover:shadow-lg transition-all duration-200 rounded-2xl"
                   >
                     <div className="space-y-3">
-                      {/* Thumbnail – orange gradient, logo, glass, main text */}
-                      <div className="relative overflow-hidden rounded-2xl h-40 bg-gradient-to-br from-brand-orange/40 via-brand-orange/70 to-brand-orange/50">
-                        <div className="absolute inset-0 flex items-center justify-center opacity-30">
-                          <div className="relative w-40 h-40">
+                      {/* Thumbnail – soft orange with centered logo over white band */}
+                      <div className="relative overflow-hidden rounded-2xl h-40 bg-gradient-to-r from-orange-100 via-orange-200 to-orange-100">
+                        <div className="absolute inset-y-0 left-1/5 right-1/5 bg-white/70" />
+                        <div className="absolute inset-0 flex items-center justify-center opacity-40">
+                          <div className="relative w-36 h-36 sm:w-40 sm:h-40">
                             <Image
                               src="/logo.png"
                               alt="SAT Ziyo"
@@ -259,11 +254,6 @@ export default function PracticePage() {
                             />
                           </div>
                         </div>
-                        <div className="absolute inset-0 pointer-events-none bg-white/10 backdrop-blur-[1px]" />
-                        <div className="absolute inset-0 pointer-events-none">
-                          <div className="absolute -top-10 left-0 w-36 h-28 bg-brand-orange rounded-full blur-3xl opacity-60" />
-                          <div className="absolute bottom-0 right-[-30px] w-40 h-28 bg-brand-orange/80 rounded-full blur-3xl opacity-50" />
-                        </div>
                         <div className="absolute inset-0 flex items-center justify-center">
                           <span className="text-base font-semibold text-white drop-shadow-lg text-center px-4">
                             {title}
@@ -271,41 +261,41 @@ export default function PracticePage() {
                         </div>
                       </div>
 
-                      {/* Meta row */}
-                      <div className="flex items-center justify-between text-[11px] text-brand-orange/90">
+                      {/* Meta row – black text and borders */}
+                      <div className="flex items-center justify-between text-[11px] text-black">
                         <div className="flex items-center gap-2">
                           <div className="flex items-center gap-1">
                             <Clock className="w-3 h-3" />
                             <span>{totalDuration} min</span>
                           </div>
-                          <span className="h-1 w-1 rounded-full bg-brand-orange/50" />
+                          <span className="h-1 w-1 rounded-full bg-black" />
                           <span>{totalQuestions} q</span>
                         </div>
                         <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${statusBadge.color}`}
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${statusBadge.label === "In Progress" ? "bg-blue-100 text-blue-800 border-blue-300" : "bg-gray-100 text-black border-black"}`}
                         >
                           {statusBadge.label}
                         </span>
                       </div>
 
-                      {/* Access + score */}
-                      <div className="flex items-center justify-between text-[11px] text-brand-orange/80">
+                      {/* Access + score – black text and borders */}
+                      <div className="flex items-center justify-between text-[11px] text-black">
                         <span
-                          className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${accessClasses}`}
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium border border-black ${accessType === "PREMIUM" ? "bg-gray-100" : "bg-gray-100"}`}
                         >
                           {accessLabel}
                         </span>
                         {bestAttempt?.totalScore != null ? (
                           <span>
                             Best:{" "}
-                            <span className="font-semibold text-brand-orange">
+                            <span className="font-semibold text-black">
                               {roundScore(bestAttempt.totalScore, 400)}
                             </span>
                           </span>
                         ) : inProgress ? (
-                          <span className="text-brand-orange/70">In progress</span>
+                          <span className="text-black">In progress</span>
                         ) : (
-                          <span className="text-gray-400">Not taken</span>
+                          <span className="text-gray-500">Not taken</span>
                         )}
                       </div>
 
@@ -356,10 +346,10 @@ export default function PracticePage() {
                               `/dashboard/practice/test/${test.id}/comments`,
                             )
                           }
-                          className="bg-white border-gray-200 hover:bg-gray-50 rounded-xl px-3 py-2"
+                          className="bg-white border-black hover:bg-gray-50 rounded-xl px-3 py-2 text-black"
                           title="Discussion"
                         >
-                          <MessageCircle className="w-4 h-4 text-gray-500" />
+                          <MessageCircle className="w-4 h-4" />
                         </Button>
                       </div>
                     </div>
@@ -393,13 +383,14 @@ export default function PracticePage() {
                 return (
                   <Card
                     key={attempt.id}
-                    className="p-4 bg-white border border-brand-orange/70 hover:border-brand-orange hover:shadow-lg transition-all duration-200 rounded-2xl"
+                    className="p-4 bg-white border-2 border-orange-500 hover:border-orange-600 hover:shadow-lg transition-all duration-200 rounded-2xl"
                   >
                     <div className="space-y-3">
-                      {/* Thumbnail – same as All Tests: image, orange gradient, glass, main text */}
-                      <div className="relative overflow-hidden rounded-2xl h-40 bg-gradient-to-br from-brand-orange/40 via-brand-orange/70 to-brand-orange/50">
-                        <div className="absolute inset-0 flex items-center justify-center opacity-30">
-                          <div className="relative w-40 h-40">
+                      {/* Thumbnail – soft orange with centered logo over white band */}
+                      <div className="relative overflow-hidden rounded-2xl h-40 bg-gradient-to-r from-orange-100 via-orange-200 to-orange-100">
+                        <div className="absolute inset-y-0 left-1/5 right-1/5 bg-white/70" />
+                        <div className="absolute inset-0 flex items-center justify-center opacity-40">
+                          <div className="relative w-36 h-36 sm:w-40 sm:h-40">
                             <Image
                               src="/logo.png"
                               alt="SAT Ziyo"
@@ -409,11 +400,6 @@ export default function PracticePage() {
                             />
                           </div>
                         </div>
-                        <div className="absolute inset-0 pointer-events-none bg-white/10 backdrop-blur-[1px]" />
-                        <div className="absolute inset-0 pointer-events-none">
-                          <div className="absolute -top-10 left-0 w-36 h-28 bg-brand-orange rounded-full blur-3xl opacity-60" />
-                          <div className="absolute bottom-0 right-[-30px] w-40 h-28 bg-brand-orange/80 rounded-full blur-3xl opacity-50" />
-                        </div>
                         <div className="absolute inset-0 flex items-center justify-center">
                           <span className="text-base font-semibold text-white drop-shadow-lg text-center px-4">
                             {title}
@@ -421,22 +407,22 @@ export default function PracticePage() {
                         </div>
                       </div>
 
-                      {/* Meta row */}
-                      <div className="flex items-center justify-between text-[11px] text-brand-orange/90">
+                      {/* Meta row – black text and borders */}
+                      <div className="flex items-center justify-between text-[11px] text-black">
                         <div className="flex items-center gap-2">
                           <div className="flex items-center gap-1">
                             <Clock className="w-3 h-3" />
                             <span>{totalDuration} min</span>
                           </div>
-                          <span className="h-1 w-1 rounded-full bg-brand-orange/50" />
+                          <span className="h-1 w-1 rounded-full bg-black" />
                           <span>{totalQuestions} q</span>
                         </div>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-brand-orange/20 text-brand-orange border border-brand-orange/40">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium border border-blue-300 bg-blue-100 text-blue-800">
                           In Progress
                         </span>
                       </div>
 
-                      <p className="text-xs text-brand-orange/70">
+                      <p className="text-xs text-black">
                         Started {formatDate(attempt.startedAt)}
                       </p>
 
@@ -464,10 +450,10 @@ export default function PracticePage() {
                               `/dashboard/practice/test/${attempt.testId}/comments`,
                             )
                           }
-                          className="bg-white border-gray-200 hover:bg-gray-50 rounded-xl px-3 py-2"
+                          className="bg-white border-black hover:bg-gray-50 rounded-xl px-3 py-2 text-black"
                           title="Discussion"
                         >
-                          <MessageCircle className="w-4 h-4 text-gray-500" />
+                          <MessageCircle className="w-4 h-4" />
                         </Button>
                       </div>
                     </div>
@@ -510,13 +496,14 @@ export default function PracticePage() {
                 return (
                   <Card
                     key={attempt.id}
-                    className="p-4 bg-white border border-brand-orange/70 hover:border-brand-orange hover:shadow-lg transition-all duration-200 rounded-2xl"
+                    className="p-4 bg-white border-2 border-orange-500 hover:border-orange-600 hover:shadow-lg transition-all duration-200 rounded-2xl"
                   >
                     <div className="space-y-3">
-                      {/* Thumbnail – same as All Tests: image, orange gradient, glass, main text */}
-                      <div className="relative overflow-hidden rounded-2xl h-40 bg-gradient-to-br from-brand-orange/40 via-brand-orange/70 to-brand-orange/50">
-                        <div className="absolute inset-0 flex items-center justify-center opacity-30">
-                          <div className="relative w-40 h-40">
+                      {/* Thumbnail – soft orange with centered logo over white band */}
+                      <div className="relative overflow-hidden rounded-2xl h-40 bg-gradient-to-r from-orange-100 via-orange-200 to-orange-100">
+                        <div className="absolute inset-y-0 left-1/5 right-1/5 bg-white/70" />
+                        <div className="absolute inset-0 flex items-center justify-center opacity-40">
+                          <div className="relative w-36 h-36 sm:w-40 sm:h-40">
                             <Image
                               src="/logo.png"
                               alt="SAT Ziyo"
@@ -526,11 +513,6 @@ export default function PracticePage() {
                             />
                           </div>
                         </div>
-                        <div className="absolute inset-0 pointer-events-none bg-white/10 backdrop-blur-[1px]" />
-                        <div className="absolute inset-0 pointer-events-none">
-                          <div className="absolute -top-10 left-0 w-36 h-28 bg-brand-orange rounded-full blur-3xl opacity-60" />
-                          <div className="absolute bottom-0 right-[-30px] w-40 h-28 bg-brand-orange/80 rounded-full blur-3xl opacity-50" />
-                        </div>
                         <div className="absolute inset-0 flex items-center justify-center">
                           <span className="text-base font-semibold text-white drop-shadow-lg text-center px-4">
                             {title}
@@ -538,36 +520,36 @@ export default function PracticePage() {
                         </div>
                       </div>
 
-                      {/* Meta row */}
-                      <div className="flex items-center justify-between text-[11px] text-brand-orange/90">
+                      {/* Meta row – black text and borders */}
+                      <div className="flex items-center justify-between text-[11px] text-black">
                         <div className="flex items-center gap-2">
                           {attempt.completedAt && (
                             <span>{formatDate(attempt.completedAt)}</span>
                           )}
                         </div>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-brand-orange-light text-brand-orange border border-brand-orange/30">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-black border border-black">
                           Completed
                         </span>
                       </div>
 
-                      {/* Scores */}
-                      <div className="bg-brand-orange-light/50 rounded-xl p-3 space-y-2 border border-brand-orange/20">
+                      {/* Scores – black text and border */}
+                      <div className="bg-gray-50 rounded-xl p-3 space-y-2 border border-black text-black">
                         {total != null ? (
                           <div className="flex items-baseline gap-1">
-                            <span className="text-3xl font-bold text-brand-orange">
+                            <span className="text-3xl font-bold text-black">
                               {total}
                             </span>
-                            <span className="text-xs text-brand-orange/70">/1600</span>
+                            <span className="text-xs text-black/80">/1600</span>
                           </div>
                         ) : (
-                          <span className="text-sm text-brand-orange/60">Score unavailable</span>
+                          <span className="text-sm text-black/70">Score unavailable</span>
                         )}
                         {(rw != null || math != null) && (
-                          <div className="flex items-center gap-3 text-xs text-brand-orange/80">
+                          <div className="flex items-center gap-3 text-xs text-black">
                             {rw != null && (
                               <span>
                                 R&amp;W{" "}
-                                <span className="font-semibold text-brand-orange">
+                                <span className="font-semibold text-black">
                                   {rw}
                                 </span>
                               </span>
@@ -575,7 +557,7 @@ export default function PracticePage() {
                             {math != null && (
                               <span>
                                 Math{" "}
-                                <span className="font-semibold text-brand-orange">
+                                <span className="font-semibold text-black">
                                   {math}
                                 </span>
                               </span>
@@ -593,7 +575,7 @@ export default function PracticePage() {
                               `/dashboard/practice/test/${attempt.id}/finish`,
                             )
                           }
-                          className="flex-1 border-brand-orange/70 text-brand-orange hover:bg-brand-orange-light rounded-xl py-2 text-sm font-semibold"
+                          className="flex-1 border-black text-black hover:bg-gray-100 rounded-xl py-2 text-sm font-semibold"
                         >
                           View Results
                         </Button>
@@ -605,10 +587,10 @@ export default function PracticePage() {
                               `/dashboard/practice/test/${attempt.testId}/comments`,
                             )
                           }
-                          className="bg-white border-gray-200 hover:bg-gray-50 rounded-xl px-3 py-2"
+                          className="bg-white border-black hover:bg-gray-50 rounded-xl px-3 py-2 text-black"
                           title="Discussion"
                         >
-                          <MessageCircle className="w-4 h-4 text-gray-500" />
+                          <MessageCircle className="w-4 h-4" />
                         </Button>
                       </div>
                     </div>

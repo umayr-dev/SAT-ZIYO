@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Image from "next/image";
+import Script from "next/script";
 import { Card } from "@/src/ui/card";
 import { Button } from "@/src/ui/button";
 import { Loading } from "@/src/ui/loading";
@@ -58,24 +59,71 @@ let loadStateCache: {
 } | null = null;
 const LOAD_STATE_CACHE_MS = 2500;
 
+const DESMOS_SCRIPT_URL =
+  "https://www.desmos.com/api/v1.8/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6";
+
 const DESMOS_MIN_W = 320;
 const DESMOS_MIN_H = 280;
-const DESMOS_MAX_W = 900;
-const DESMOS_MAX_H = 700;
+const DESMOS_MAX_W = 960;
+const DESMOS_MAX_H = 720;
 
+/** Desmos calculator: embedded in 50/50 layout (resize from bottom-right; can overlay when big) or floating overlay. */
 function DesmosCalculatorPanel({
   width,
   height,
   onSizeChange,
   onClose,
+  embedded = false,
+  position,
+  onPositionChange,
 }: {
   width: number;
   height: number;
   onSizeChange: (size: { width: number; height: number }) => void;
   onClose: () => void;
+  embedded?: boolean;
+  position?: { x: number; y: number };
+  onPositionChange?: (pos: { x: number; y: number }) => void;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const calculatorRef = useRef<{ destroy: () => void } | null>(null);
   const startRef = useRef({ x: 0, y: 0, w: 0, h: 0 });
+  const [scriptReady, setScriptReady] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && (window as unknown as { Desmos?: unknown }).Desmos) {
+      setScriptReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!scriptReady || !containerRef.current) return;
+    const Desmos = (window as unknown as { Desmos?: { GraphingCalculator: (el: HTMLElement, opts?: object) => { destroy: () => void } } }).Desmos;
+    if (!Desmos?.GraphingCalculator) return;
+    const el = containerRef.current;
+    calculatorRef.current = Desmos.GraphingCalculator(el, {
+      keypad: true,
+      graphpaper: true,
+      expressions: true,
+      settingsMenu: true,
+      zoomButtons: true,
+      expressionsTopbar: true,
+      pointsOfInterest: true,
+      trace: true,
+      sliders: true,
+      folders: true,
+      notes: true,
+      images: true,
+      restrictedFunctions: false,
+      border: false,
+      lockViewport: false,
+    });
+    return () => {
+      calculatorRef.current?.destroy();
+      calculatorRef.current = null;
+    };
+  }, [scriptReady]);
 
   const handleResizeStart = useCallback(
     (e: React.MouseEvent) => {
@@ -85,14 +133,8 @@ function DesmosCalculatorPanel({
       const handleMove = (moveEvent: MouseEvent) => {
         const dx = moveEvent.clientX - startRef.current.x;
         const dy = moveEvent.clientY - startRef.current.y;
-        const newW = Math.max(
-          DESMOS_MIN_W,
-          Math.min(DESMOS_MAX_W, startRef.current.w + dx),
-        );
-        const newH = Math.max(
-          DESMOS_MIN_H,
-          Math.min(DESMOS_MAX_H, startRef.current.h + dy),
-        );
+        const newW = Math.max(DESMOS_MIN_W, Math.min(DESMOS_MAX_W, startRef.current.w + dx));
+        const newH = Math.max(DESMOS_MIN_H, Math.min(DESMOS_MAX_H, startRef.current.h + dy));
         onSizeChange({ width: newW, height: newH });
       };
       const handleUp = () => {
@@ -105,52 +147,70 @@ function DesmosCalculatorPanel({
     [width, height, onSizeChange],
   );
 
-  const handleDragStart = useCallback((e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest("[data-desmos-resize]")) return;
-    const target = panelRef.current;
-    if (!target) return;
-    const startX = e.clientX - target.offsetLeft;
-    const startY = e.clientY - target.offsetTop;
-    const handleMove = (moveEvent: MouseEvent) => {
-      target.style.left = `${Math.max(0, moveEvent.clientX - startX)}px`;
-      target.style.top = `${Math.max(0, moveEvent.clientY - startY)}px`;
-      target.style.bottom = "auto";
-      target.style.right = "auto";
-    };
-    const handleUp = () => {
-      window.removeEventListener("mousemove", handleMove);
-      window.removeEventListener("mouseup", handleUp);
-    };
-    window.addEventListener("mousemove", handleMove);
-    window.addEventListener("mouseup", handleUp);
-  }, []);
+  const handleDragStart = useCallback(
+    (e: React.MouseEvent) => {
+      if ((e.target as HTMLElement).closest("[data-desmos-resize]")) return;
+      if (embedded && onPositionChange && position) {
+        const startX = e.clientX - position.x;
+        const startY = e.clientY - position.y;
+        const handleMove = (moveEvent: MouseEvent) => {
+          onPositionChange({
+            x: Math.max(0, moveEvent.clientX - startX),
+            y: Math.max(0, moveEvent.clientY - startY),
+          });
+        };
+        const handleUp = () => {
+          window.removeEventListener("mousemove", handleMove);
+          window.removeEventListener("mouseup", handleUp);
+        };
+        window.addEventListener("mousemove", handleMove);
+        window.addEventListener("mouseup", handleUp);
+        return;
+      }
+      const target = panelRef.current;
+      if (!target) return;
+      const startX = e.clientX - target.offsetLeft;
+      const startY = e.clientY - target.offsetTop;
+      const handleMove = (moveEvent: MouseEvent) => {
+        target.style.left = `${Math.max(0, moveEvent.clientX - startX)}px`;
+        target.style.top = `${Math.max(0, moveEvent.clientY - startY)}px`;
+        target.style.bottom = "auto";
+        target.style.right = "auto";
+      };
+      const handleUp = () => {
+        window.removeEventListener("mousemove", handleMove);
+        window.removeEventListener("mouseup", handleUp);
+      };
+      window.addEventListener("mousemove", handleMove);
+      window.addEventListener("mouseup", handleUp);
+    },
+    [embedded, onPositionChange, position],
+  );
 
-  return (
-    <div className="pointer-events-none fixed inset-0 z-40">
-      <div
-        ref={panelRef}
-        className="pointer-events-auto absolute top-24 left-4 bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden border border-gray-200"
-        style={{ width: `${width}px`, height: `${height}px` }}
-        onMouseDown={handleDragStart}
-      >
+  const panel = (
+    <div
+      ref={panelRef}
+      className={
+        embedded
+          ? "bg-white rounded-xl shadow-xl flex flex-col overflow-hidden border border-gray-200 cursor-move"
+          : "pointer-events-auto absolute top-24 left-4 bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden border border-gray-200"
+      }
+      style={{ width: `${width}px`, height: `${height}px` }}
+      onMouseDown={handleDragStart}
+    >
         <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-200 bg-gray-50 cursor-move select-none">
-          <h2 className="text-xs font-semibold text-gray-800">
-            Desmos Calculator
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-[10px] text-gray-500 hover:text-gray-800"
-          >
+          <h2 className="text-xs font-semibold text-gray-800">Desmos Calculator</h2>
+          <button type="button" onClick={onClose} className="text-[10px] text-gray-500 hover:text-gray-800">
             Close
           </button>
         </div>
-        <div className="flex-1 bg-black/5 min-h-0 relative">
-          <iframe
-            src="https://www.desmos.com/calculator?embed"
-            title="Desmos Calculator"
-            className="w-full h-full border-0 absolute inset-0"
-          />
+        <div className="flex-1 min-h-0 relative bg-gray-50">
+          <div ref={containerRef} className="w-full h-full min-h-[200px]" />
+          {!scriptReady && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-500 text-sm">
+              Loading calculator…
+            </div>
+          )}
           <div
             data-desmos-resize
             onMouseDown={handleResizeStart}
@@ -159,6 +219,20 @@ function DesmosCalculatorPanel({
           />
         </div>
       </div>
+  );
+
+  if (embedded) {
+    return (
+      <>
+        <Script src={DESMOS_SCRIPT_URL} strategy="lazyOnload" onLoad={() => setScriptReady(true)} />
+        {panel}
+      </>
+    );
+  }
+  return (
+    <div className="pointer-events-none fixed inset-0 z-40">
+      <Script src={DESMOS_SCRIPT_URL} strategy="lazyOnload" onLoad={() => setScriptReady(true)} />
+      {panel}
     </div>
   );
 }
@@ -173,11 +247,17 @@ function ReferenceSheetPanel({
   height,
   onSizeChange,
   onClose,
+  embedded = false,
+  position,
+  onPositionChange,
 }: {
   width: number;
   height: number;
   onSizeChange: (size: { width: number; height: number }) => void;
   onClose: () => void;
+  embedded?: boolean;
+  position?: { x: number; y: number };
+  onPositionChange?: (pos: { x: number; y: number }) => void;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const startRef = useRef({ x: 0, y: 0, w: 0, h: 0 });
@@ -210,34 +290,57 @@ function ReferenceSheetPanel({
     [width, height, onSizeChange],
   );
 
-  const handleDragStart = useCallback((e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest("[data-ref-resize]")) return;
-    const target = panelRef.current;
-    if (!target) return;
-    const startX = e.clientX - target.offsetLeft;
-    const startY = e.clientY - target.offsetTop;
-    const handleMove = (moveEvent: MouseEvent) => {
-      target.style.left = `${Math.max(0, moveEvent.clientX - startX)}px`;
-      target.style.top = `${Math.max(0, moveEvent.clientY - startY)}px`;
-      target.style.bottom = "auto";
-      target.style.right = "auto";
-    };
-    const handleUp = () => {
-      window.removeEventListener("mousemove", handleMove);
-      window.removeEventListener("mouseup", handleUp);
-    };
-    window.addEventListener("mousemove", handleMove);
-    window.addEventListener("mouseup", handleUp);
-  }, []);
+  const handleDragStart = useCallback(
+    (e: React.MouseEvent) => {
+      if ((e.target as HTMLElement).closest("[data-ref-resize]")) return;
+      if (embedded && onPositionChange && position) {
+        const startX = e.clientX - position.x;
+        const startY = e.clientY - position.y;
+        const handleMove = (moveEvent: MouseEvent) => {
+          onPositionChange({
+            x: Math.max(0, moveEvent.clientX - startX),
+            y: Math.max(0, moveEvent.clientY - startY),
+          });
+        };
+        const handleUp = () => {
+          window.removeEventListener("mousemove", handleMove);
+          window.removeEventListener("mouseup", handleUp);
+        };
+        window.addEventListener("mousemove", handleMove);
+        window.addEventListener("mouseup", handleUp);
+        return;
+      }
+      const target = panelRef.current;
+      if (!target) return;
+      const startX = e.clientX - target.offsetLeft;
+      const startY = e.clientY - target.offsetTop;
+      const handleMove = (moveEvent: MouseEvent) => {
+        target.style.left = `${Math.max(0, moveEvent.clientX - startX)}px`;
+        target.style.top = `${Math.max(0, moveEvent.clientY - startY)}px`;
+        target.style.bottom = "auto";
+        target.style.right = "auto";
+      };
+      const handleUp = () => {
+        window.removeEventListener("mousemove", handleMove);
+        window.removeEventListener("mouseup", handleUp);
+      };
+      window.addEventListener("mousemove", handleMove);
+      window.addEventListener("mouseup", handleUp);
+    },
+    [embedded, onPositionChange, position],
+  );
 
-  return (
-    <div className="pointer-events-none fixed inset-0 z-40">
-      <div
-        ref={panelRef}
-        className="pointer-events-auto absolute bottom-20 right-4 bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden border border-gray-200"
-        style={{ width: `${width}px`, height: `${height}px` }}
-        onMouseDown={handleDragStart}
-      >
+  const panel = (
+    <div
+      ref={panelRef}
+      className={
+        embedded
+          ? "bg-white rounded-xl shadow-xl flex flex-col overflow-hidden border border-gray-200 cursor-move"
+          : "pointer-events-auto absolute bottom-20 right-4 bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden border border-gray-200"
+      }
+      style={{ width: `${width}px`, height: `${height}px` }}
+      onMouseDown={handleDragStart}
+    >
         <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-200 bg-gray-50 cursor-move select-none">
           <h2 className="text-xs font-semibold text-gray-800">
             Reference Sheet
@@ -281,6 +384,12 @@ function ReferenceSheetPanel({
           />
         </div>
       </div>
+  );
+
+  if (embedded) return panel;
+  return (
+    <div className="pointer-events-none fixed inset-0 z-40">
+      {panel}
     </div>
   );
 }
@@ -319,7 +428,6 @@ export default function TestTakingPage() {
   const [showFullscreenWarning, setShowFullscreenWarning] = useState(false);
   const [countdown, setCountdown] = useState(10);
   const [showCalculator, setShowCalculator] = useState(false);
-  const [desmosSize, setDesmosSize] = useState({ width: 480, height: 420 });
   const [showReferenceSheet, setShowReferenceSheet] = useState(false);
   const [referenceSheetSize, setReferenceSheetSize] = useState({
     width: 420,
@@ -406,6 +514,9 @@ export default function TestTakingPage() {
   const [splitPosition, setSplitPosition] = useState(50); // percentage for left pane
   const layoutContainerRef = useRef<HTMLDivElement | null>(null);
   const isDraggingDividerRef = useRef(false);
+  const [desmosSize, setDesmosSize] = useState({ width: 480, height: 420 });
+  const [desmosPosition, setDesmosPosition] = useState({ x: 0, y: 0 });
+  const [referenceSheetPosition, setReferenceSheetPosition] = useState({ x: 0, y: 0 });
 
   // Persist timer on every tick so reload / hard refresh keeps exact remaining time
   useEffect(() => {
@@ -2092,23 +2203,6 @@ export default function TestTakingPage() {
 
   return (
     <div className="fixed inset-0 flex bg-white overflow-hidden">
-      {/* Desmos Calculator Panel (Math only, non-blocking, draggable, resizable from corner) */}
-      {showCalculator && testState.currentSection.type === "MATH" && (
-        <DesmosCalculatorPanel
-          width={desmosSize.width}
-          height={desmosSize.height}
-          onSizeChange={setDesmosSize}
-          onClose={() => setShowCalculator(false)}
-        />
-      )}
-      {showReferenceSheet && testState.currentSection.type === "MATH" && (
-        <ReferenceSheetPanel
-          width={referenceSheetSize.width}
-          height={referenceSheetSize.height}
-          onSizeChange={setReferenceSheetSize}
-          onClose={() => setShowReferenceSheet(false)}
-        />
-      )}
       {/* Fullscreen Exit Warning Modal */}
       {showFullscreenWarning && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
@@ -2317,14 +2411,67 @@ export default function TestTakingPage() {
               </div>
             </div>
 
-            {/* Markaz – katta ekranlarda (>= lg): Math = bitta ustun (ustma-ust), R&W = ikki ustun */}
-            <div className="flex-1 min-h-0 flex flex-col relative min-w-0 overflow-hidden px-5">
-              {/* Desktop / large (>= lg) */}
+            {/* Content row: 50/50 when Desmos or Reference open (left=panel, right=test fixed); else single column 60% width centered; smooth transitions */}
+            <div
+              className={`flex-1 min-h-0 flex min-w-0 overflow-hidden transition-[justify-content] duration-300 ease-out ${!(testState.currentSection.type === "MATH" && (showCalculator || showReferenceSheet)) ? "justify-center" : ""}`}
+            >
+              {testState.currentSection.type === "MATH" && (
+                <div
+                  className={`flex-shrink-0 relative min-h-0 z-10 transition-[width,min-width] duration-300 ease-out ${showCalculator || showReferenceSheet ? "overflow-visible" : "overflow-hidden"}`}
+                  style={{
+                    width: showCalculator || showReferenceSheet ? "50%" : "0",
+                    minWidth: showCalculator || showReferenceSheet ? "50%" : "0",
+                  }}
+                >
+                  <div
+                    className="h-full w-full overflow-visible transition-opacity duration-250 ease-out"
+                    style={{ opacity: showCalculator || showReferenceSheet ? 1 : 0 }}
+                  >
+                    {showCalculator ? (
+                      <div
+                        className="absolute min-w-0"
+                        style={{ left: desmosPosition.x, top: desmosPosition.y, overflow: "visible" }}
+                      >
+                        <DesmosCalculatorPanel
+                          width={desmosSize.width}
+                          height={desmosSize.height}
+                          onSizeChange={setDesmosSize}
+                          onClose={() => setShowCalculator(false)}
+                          embedded
+                          position={desmosPosition}
+                          onPositionChange={setDesmosPosition}
+                        />
+                      </div>
+                    ) : showReferenceSheet ? (
+                      <div
+                        className="absolute min-w-0"
+                        style={{ left: referenceSheetPosition.x, top: referenceSheetPosition.y, overflow: "visible" }}
+                      >
+                        <ReferenceSheetPanel
+                          width={referenceSheetSize.width}
+                          height={referenceSheetSize.height}
+                          onSizeChange={setReferenceSheetSize}
+                          onClose={() => setShowReferenceSheet(false)}
+                          embedded
+                          position={referenceSheetPosition}
+                          onPositionChange={setReferenceSheetPosition}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              )}
+              {/* Right column: fixed 50% when Desmos or Reference open; 60% width centered when single column; z-0 so panel can overlay when big */}
               <div
-                className="relative hidden lg:flex lg:flex-col flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden"
-                ref={layoutContainerRef}
-                style={{ WebkitOverflowScrolling: "touch" }}
+                className={`min-h-0 flex flex-col relative overflow-hidden px-5 z-0 min-w-0 transition-[flex,max-width,width] duration-300 ease-out ${testState.currentSection.type === "MATH" && (showCalculator || showReferenceSheet) ? "flex-[0_0_50%]" : "w-[60%] max-w-full flex-none"}`}
               >
+                {/* Desktop / large (>= lg): content + optional right letters strip */}
+                <div className="flex flex-1 min-h-0 min-w-0 hidden lg:flex">
+                  <div
+                    className="relative flex flex-col flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden"
+                    ref={layoutContainerRef}
+                    style={{ WebkitOverflowScrolling: "touch" }}
+                  >
                 {/* Math: faqat ko‘p tanlov (A/B/C/D) = bitta ustun; grid-in yoki ochiq savol = ikki ustun */}
                 {testState.currentSection.type === "MATH" && hasChoiceOptions(question) ? (
                   <div className="w-full flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
@@ -2394,14 +2541,27 @@ export default function TestTakingPage() {
                             const isEliminated = eliminatedChoices.has(choice.id);
                             const choiceImageUrl = getChoiceImageUrl(choice as Record<string, unknown>);
                             return (
-                              <div key={choice.id || index} className="relative w-full">
-                                <button type="button" onClick={() => { if (isEliminationMode) setEliminatedChoices((prev) => { const next = new Set(prev); if (next.has(choice.id)) next.delete(choice.id); else next.add(choice.id); return next; }); else handleAnswerChange({ choiceId: choice.id, textAnswer: currentAnswer.textAnswer }); }} className={`w-full p-2 sm:p-3 md:p-4 text-left border-2 rounded-lg text-xs sm:text-sm md:text-base flex items-start gap-2 md:gap-3 ${isSelected ? "border-black" : isEliminated ? "border-gray-300 bg-gray-100 opacity-60" : "border-gray-200 hover:bg-gray-200 cursor-pointer"}`}>
+                              <div key={choice.id || index} className={`relative w-full flex items-stretch rounded-lg border-2 overflow-hidden ${isSelected ? "border-black" : isEliminated ? "border-gray-300" : "border-gray-200"}`}>
+                                <button type="button" onClick={() => handleAnswerChange({ choiceId: choice.id, textAnswer: currentAnswer.textAnswer })} className={`flex-1 min-w-0 p-2 sm:p-3 md:p-4 text-left text-xs sm:text-sm md:text-base flex items-center gap-2 md:gap-3 ${isEliminated ? "bg-gray-100 opacity-60" : "hover:bg-gray-200"} cursor-pointer rounded-l-md`}>
                                   <div className={`flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full font-bold border border-black text-[10px] sm:text-xs ${isSelected ? "bg-black text-white" : "text-black"}`}><span className="text-xs">{letter}</span></div>
                                   <div className={`flex-1 min-w-0 ${isEliminated ? "line-through text-gray-500" : ""}`}>
                                     <span className="block">{getChoiceText(choice) || `Choice ${letter}`}</span>
                                     {choiceImageUrl && <span className="block mt-3 bg-white rounded border border-gray-200 overflow-hidden p-1"><img src={choiceImageUrl} alt={`Variant ${letter}`} className="rounded object-contain max-h-12 w-full bg-white min-h-[24px]" loading="lazy" /></span>}
                                   </div>
                                 </button>
+                                {isEliminationMode && (
+                                  <div className="flex-shrink-0 flex items-center gap-1.5 pl-1 pr-2 py-2 border-l border-gray-200 bg-gray-50/50 rounded-r-md">
+                                    {isEliminated && (
+                                      <button type="button" className="text-[11px] sm:text-xs font-medium text-gray-600 hover:underline whitespace-nowrap" onClick={() => setEliminatedChoices((prev) => { const next = new Set(prev); next.delete(choice.id); return next; })}>Undo</button>
+                                    )}
+                                    <button type="button" className={`flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full border font-bold text-[10px] sm:text-xs cursor-pointer shrink-0 ${isEliminated ? "border-gray-400 bg-gray-200 text-gray-500" : "border-gray-300 bg-gray-100 text-gray-700 hover:bg-gray-200"}`} onClick={() => setEliminatedChoices((prev) => { const next = new Set(prev); if (next.has(choice.id)) next.delete(choice.id); else next.add(choice.id); return next; })} aria-label={isEliminated ? `Undo strike-through ${letter}` : `Strike through ${letter}`}>
+                                      {letter}
+                                    </button>
+                                  </div>
+                                )}
+                                {isEliminated && (
+                                  <div className="pointer-events-none absolute left-10 right-14 sm:right-16 top-1/2 h-[1.5px] bg-gray-400/80 rounded-full -translate-y-1/2" aria-hidden />
+                                )}
                               </div>
                             );
                           })}
@@ -2632,60 +2792,29 @@ export default function TestTakingPage() {
                             return (
                               <div
                                 key={choice.id || index}
-                                className="relative w-full"
+                                className={`relative w-full flex items-stretch rounded-lg border-2 overflow-hidden ${isSelected ? "border-black" : isEliminated ? "border-gray-300" : "border-gray-200"}`}
                               >
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    // Always treat main row click as answer select (elimination is controlled by the letter button)
+                                  onClick={() =>
                                     handleAnswerChange({
                                       choiceId: choice.id,
                                       textAnswer: currentAnswer.textAnswer,
-                                    });
-                                  }}
-                                  className={`w-full p-2 sm:p-3 md:p-4 text-left border-2 rounded-lg text-xs sm:text-sm md:text-base flex items-start gap-2 md:gap-3 ${
-                                    isSelected
-                                      ? "border-black"
-                                      : isEliminated
-                                        ? "border-gray-300 bg-white"
-                                        : "border-gray-200 hover:bg-gray-200 cursor-pointer"
-                                  }`}
+                                    })
+                                  }
+                                  className={`flex-1 min-w-0 p-2 sm:p-3 md:p-4 text-left text-xs sm:text-sm md:text-base flex items-center gap-2 md:gap-3 rounded-l-md cursor-pointer ${isEliminated ? "bg-white" : "hover:bg-gray-200"}`}
                                 >
-                                  {isEliminationMode ? (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setEliminatedChoices((prev) => {
-                                          const next = new Set(prev);
-                                          if (next.has(choice.id)) {
-                                            next.delete(choice.id);
-                                          } else {
-                                            next.add(choice.id);
-                                          }
-                                          return next;
-                                        });
-                                      }}
-                                      className={`flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full font-bold border text-[10px] sm:text-xs ${
-                                        isEliminated
+                                  <div
+                                    className={`flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full font-bold border text-[10px] sm:text-xs ${
+                                      isEliminationMode
+                                        ? "border-gray-400 bg-white text-gray-700"
+                                        : isSelected
                                           ? "border-black bg-black text-white"
-                                          : "border-gray-400 bg-white text-gray-700"
-                                      }`}
-                                      aria-label={`Eliminate choice ${letter}`}
-                                    >
-                                      <span className="text-xs">{letter}</span>
-                                    </button>
-                                  ) : (
-                                    <div
-                                      className={`flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full font-bold border border-black text-[10px] sm:text-xs ${
-                                        isSelected
-                                          ? "bg-black text-white"
-                                          : "text-black"
-                                      }`}
-                                    >
-                                      <span className="text-xs">{letter}</span>
-                                    </div>
-                                  )}
+                                          : "border-black text-black"
+                                    }`}
+                                  >
+                                    <span className="text-xs">{letter}</span>
+                                  </div>
                                   <div
                                     className={`flex-1 min-w-0 ${
                                       isEliminated ? "text-gray-700" : ""
@@ -2697,7 +2826,6 @@ export default function TestTakingPage() {
                                     </span>
                                     {choiceImageUrl && (
                                       <span className="block mt-3 bg-gray-100 rounded border border-gray-200 overflow-hidden p-1">
-                                        {/* Oddiy img – GCS rasmlari ishonchli yuklansin (Next/Image baʼzan tashqi URL da muammo qiladi) */}
                                         <img
                                           src={choiceImageUrl}
                                           alt={`Variant ${letter}`}
@@ -2707,25 +2835,19 @@ export default function TestTakingPage() {
                                       </span>
                                     )}
                                   </div>
-                                  {isEliminated && (
-                                    <button
-                                      type="button"
-                                      className="ml-2 text-[11px] sm:text-xs font-medium text-blue-600 hover:underline"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setEliminatedChoices((prev) => {
-                                          const next = new Set(prev);
-                                          next.delete(choice.id);
-                                          return next;
-                                        });
-                                      }}
-                                    >
-                                      Undo
-                                    </button>
-                                  )}
                                 </button>
+                                {isEliminationMode && (
+                                  <div className="flex-shrink-0 flex items-center gap-1.5 pl-1 pr-2 py-2 border-l border-gray-200 bg-gray-50/50 rounded-r-md">
+                                    {isEliminated && (
+                                      <button type="button" className="text-[11px] sm:text-xs font-medium text-gray-600 hover:underline whitespace-nowrap" onClick={() => setEliminatedChoices((prev) => { const next = new Set(prev); next.delete(choice.id); return next; })}>Undo</button>
+                                    )}
+                                    <button type="button" className={`flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full border font-bold text-[10px] sm:text-xs cursor-pointer shrink-0 ${isEliminated ? "border-gray-400 bg-gray-200 text-gray-500" : "border-gray-300 bg-gray-100 text-gray-700 hover:bg-gray-200"}`} onClick={() => setEliminatedChoices((prev) => { const next = new Set(prev); if (next.has(choice.id)) next.delete(choice.id); else next.add(choice.id); return next; })} aria-label={isEliminated ? `Undo strike-through ${letter}` : `Strike through ${letter}`}>
+                                      {letter}
+                                    </button>
+                                  </div>
+                                )}
                                 {isEliminated && (
-                                  <div className="pointer-events-none absolute left-6 right-6 top-1/2 h-[1.5px] bg-gray-400/80 rounded-full" />
+                                  <div className="pointer-events-none absolute left-10 right-14 sm:right-16 top-1/2 h-[1.5px] bg-gray-400/80 rounded-full -translate-y-1/2" aria-hidden />
                                 )}
                               </div>
                             );
@@ -2920,6 +3042,8 @@ export default function TestTakingPage() {
                   )}
                 </div>
               </div>
+            </div>
+                  </div>
             </div>
 
             {/* Footer – doimiy balandlik, o‘zgarmaydi, pastda qotib turadi */}
