@@ -152,13 +152,13 @@ export default function PracticePage() {
   }
 
   return (
-    <div className="w-full max-w-5xl mx-auto">
+    <div className="w-full max-w-5xl mx-auto px-2 min-[420px]:px-3 sm:px-4">
       {/* Page header */}
-      <div className="mb-6">
-        <h1 className="text-3xl md:text-4xl font-bold text-black mb-1">
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-2xl min-[480px]:text-3xl md:text-4xl font-bold text-black mb-1">
           Practice Tests
         </h1>
-        <p className="text-sm text-black">
+        <p className="text-xs min-[480px]:text-sm text-black">
           Official SAT-style full-length tests. Pick up where you left off or
           start fresh.
         </p>
@@ -172,17 +172,17 @@ export default function PracticePage() {
         </Card>
       )}
 
-      {/* Tab bar: active = blue bg + white text; inactive = gray border + gray text */}
-      <div className="flex items-center gap-2 flex-wrap mb-6">
+      {/* Tab bar: 420px+ responsive */}
+      <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap mb-4 sm:mb-6">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+              className={`inline-flex items-center gap-1 min-[420px]:gap-1.5 px-3 py-1.5 min-[420px]:px-4 min-[420px]:py-2 rounded-full text-xs min-[480px]:text-sm font-medium transition-all ${
                 isActive
-                  ? "bg-blue-600 text-white shadow-sm"
+                  ? "bg-brand-blue text-white shadow-sm"
                   : "bg-white text-gray-600 border-2 border-gray-400 hover:bg-gray-50 hover:border-gray-500"
               }`}
             >
@@ -208,7 +208,7 @@ export default function PracticePage() {
               <p className="text-brand-blue/60">No practice tests available</p>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 min-[420px]:gap-4">
               {tests.map((test, index) => {
                 const inProgress = getInProgressAttempt(test.id);
                 const bestAttempt = getBestCompletedAttempt(test.id);
@@ -236,32 +236,27 @@ export default function PracticePage() {
                 return (
                   <Card
                     key={test.id}
-                    className="p-4 bg-white border-2 border-orange-500 hover:border-orange-600 hover:shadow-lg transition-all duration-200 rounded-2xl"
+                    className="p-3 min-[420px]:p-4 bg-white border-2 border-orange-500 hover:border-orange-600 hover:shadow-lg transition-all duration-200 rounded-2xl"
                   >
                     <div className="space-y-3">
-                      {/* Thumbnail – soft orange with centered logo over white band */}
-                      <div className="relative overflow-hidden rounded-2xl h-40 bg-gradient-to-r from-orange-100 via-orange-200 to-orange-100">
-                        <div className="absolute inset-y-0 left-1/5 right-1/5 bg-white/70" />
-                        <div className="absolute inset-0 flex items-center justify-center opacity-40">
-                          <div className="relative w-36 h-36 sm:w-40 sm:h-40">
-                            <Image
-                              src="/logo.png"
-                              alt="SAT Ziyo"
-                              fill
-                              className="object-contain"
-                              sizes="160px"
-                              priority
-                            />
-                          </div>
+                      <div className="relative overflow-hidden rounded-2xl h-40 w-full">
+                        <div className="absolute inset-[3px]">
+                          <Image
+                            src="/logo.png"
+                            alt="SAT Ziyo"
+                            fill
+                            className="object-cover object-center"
+                            sizes="(max-width: 640px) 100vw, 320px"
+                            priority
+                          />
                         </div>
-                        <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="absolute inset-y-0 left-1/5 right-1/5 bg-orange-200/60 backdrop-blur-[2px]" />
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                           <span className="text-base font-semibold text-white drop-shadow-lg text-center px-4">
                             {title}
                           </span>
                         </div>
                       </div>
-
-                      {/* Meta row – black text and borders */}
                       <div className="flex items-center justify-between text-[11px] text-black">
                         <div className="flex items-center gap-2">
                           <div className="flex items-center gap-1">
@@ -277,8 +272,6 @@ export default function PracticePage() {
                           {statusBadge.label}
                         </span>
                       </div>
-
-                      {/* Access + score – black text and borders */}
                       <div className="flex items-center justify-between text-[11px] text-black">
                         <span
                           className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium border border-black ${accessType === "PREMIUM" ? "bg-gray-100" : "bg-gray-100"}`}
@@ -298,8 +291,6 @@ export default function PracticePage() {
                           <span className="text-gray-500">Not taken</span>
                         )}
                       </div>
-
-                      {/* Buttons */}
                       <div className="flex items-center gap-2 pt-1">
                         {inProgress ? (
                           <Button
@@ -373,7 +364,7 @@ export default function PracticePage() {
               </p>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 min-[420px]:gap-4">
               {inProgressAttempts.map((attempt) => {
                 const isStarting = startingId === attempt.testId;
                 const test = tests.find((t) => t.id === attempt.testId);
@@ -383,31 +374,26 @@ export default function PracticePage() {
                 return (
                   <Card
                     key={attempt.id}
-                    className="p-4 bg-white border-2 border-orange-500 hover:border-orange-600 hover:shadow-lg transition-all duration-200 rounded-2xl"
+                    className="p-3 min-[420px]:p-4 bg-white border-2 border-orange-500 hover:border-orange-600 hover:shadow-lg transition-all duration-200 rounded-2xl"
                   >
                     <div className="space-y-3">
-                      {/* Thumbnail – soft orange with centered logo over white band */}
-                      <div className="relative overflow-hidden rounded-2xl h-40 bg-gradient-to-r from-orange-100 via-orange-200 to-orange-100">
-                        <div className="absolute inset-y-0 left-1/5 right-1/5 bg-white/70" />
-                        <div className="absolute inset-0 flex items-center justify-center opacity-40">
-                          <div className="relative w-36 h-36 sm:w-40 sm:h-40">
-                            <Image
-                              src="/logo.png"
-                              alt="SAT Ziyo"
-                              fill
-                              className="object-contain"
-                              sizes="160px"
-                            />
-                          </div>
+                      <div className="relative overflow-hidden rounded-2xl h-40 w-full">
+                        <div className="absolute inset-[3px]">
+                          <Image
+                            src="/logo.png"
+                            alt="SAT Ziyo"
+                            fill
+                            className="object-cover object-center"
+                            sizes="(max-width: 640px) 100vw, 320px"
+                          />
                         </div>
-                        <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="absolute inset-y-0 left-1/5 right-1/5 bg-orange-200/60 backdrop-blur-[2px]" />
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                           <span className="text-base font-semibold text-white drop-shadow-lg text-center px-4">
                             {title}
                           </span>
                         </div>
                       </div>
-
-                      {/* Meta row – black text and borders */}
                       <div className="flex items-center justify-between text-[11px] text-black">
                         <div className="flex items-center gap-2">
                           <div className="flex items-center gap-1">
@@ -421,12 +407,9 @@ export default function PracticePage() {
                           In Progress
                         </span>
                       </div>
-
                       <p className="text-xs text-black">
                         Started {formatDate(attempt.startedAt)}
                       </p>
-
-                      {/* Buttons */}
                       <div className="flex items-center gap-2 pt-1">
                         <Button
                           onClick={() => handleContinue(attempt.testId)}
@@ -477,7 +460,7 @@ export default function PracticePage() {
               </p>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 min-[420px]:gap-4">
               {completedAttempts.map((attempt) => {
                 const total =
                   attempt.totalScore != null
@@ -496,31 +479,26 @@ export default function PracticePage() {
                 return (
                   <Card
                     key={attempt.id}
-                    className="p-4 bg-white border-2 border-orange-500 hover:border-orange-600 hover:shadow-lg transition-all duration-200 rounded-2xl"
+                    className="p-3 min-[420px]:p-4 bg-white border-2 border-orange-500 hover:border-orange-600 hover:shadow-lg transition-all duration-200 rounded-2xl"
                   >
                     <div className="space-y-3">
-                      {/* Thumbnail – soft orange with centered logo over white band */}
-                      <div className="relative overflow-hidden rounded-2xl h-40 bg-gradient-to-r from-orange-100 via-orange-200 to-orange-100">
-                        <div className="absolute inset-y-0 left-1/5 right-1/5 bg-white/70" />
-                        <div className="absolute inset-0 flex items-center justify-center opacity-40">
-                          <div className="relative w-36 h-36 sm:w-40 sm:h-40">
-                            <Image
-                              src="/logo.png"
-                              alt="SAT Ziyo"
-                              fill
-                              className="object-contain"
-                              sizes="160px"
-                            />
-                          </div>
+                      <div className="relative overflow-hidden rounded-2xl h-40 w-full">
+                        <div className="absolute inset-[3px]">
+                          <Image
+                            src="/logo.png"
+                            alt="SAT Ziyo"
+                            fill
+                            className="object-cover object-center"
+                            sizes="(max-width: 640px) 100vw, 320px"
+                          />
                         </div>
-                        <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="absolute inset-y-0 left-1/5 right-1/5 bg-orange-200/60 backdrop-blur-[2px]" />
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                           <span className="text-base font-semibold text-white drop-shadow-lg text-center px-4">
                             {title}
                           </span>
                         </div>
                       </div>
-
-                      {/* Meta row – black text and borders */}
                       <div className="flex items-center justify-between text-[11px] text-black">
                         <div className="flex items-center gap-2">
                           {attempt.completedAt && (
@@ -531,8 +509,6 @@ export default function PracticePage() {
                           Completed
                         </span>
                       </div>
-
-                      {/* Scores – black text and border */}
                       <div className="bg-gray-50 rounded-xl p-3 space-y-2 border border-black text-black">
                         {total != null ? (
                           <div className="flex items-baseline gap-1">
@@ -565,8 +541,6 @@ export default function PracticePage() {
                           </div>
                         )}
                       </div>
-
-                      {/* Buttons */}
                       <div className="flex items-center gap-2 pt-1">
                         <Button
                           variant="outline"

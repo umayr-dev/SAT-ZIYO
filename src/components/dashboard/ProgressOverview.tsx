@@ -314,7 +314,6 @@ export function ProgressOverview() {
                 <p className="text-2xl font-bold text-brand-blue">
                   {progressStats?.testsCompleted ?? 0}
                 </p>
-                <p className="text-xs text-black mt-0.5">finished</p>
               </div>
               {/* Accuracy */}
               <div className="p-4 bg-white border border-brand-blue-light rounded-xl">
@@ -327,17 +326,16 @@ export function ProgressOverview() {
                     ? `${progressStats.accuracy}%`
                     : "—"}
                 </p>
-                <p className="text-xs text-black mt-0.5">
-                  {progressStats?.previousAccuracy != null &&
-                   progressStats?.accuracy != null &&
-                   progressStats.accuracy > progressStats.previousAccuracy
-                    ? `↑ improved (previous: ${progressStats.previousAccuracy}%)`
-                    : progressStats?.previousAccuracy != null &&
-                      progressStats?.accuracy != null &&
-                      progressStats.accuracy < progressStats.previousAccuracy
-                    ? `previous: ${progressStats.previousAccuracy}%`
-                    : "latest test"}
-                </p>
+                {progressStats?.previousAccuracy != null &&
+                progressStats?.accuracy != null &&
+                (progressStats.accuracy > progressStats.previousAccuracy ||
+                  progressStats.accuracy < progressStats.previousAccuracy) ? (
+                  <p className="text-xs text-black mt-0.5">
+                    {progressStats.accuracy > progressStats.previousAccuracy
+                      ? `↑ improved (previous: ${progressStats.previousAccuracy}%)`
+                      : `previous: ${progressStats.previousAccuracy}%`}
+                  </p>
+                ) : null}
               </div>
             </div>
           )}

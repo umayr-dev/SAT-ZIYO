@@ -496,6 +496,8 @@ export default function TestTakingPage() {
   const timeUpHandledRef = useRef(false);
   const wasFullscreenRef = useRef(false);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  /** 10s countdown tugaganda fullscreen bo‘lmasa: test bekor emas, javoblar saqlanib yakunlanadi */
+  const onCountdownExpireRef = useRef<(() => Promise<void>) | null>(null);
   const loadAnswersTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastAnswersLoadRef = useRef<number>(0);
   const ANSWERS_CACHE_DURATION = 15000; // 15 sec – kam so‘rov uchun
@@ -509,6 +511,17 @@ export default function TestTakingPage() {
   const navigationInFlightRef = useRef(false);
   /** Faqat so‘nggi so‘ralgan jump indexiga mos javobni state ga yozamiz – kechikkan/aralash javoblar e’tiborsiz */
   const latestRequestedJumpRef = useRef<number | null>(null);
+
+  // 920px gacha desktop 2-ustun; 920px dan pastda mobil (1-ustun, passage+image tepada)
+  const [isDesktopLayout, setIsDesktopLayout] = useState(false);
+  useEffect(() => {
+    const mq = typeof window !== "undefined" ? window.matchMedia("(min-width: 920px)") : null;
+    if (!mq) return;
+    setIsDesktopLayout(mq.matches);
+    const handler = () => setIsDesktopLayout(mq.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   // Resizable 2-column layout state
   const [splitPosition, setSplitPosition] = useState(50); // percentage for left pane
@@ -1112,10 +1125,12 @@ export default function TestTakingPage() {
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
-          // If still not in fullscreen, cancel test
-          if (!document.fullscreenElement) {
+          countdownIntervalRef.current = null;
+          // Fullscreen bo‘lmasa ham test bekor emas: javoblar saqlanib, modul yakunlanadi
+          if (!document.fullscreenElement && onCountdownExpireRef.current) {
+            onCountdownExpireRef.current();
+          } else if (!document.fullscreenElement) {
             handleCancelTest();
-            return 0;
           }
           return 0;
         }
@@ -2061,6 +2076,14 @@ export default function TestTakingPage() {
     getStorageKey,
   ]);
 
+  // 10s countdown tugaganda (fullscreen yo‘q) handleTimeUp chaqirilsin – javoblar saqlanib yakunlansin
+  useEffect(() => {
+    onCountdownExpireRef.current = handleTimeUp;
+    return () => {
+      onCountdownExpireRef.current = null;
+    };
+  }, [handleTimeUp]);
+
   // Handle save and exit
   const handleSaveAndExit = useCallback(async () => {
     try {
@@ -2223,8 +2246,8 @@ export default function TestTakingPage() {
                 </p>
               )}
               {countdown === 0 && (
-                <p className="text-sm font-semibold text-red-600 mb-2">
-                  Test will be cancelled. Redirecting...
+                <p className="text-sm font-semibold text-amber-600 mb-2">
+                  Javoblar saqlanmoqda va test yakunlanmoqda…
                 </p>
               )}
             </div>
@@ -2259,26 +2282,27 @@ export default function TestTakingPage() {
           >
             {/* Header – doimiy balandlik, o‘zgarmaydi, yuqorida qotib turadi */}
             <div
-              className="flex-shrink-0 flex-none h-14 bg-white text-gray-800 flex items-center justify-between border-b border-gray-300 relative mb-[15px]"
+              className="flex-shrink-0 flex-none min-h-[52px] h-12 sm:h-14 bg-white text-gray-800 flex items-center justify-between border-b border-gray-300 relative mb-2 sm:mb-[15px] pl-2 pr-2 sm:pl-3 sm:pr-3"
               style={{
-                minHeight: 56,
+                minHeight: "52px",
                 maxHeight: 56,
                 borderBottom: "2px dashed",
                 borderImage:
                   "repeating-linear-gradient(to right, rgb(167, 56, 87) 0%, rgb(167, 56, 87) 3.5%, transparent 3.5%, transparent 4%, rgb(249, 223, 205) 4%, rgb(249, 223, 205) 7.5%, transparent 7.5%, transparent 8%, rgb(28, 17, 103) 8%, rgb(28, 17, 103) 11.5%, transparent 11.5%, transparent 12%, rgb(94, 147, 101) 12%, rgb(94, 147, 101) 15.5%, transparent 15.5%, transparent 16%) 1 / 1 / 0 stretch",
               }}
             >
-              <div className="pl-3 flex items-center min-w-0">
-                <p className="font-semibold text-sm truncate">
+              <div className="flex items-center min-w-0 flex-1 overflow-hidden">
+                <p className="font-semibold text-xs min-[480px]:text-sm truncate">
                   Section {testState.currentSection.orderIndex + 1}, Module{" "}
                   {testState.currentModule.moduleNumber}:{" "}
                   {testState.currentSection.type === "ENGLISH"
                     ? "Reading and Writing"
                     : "Math"}
+                  {" "}
+                  <button type="button" className="text-xs min-[480px]:text-sm text-blue-600 hover:underline font-normal inline p-0 align-baseline">
+                    Directions
+                  </button>
                 </p>
-                <button className="text-sm text-blue-600 hover:underline ml-2 flex-shrink-0">
-                  Directions
-                </button>
               </div>
 
               {/* Timer - Centered */}
@@ -2323,8 +2347,8 @@ export default function TestTakingPage() {
                 </div>
               )}
 
-              {/* Right side buttons – doimiy o‘lcham */}
-              <div className="flex items-center gap-2 flex-nowrap pr-3 shrink-0">
+              {/* Right side buttons – 420px+ responsive */}
+              <div className="flex items-center gap-1 sm:gap-2 flex-nowrap shrink-0">
                 {testState.currentSection.type !== "MATH" && (
                   <>
                     <button
@@ -2356,7 +2380,7 @@ export default function TestTakingPage() {
                     <button
                       type="button"
                       onClick={() => setShowReferenceSheet((prev) => !prev)}
-                      className={`flex items-center gap-1.5 p-2 rounded-lg text-xs whitespace-nowrap ${
+                      className={`flex items-center gap-1 min-[480px]:gap-1.5 p-1.5 min-[420px]:p-2 rounded-lg text-xs whitespace-nowrap ${
                         showReferenceSheet
                           ? "text-blue-600 bg-gray-100"
                           : "text-gray-700 hover:text-blue-600 hover:bg-gray-100 bg-gray-100 hover:bg-gray-200"
@@ -2364,13 +2388,13 @@ export default function TestTakingPage() {
                       aria-label="Reference Sheet"
                       title="Reference Sheet"
                     >
-                      <BookOpen className="w-5 h-5 shrink-0" />
+                      <BookOpen className="w-4 h-4 min-[420px]:w-5 min-[420px]:h-5 shrink-0" />
                       <span className="hidden sm:inline">Reference</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setShowCalculator((prev) => !prev)}
-                      className={`flex items-center gap-1.5 p-2 rounded-lg text-xs whitespace-nowrap ${
+                      className={`flex items-center gap-1 min-[480px]:gap-1.5 p-1.5 min-[420px]:p-2 rounded-lg text-xs whitespace-nowrap ${
                         showCalculator
                           ? "text-blue-600 bg-gray-100"
                           : "text-gray-700 hover:text-blue-600 hover:bg-gray-100 bg-gray-100 hover:bg-gray-200"
@@ -2378,7 +2402,7 @@ export default function TestTakingPage() {
                       aria-label="Calculator"
                       title="Calculator"
                     >
-                      <Calculator className="w-5 h-5 shrink-0" />
+                      <Calculator className="w-4 h-4 min-[420px]:w-5 min-[420px]:h-5 shrink-0" />
                       <span className="hidden sm:inline">Calculator</span>
                     </button>
                   </>
@@ -2387,14 +2411,14 @@ export default function TestTakingPage() {
                   <button
                     type="button"
                     onClick={() => setShowMoreMenu((prev) => !prev)}
-                    className="flex items-center gap-1.5 p-2 rounded-lg text-gray-700 hover:text-blue-600 hover:bg-gray-100 text-xs whitespace-nowrap bg-gray-100"
+                    className="flex items-center gap-1 min-[480px]:gap-1.5 p-1.5 min-[420px]:p-2 rounded-lg text-gray-700 hover:text-blue-600 hover:bg-gray-100 text-xs whitespace-nowrap bg-gray-100"
                     aria-label="More options"
                   >
-                    <MoreVertical className="w-5 h-5 shrink-0" />
+                    <MoreVertical className="w-4 h-4 min-[420px]:w-5 min-[420px]:h-5 shrink-0" />
                     <span className="hidden sm:inline">More</span>
                   </button>
                   {showMoreMenu && (
-                    <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[150px]">
+                    <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[140px] max-w-[90vw]">
                       <button
                         type="button"
                         onClick={() => {
@@ -2411,9 +2435,9 @@ export default function TestTakingPage() {
               </div>
             </div>
 
-            {/* Content row: 50/50 when Desmos or Reference open (left=panel, right=test fixed); else single column 60% width centered; smooth transitions */}
+            {/* Content row: MATH 1-ustun = markaz (60%), MATH 2-ustun = full width */}
             <div
-              className={`flex-1 min-h-0 flex min-w-0 overflow-hidden transition-[justify-content] duration-300 ease-out ${!(testState.currentSection.type === "MATH" && (showCalculator || showReferenceSheet)) ? "justify-center" : ""}`}
+              className={`flex-1 min-h-[50vh] flex min-w-0 overflow-hidden transition-[justify-content] duration-300 ease-out ${testState.currentSection.type === "MATH" && !(showCalculator || showReferenceSheet) && hasChoiceOptions(question) ? "lg:justify-center" : ""}`}
             >
               {testState.currentSection.type === "MATH" && (
                 <div
@@ -2461,20 +2485,27 @@ export default function TestTakingPage() {
                   </div>
                 </div>
               )}
-              {/* Right column: fixed 50% when Desmos or Reference open; 60% width centered when single column; z-0 so panel can overlay when big */}
+              {/* Right column: MATH 1-ustun = 60%, MATH 2-ustun = 100%, ENGLISH = 100% */}
               <div
-                className={`min-h-0 flex flex-col relative overflow-hidden px-5 z-0 min-w-0 transition-[flex,max-width,width] duration-300 ease-out ${testState.currentSection.type === "MATH" && (showCalculator || showReferenceSheet) ? "flex-[0_0_50%]" : "w-[60%] max-w-full flex-none"}`}
+                className={`min-h-[45vh] flex flex-col relative overflow-hidden px-3 sm:px-4 lg:px-5 z-0 min-w-0 w-full flex-1 transition-[flex,max-width,width] duration-300 ease-out ${
+                  testState.currentSection.type === "MATH" && (showCalculator || showReferenceSheet)
+                    ? "lg:flex-[0_0_50%] lg:w-auto"
+                    : testState.currentSection.type === "MATH" && hasChoiceOptions(question)
+                      ? "lg:w-[60%] lg:max-w-full lg:flex-none"
+                      : ""
+                }`}
               >
-                {/* Desktop / large (>= lg): content + optional right letters strip */}
-                <div className="flex flex-1 min-h-0 min-w-0 hidden lg:flex">
+                {/* Desktop (≥920px): 2-ustun; JS orqali faqat katta ekranda */}
+                {isDesktopLayout && (
+                <div className="flex flex-1 min-h-0 min-w-0">
                   <div
-                    className="relative flex flex-col flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden"
+                    className="relative flex flex-col flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
                     ref={layoutContainerRef}
                     style={{ WebkitOverflowScrolling: "touch" }}
                   >
                 {/* Math: faqat ko‘p tanlov (A/B/C/D) = bitta ustun; grid-in yoki ochiq savol = ikki ustun */}
                 {testState.currentSection.type === "MATH" && hasChoiceOptions(question) ? (
-                  <div className="w-full flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+                  <div className="w-full flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     <div className="w-full px-0 pb-6">
                       {isOpenAnswerQuestion(question) && (
                         <div className="pt-5 p-3 sm:p-4 md:p-5 bg-gray-50/80 rounded-lg text-xs sm:text-sm md:text-base leading-relaxed mb-4">
@@ -2877,11 +2908,14 @@ export default function TestTakingPage() {
                 </div>
                 )}
               </div>
+                </div>
+                )}
 
-              {/* Mobil / planshet (< lg) – bitta ustun, bitta scroll, to‘liq responsive */}
-              <div className="flex lg:hidden flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden overscroll-contain">
-                <div className="w-full min-w-0 px-0 pb-4 sm:pb-6">
-                  {/* Math + grid-in: mobil da ham directions */}
+              {/* Mobil (<920px): bitta ustun, passage+image tepada, keyin savol – JS orqali */}
+              {!isDesktopLayout && (
+              <div className="flex flex-1 min-h-[40vh] min-w-0 w-full overflow-y-auto overflow-x-hidden overscroll-contain">
+                <div className="w-full min-w-0 flex-1 px-3 min-[480px]:px-4 pb-4 sm:pb-6">
+                  {/* 1) MATH grid-in: directions tepada */}
                   {testState.currentSection.type === "MATH" &&
                     isOpenAnswerQuestion(question) && (
                       <div className="pt-5 p-3 sm:p-4 mb-3 sm:mb-5 bg-gray-50/80 rounded-lg text-xs sm:text-sm leading-relaxed">
@@ -3000,7 +3034,7 @@ export default function TestTakingPage() {
                         })
                       }
                       isFlagged={isFlagged}
-                      hidePassage={false}
+                      hidePassage
                       isMarkupEnabled={isMarkupEnabled}
                       attemptId={attemptId}
                       onHighlightsChange={(highlights) => {
@@ -3030,27 +3064,50 @@ export default function TestTakingPage() {
                       }}
                     />
                   </div>
+                  {/* Passage va image savol blokidan keyin pastda */}
+                  {(question.sharedPassage?.content || question.passage) && (
+                    <div className="mt-4 sm:mt-5 p-3 sm:p-4 mb-3 sm:mb-4 bg-white rounded-lg">
+                      <HighlightablePassage
+                        passageText={question.sharedPassage?.content || question.passage || ""}
+                        isMarkupEnabled={isMarkupEnabled}
+                        attemptId={attemptId}
+                        questionId={question.id}
+                        onHighlightsChange={(highlights) => {
+                          if (highlights.length > 0) {
+                            const key = getHighlightsStorageKey();
+                            try {
+                              const raw = typeof window !== "undefined" ? localStorage.getItem(key) : null;
+                              const all = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+                              all[`${question.id}_passage`] = highlights;
+                              if (typeof window !== "undefined") localStorage.setItem(key, JSON.stringify(all));
+                            } catch (e) { console.error(e); }
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
                   {getQuestionImageUrl(question) && (
-                    <div className="my-3 sm:my-5 p-2 sm:p-3 bg-gray-100 rounded-lg min-h-[80px] sm:min-h-[120px] flex items-center justify-center overflow-hidden">
+                    <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
                       <img
                         src={getQuestionImageUrl(question)!}
                         alt="Savol rasmi"
-                        className="w-full h-auto rounded-lg object-contain max-h-[120px] sm:max-h-[160px] md:max-h-[180px] bg-gray-100"
+                        className="w-full h-auto rounded-lg object-contain max-h-[100px] sm:max-h-[140px] bg-gray-100"
                         loading="lazy"
                       />
                     </div>
                   )}
                 </div>
               </div>
-            </div>
-                  </div>
+              )}
+
+              </div>
             </div>
 
-            {/* Footer – doimiy balandlik, o‘zgarmaydi, pastda qotib turadi */}
+            {/* Footer – 420px+ responsive, pastda qotib turadi */}
             <div
-              className="flex-shrink-0 flex-none h-12 bg-blue-100 flex justify-between items-center px-5"
+              className="flex-shrink-0 flex-none min-h-[44px] h-11 sm:h-12 bg-blue-100 flex justify-between items-center px-2 sm:px-3 min-[480px]:px-5 gap-1"
               style={{
-                minHeight: 48,
+                minHeight: 44,
                 maxHeight: 48,
                 borderTop: "2px dashed",
                 backgroundColor: "rgb(229, 235, 245)",
@@ -3058,13 +3115,13 @@ export default function TestTakingPage() {
                   "repeating-linear-gradient(to right, rgb(167, 56, 87) 0%, rgb(167, 56, 87) 3.5%, transparent 3.5%, transparent 4%, rgb(249, 223, 205) 4%, rgb(249, 223, 205) 7.5%, transparent 7.5%, transparent 8%, rgb(28, 17, 103) 8%, rgb(28, 17, 103) 11.5%, transparent 11.5%, transparent 12%, rgb(94, 147, 101) 12%, rgb(94, 147, 101) 15.5%, transparent 15.5%, transparent 16%) 1 / 1 / 0 stretch",
               }}
             >
-              <p className="text-sm truncate max-w-[100px] sm:max-w-[120px]">
+              <p className="text-xs sm:text-sm truncate max-w-[70px] min-[420px]:max-w-[100px] sm:max-w-[120px] shrink-0">
                 {currentUser?.name ||
                   currentUser?.email?.split("@")[0] ||
                   "User"}
               </p>
               <div
-                className="bg-black text-white px-3 py-1.5 flex items-center gap-2 rounded-xl cursor-pointer"
+                className="bg-black text-white px-2 py-1 min-[420px]:px-3 min-[420px]:py-1.5 flex items-center gap-1 min-[420px]:gap-2 rounded-lg min-[420px]:rounded-xl cursor-pointer shrink-0 min-w-0 max-w-[50%]"
                 style={{
                   position: "absolute",
                   left: "50%",
@@ -3072,17 +3129,17 @@ export default function TestTakingPage() {
                 }}
                 onClick={() => setShowNavigator((prev) => !prev)}
               >
-                <p className="text-white text-sm">
-                  Question {testState.currentQuestionIndex + 1} of {totalQs}
+                <p className="text-white text-xs min-[420px]:text-sm truncate">
+                  Q {testState.currentQuestionIndex + 1}/{totalQs}
                 </p>
                 <button
-                  className="p-1 rounded"
+                  className="p-0.5 min-[420px]:p-1 rounded shrink-0"
                   style={{ pointerEvents: "none" }}
                 >
-                  <ChevronRight className="w-4 h-4" />
+                  <ChevronRight className="w-3 h-3 min-[420px]:w-4 min-[420px]:h-4" />
                 </button>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-1 min-[420px]:gap-2 shrink-0">
                 <Button
                   variant="outline"
                   onClick={handlePrevious}
@@ -3091,10 +3148,9 @@ export default function TestTakingPage() {
                     submitting ||
                     isQuestionLoading
                   }
-                  className="px-4 py-2 text-sm text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-2 py-1.5 min-[420px]:px-4 min-[420px]:py-2 text-xs min-[420px]:text-sm text-white rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
                     backgroundColor: "rgb(51, 76, 199)",
-                    borderRadius: "30px",
                     opacity: testState.currentQuestionIndex === 0 ? 0.5 : 1,
                   }}
                 >
@@ -3104,11 +3160,8 @@ export default function TestTakingPage() {
                   <Button
                     onClick={handleNext}
                     disabled={submitting || isQuestionLoading}
-                    className="px-4 py-2 text-sm text-white rounded-md cursor-pointer"
-                    style={{
-                      backgroundColor: "rgb(51, 76, 199)",
-                      borderRadius: "30px",
-                    }}
+                    className="px-2 py-1.5 min-[420px]:px-4 min-[420px]:py-2 text-xs min-[420px]:text-sm text-white rounded-full cursor-pointer"
+                    style={{ backgroundColor: "rgb(51, 76, 199)" }}
                   >
                     Next
                   </Button>
@@ -3116,13 +3169,10 @@ export default function TestTakingPage() {
                   <Button
                     onClick={handleFinishSection}
                     disabled={submitting || isQuestionLoading}
-                    className="px-4 py-2 text-sm text-white rounded-md cursor-pointer"
-                    style={{
-                      backgroundColor: "rgb(51, 76, 199)",
-                      borderRadius: "30px",
-                    }}
+                    className="px-2 py-1.5 min-[420px]:px-4 min-[420px]:py-2 text-xs min-[420px]:text-sm text-white rounded-full cursor-pointer whitespace-nowrap"
+                    style={{ backgroundColor: "rgb(51, 76, 199)" }}
                   >
-                    Finish Section
+                    Finish
                   </Button>
                 )}
               </div>
