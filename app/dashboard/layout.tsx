@@ -54,7 +54,7 @@ function DashboardLayoutContent({ children }: DashboardLayoutProps) {
             "w-full",
             isPracticeTestRoute
               ? "px-0 pt-0 pb-0"
-              : "px-3 pt-4 pb-6 sm:pl-4 sm:pr-6 sm:pt-6 sm:pb-8 md:pl-6 md:pr-8 lg:pl-6 lg:pr-10",
+              : "px-3 pt-3 pb-4 sm:px-4 sm:pt-4 sm:pb-6 md:pl-6 md:pr-8 md:pt-6 md:pb-8 lg:pl-6 lg:pr-10",
           )}
         >
           <div className={cn("max-w-[1440px] mx-auto w-full")}>{children}</div>

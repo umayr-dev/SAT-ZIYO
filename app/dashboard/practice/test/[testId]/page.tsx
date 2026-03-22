@@ -426,6 +426,7 @@ export default function TestTakingPage() {
   >(new Map());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showFullscreenWarning, setShowFullscreenWarning] = useState(false);
+  const [fullscreenModalReason, setFullscreenModalReason] = useState<"initial" | "exited">("initial");
   const [countdown, setCountdown] = useState(10);
   const [showCalculator, setShowCalculator] = useState(false);
   const [showReferenceSheet, setShowReferenceSheet] = useState(false);
@@ -496,8 +497,6 @@ export default function TestTakingPage() {
   const timeUpHandledRef = useRef(false);
   const wasFullscreenRef = useRef(false);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  /** 10s countdown tugaganda fullscreen bo‘lmasa: test bekor emas, javoblar saqlanib yakunlanadi */
-  const onCountdownExpireRef = useRef<(() => Promise<void>) | null>(null);
   const loadAnswersTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastAnswersLoadRef = useRef<number>(0);
   const ANSWERS_CACHE_DURATION = 15000; // 15 sec – kam so‘rov uchun
@@ -1126,10 +1125,8 @@ export default function TestTakingPage() {
         if (prev <= 1) {
           clearInterval(interval);
           countdownIntervalRef.current = null;
-          // Fullscreen bo‘lmasa ham test bekor emas: javoblar saqlanib, modul yakunlanadi
-          if (!document.fullscreenElement && onCountdownExpireRef.current) {
-            onCountdownExpireRef.current();
-          } else if (!document.fullscreenElement) {
+          // 10s tugasa va fullscreen HALA yo'q bo'lsa – testni cancel qilamiz
+          if (!document.fullscreenElement) {
             handleCancelTest();
           }
           return 0;
@@ -1148,8 +1145,9 @@ export default function TestTakingPage() {
       setIsFullscreen(isFs);
       wasFullscreenRef.current = isFs;
 
-      // If not in fullscreen, show warning modal with countdown
+      // If not in fullscreen, show choice modal (no cancel)
       if (!isFs) {
+        setFullscreenModalReason("initial");
         setShowFullscreenWarning(true);
         setCountdown(10);
         startCountdown();
@@ -1180,16 +1178,15 @@ export default function TestTakingPage() {
     }
   }
 
-  // Handle continue without fullscreen (smaller text mode)
+  // Handle continue without fullscreen (small screen mode)
   const handleContinueWithoutFullscreen = useCallback(() => {
     setShowFullscreenWarning(false);
+    setFullscreenModalReason("initial");
     setCountdown(10);
     if (countdownIntervalRef.current) {
       clearInterval(countdownIntervalRef.current);
       countdownIntervalRef.current = null;
     }
-    // Test continues but user is warned they're not in fullscreen
-    // UI will be smaller but functional
   }, []);
 
   useEffect(() => {
@@ -1206,8 +1203,9 @@ export default function TestTakingPage() {
         setShowFullscreenWarning(false);
         setCountdown(10);
       } else {
-        // Fullscreen exited - show warning and start countdown
+        // Fullscreen exited - show choice modal again
         if (wasFullscreenRef.current) {
+          setFullscreenModalReason("exited");
           setShowFullscreenWarning(true);
           setCountdown(10);
           startCountdown();
@@ -2076,14 +2074,6 @@ export default function TestTakingPage() {
     getStorageKey,
   ]);
 
-  // 10s countdown tugaganda (fullscreen yo‘q) handleTimeUp chaqirilsin – javoblar saqlanib yakunlansin
-  useEffect(() => {
-    onCountdownExpireRef.current = handleTimeUp;
-    return () => {
-      onCountdownExpireRef.current = null;
-    };
-  }, [handleTimeUp]);
-
   // Handle save and exit
   const handleSaveAndExit = useCallback(async () => {
     try {
@@ -2226,48 +2216,44 @@ export default function TestTakingPage() {
 
   return (
     <div className="fixed inset-0 flex bg-white overflow-hidden">
-      {/* Fullscreen Exit Warning Modal */}
+      {/* Fullscreen choice modal – minimal, two options only */}
       {showFullscreenWarning && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-8 text-center space-y-6">
-            <div className="w-20 h-20 mx-auto rounded-full bg-orange-500 text-white flex items-center justify-center text-3xl font-bold animate-pulse">
-              {countdown > 0 ? countdown : "⚠"}
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                Fullscreen Exited
-              </h2>
-              <p className="text-sm text-gray-600 mb-2">
-                You have exited fullscreen mode. Please choose how to continue:
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 text-center space-y-5">
+            <h2 className="text-lg font-semibold text-gray-900">
+              {fullscreenModalReason === "exited"
+                ? "Fullscreen exited"
+                : "How do you want to take the test?"}
+            </h2>
+            {countdown > 0 && (
+              <p className="text-xs text-gray-500">
+                {fullscreenModalReason === "exited"
+                  ? `${countdown} sec to choose — or test will save and finish.`
+                  : "Choose an option below."}
               </p>
-              {countdown > 0 && (
-                <p className="text-lg font-semibold text-orange-600 mb-2">
-                  {countdown} seconds remaining
-                </p>
-              )}
-              {countdown === 0 && (
-                <p className="text-sm font-semibold text-amber-600 mb-2">
-                  Javoblar saqlanmoqda va test yakunlanmoqda…
-                </p>
-              )}
-            </div>
-            <div className="space-y-3">
+            )}
+            {countdown === 0 && (
+              <p className="text-xs text-amber-600 font-medium">
+                Saving answers and finishing…
+              </p>
+            )}
+            <div className="space-y-2">
               <Button
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm"
                 onClick={handleEnterFullscreen}
                 disabled={countdown === 0}
-                size="lg"
+                size="sm"
               >
-                Continue in Fullscreen
+                Use fullscreen
               </Button>
               <Button
-                className="w-full bg-gray-600 hover:bg-gray-700 text-white"
+                className="w-full border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-sm"
                 onClick={handleContinueWithoutFullscreen}
                 disabled={countdown === 0}
-                size="lg"
+                size="sm"
                 variant="outline"
               >
-                Continue with Smaller Text (Not Fullscreen)
+                Continue with small screen
               </Button>
             </div>
           </div>
@@ -2292,22 +2278,31 @@ export default function TestTakingPage() {
               }}
             >
               <div className="flex items-center min-w-0 flex-1 overflow-hidden">
-                <p className="font-semibold text-xs min-[480px]:text-sm truncate">
+                <p className="font-semibold text-[11px] min-[380px]:text-xs min-[480px]:text-sm truncate">
                   Section {testState.currentSection.orderIndex + 1}, Module{" "}
                   {testState.currentModule.moduleNumber}:{" "}
                   {testState.currentSection.type === "ENGLISH"
                     ? "Reading and Writing"
-                    : "Math"}
-                  {" "}
-                  <button type="button" className="text-xs min-[480px]:text-sm text-blue-600 hover:underline font-normal inline p-0 align-baseline">
+                    : "Math"}{" "}
+                  <button
+                    type="button"
+                    className="text-[11px] min-[380px]:text-xs min-[480px]:text-sm text-blue-600 hover:underline font-normal inline p-0 align-baseline"
+                  >
                     Directions
                   </button>
                 </p>
               </div>
 
-              {/* Timer - Centered */}
+              {/* Mobile timer (no overlay) */}
+              <div className="flex items-center gap-1 ml-2 min-[480px]:hidden">
+                <div className="text-xs font-bold text-black">
+                  {formatTimer(remainingTimeSeconds)}
+                </div>
+              </div>
+
+              {/* Timer - Centered on ≥480px */}
               {!isTimerHidden ? (
-                <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-2">
+                <div className="hidden min-[480px]:flex absolute left-1/2 transform -translate-x-1/2 items-center gap-2">
                   <div className="text-base sm:text-lg font-bold text-black">
                     {formatTimer(remainingTimeSeconds)}
                   </div>
@@ -2334,7 +2329,7 @@ export default function TestTakingPage() {
                   </button>
                 </div>
               ) : (
-                <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-2">
+                <div className="hidden min-[480px]:flex absolute left-1/2 transform -translate-x-1/2 items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setIsTimerHidden(false)}
@@ -2443,8 +2438,14 @@ export default function TestTakingPage() {
                 <div
                   className={`flex-shrink-0 relative min-h-0 z-10 transition-[width,min-width] duration-300 ease-out ${showCalculator || showReferenceSheet ? "overflow-visible" : "overflow-hidden"}`}
                   style={{
-                    width: showCalculator || showReferenceSheet ? "50%" : "0",
-                    minWidth: showCalculator || showReferenceSheet ? "50%" : "0",
+                    width:
+                      isDesktopLayout && (showCalculator || showReferenceSheet)
+                        ? "50%"
+                        : "0",
+                    minWidth:
+                      isDesktopLayout && (showCalculator || showReferenceSheet)
+                        ? "50%"
+                        : "0",
                   }}
                 >
                   <div
@@ -2550,9 +2551,33 @@ export default function TestTakingPage() {
                           </button>
                         </div>
                         {hasChoiceOptions(question) && (
-                          <button type="button" onClick={() => { setIsEliminationMode((prev) => !prev); if (isEliminationMode) setEliminatedChoices(new Set()); }} className={`hidden xl:flex items-center text-sm text-gray-600 hover:text-black mr-2 h-full relative border border-gray-300 rounded w-8 h-8 justify-center bg-transparent ${isEliminationMode ? "bg-blue-100" : ""}`}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsEliminationMode((prev) => !prev);
+                              if (isEliminationMode)
+                                setEliminatedChoices(new Set());
+                            }}
+                            className={`flex items-center text-xs sm:text-sm text-gray-600 hover:text-black ml-2 sm:ml-3 h-7 sm:h-8 px-2 rounded-full border border-gray-300 bg-white ${
+                              isEliminationMode ? "bg-blue-100" : ""
+                            }`}
+                          >
                             <span className="text-[12px] font-medium text-gray-600">ABC</span>
-                            {isEliminationMode && <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="absolute w-8 h-8 text-gray-500 pointer-events-none"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M18 6L6 18" /></svg>}
+                            {isEliminationMode && (
+                              <svg
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                className="w-4 h-4 text-gray-500 ml-1"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="1"
+                                  d="M18 6L6 18"
+                                />
+                              </svg>
+                            )}
                           </button>
                         )}
                       </div>
@@ -2561,7 +2586,14 @@ export default function TestTakingPage() {
                       </div>
                       {getQuestionImageUrl(question) && (
                         <div className="mt-2 sm:mt-3 md:mt-4 p-2 sm:p-3 bg-white rounded-lg border border-gray-200 flex items-center justify-center overflow-hidden mb-4">
-                          <img src={getQuestionImageUrl(question)!} alt="Question" className="w-full h-auto rounded-lg object-contain max-h-[140px] sm:max-h-[180px] bg-white" loading="lazy" />
+                          <Image
+                            src={getQuestionImageUrl(question)!}
+                            alt="Question"
+                            width={640}
+                            height={180}
+                            className="w-full h-auto rounded-lg object-contain max-h-[140px] sm:max-h-[180px] bg-white"
+                            loading="lazy"
+                          />
                         </div>
                       )}
                       {hasChoiceOptions(question) && (
@@ -2573,11 +2605,40 @@ export default function TestTakingPage() {
                             const choiceImageUrl = getChoiceImageUrl(choice as Record<string, unknown>);
                             return (
                               <div key={choice.id || index} className={`relative w-full flex items-stretch rounded-lg border-2 overflow-hidden ${isSelected ? "border-black" : isEliminated ? "border-gray-300" : "border-gray-200"}`}>
-                                <button type="button" onClick={() => handleAnswerChange({ choiceId: choice.id, textAnswer: currentAnswer.textAnswer })} className={`flex-1 min-w-0 p-2 sm:p-3 md:p-4 text-left text-xs sm:text-sm md:text-base flex items-center gap-2 md:gap-3 ${isEliminated ? "bg-gray-100 opacity-60" : "hover:bg-gray-200"} cursor-pointer rounded-l-md`}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (isEliminationMode) {
+                                      setEliminatedChoices((prev) => {
+                                        const next = new Set(prev);
+                                        if (next.has(choice.id)) next.delete(choice.id);
+                                        else next.add(choice.id);
+                                        return next;
+                                      });
+                                    } else {
+                                      handleAnswerChange({
+                                        choiceId: choice.id,
+                                        textAnswer: currentAnswer.textAnswer,
+                                      });
+                                    }
+                                  }}
+                                  className={`flex-1 min-w-0 p-2 sm:p-3 md:p-4 text-left text-xs sm:text-sm md:text-base flex items-center gap-2 md:gap-3 ${isEliminated ? "bg-gray-100 opacity-60" : "hover:bg-gray-200"} cursor-pointer rounded-l-md`}
+                                >
                                   <div className={`flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full font-bold border border-black text-[10px] sm:text-xs ${isSelected ? "bg-black text-white" : "text-black"}`}><span className="text-xs">{letter}</span></div>
                                   <div className={`flex-1 min-w-0 ${isEliminated ? "line-through text-gray-500" : ""}`}>
                                     <span className="block">{getChoiceText(choice) || `Choice ${letter}`}</span>
-                                    {choiceImageUrl && <span className="block mt-3 bg-white rounded border border-gray-200 overflow-hidden p-1"><img src={choiceImageUrl} alt={`Variant ${letter}`} className="rounded object-contain max-h-12 w-full bg-white min-h-[24px]" loading="lazy" /></span>}
+                                    {choiceImageUrl && (
+                                      <span className="block mt-3 bg-white rounded border border-gray-200 overflow-hidden p-1">
+                                        <Image
+                                          src={choiceImageUrl}
+                                          alt={`Variant ${letter}`}
+                                          width={160}
+                                          height={48}
+                                          className="rounded object-contain max-h-12 w-full bg-white min-h-[24px]"
+                                          loading="lazy"
+                                        />
+                                      </span>
+                                    )}
                                   </div>
                                 </button>
                                 {isEliminationMode && (
@@ -2681,9 +2742,11 @@ export default function TestTakingPage() {
                       {/* Savol rasmi passage/directions ostida chap ustunda */}
                       {getQuestionImageUrl(question) && (
                         <div className="mt-2 sm:mt-3 md:mt-4 p-2 sm:p-3 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
-                          <img
+                          <Image
                             src={getQuestionImageUrl(question)!}
                             alt="Question"
+                            width={640}
+                            height={180}
                             className="w-full h-auto rounded-lg object-contain max-h-[100px] sm:max-h-[140px] md:max-h-[180px] bg-gray-100"
                             loading="lazy"
                           />
@@ -2739,7 +2802,7 @@ export default function TestTakingPage() {
                               if (isEliminationMode)
                                 setEliminatedChoices(new Set());
                             }}
-                            className={`hidden xl:flex items-center text-sm text-gray-600 hover:text-black mr-2 h-full relative border border-gray-300 rounded w-8 h-8 justify-center bg-transparent ${
+                            className={`flex items-center text-xs sm:text-sm text-gray-600 hover:text-black ml-2 sm:ml-3 h-7 sm:h-8 px-2 rounded-full border border-gray-300 bg-white ${
                               isEliminationMode ? "bg-blue-100" : ""
                             }`}
                           >
@@ -2751,7 +2814,7 @@ export default function TestTakingPage() {
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
-                                className="absolute w-8 h-8 text-gray-500 pointer-events-none"
+                                className="w-4 h-4 text-gray-500 ml-1"
                               >
                                 <path
                                   strokeLinecap="round"
@@ -2857,9 +2920,11 @@ export default function TestTakingPage() {
                                     </span>
                                     {choiceImageUrl && (
                                       <span className="block mt-3 bg-gray-100 rounded border border-gray-200 overflow-hidden p-1">
-                                        <img
+                                        <Image
                                           src={choiceImageUrl}
                                           alt={`Variant ${letter}`}
+                                          width={160}
+                                          height={48}
                                           className="rounded object-contain max-h-12 w-full bg-gray-100 min-h-[24px]"
                                           loading="lazy"
                                         />
@@ -2996,15 +3061,15 @@ export default function TestTakingPage() {
                         </div>
                       </div>
                     )}
-                  <div className="question-index-container flex items-center justify-between bg-gray-200 rounded-lg mb-4 sm:mb-6 py-0.5 sm:py-1 pt-5">
-                    <div className="flex items-center h-full">
-                      <p className="question-index font-semibold bg-black text-white text-xs sm:text-sm h-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-l">
+                  <div className="question-index-container flex items-center justify-between bg-gray-200 rounded-lg mb-4 sm:mb-6 py-1 px-2 sm:px-3">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                      <p className="question-index font-semibold bg-black text-white text-xs sm:text-sm px-2 sm:px-3 py-1 rounded-l rounded-r-none">
                         {testState.currentQuestionIndex + 1}
                       </p>
                       <button
                         type="button"
                         onClick={handleToggleFlag}
-                        className="flex items-center text-xs sm:text-sm text-gray-600 hover:text-black mr-1 sm:mr-2 h-full px-1 sm:px-2"
+                        className="flex items-center text-xs sm:text-sm text-gray-600 hover:text-black"
                       >
                         <Flag
                           className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-500 ${
@@ -3014,6 +3079,39 @@ export default function TestTakingPage() {
                         <span className="ml-0.5 sm:ml-1">Mark for Review</span>
                       </button>
                     </div>
+                    {hasChoiceOptions(question) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsEliminationMode((prev) => !prev);
+                          if (!isEliminationMode) {
+                            setEliminatedChoices(new Set());
+                          }
+                        }}
+                        className={`flex-shrink-0 flex items-center text-[11px] sm:text-xs text-gray-700 hover:text-black h-7 sm:h-8 px-2 rounded-full border border-gray-300 bg-white ${
+                          isEliminationMode ? "bg-blue-100" : ""
+                        }`}
+                      >
+                        <span className="text-[11px] font-medium text-gray-700">
+                          ABC
+                        </span>
+                        {isEliminationMode && (
+                          <svg
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            className="w-3.5 h-3.5 text-gray-500 ml-1"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="1"
+                              d="M18 6L6 18"
+                            />
+                          </svg>
+                        )}
+                      </button>
+                    )}
                   </div>
                   <div className="prose prose-sm sm:prose max-w-none mt-0 mb-3 sm:mb-5 text-xs sm:text-sm">
                     <QuestionDisplay
@@ -3035,6 +3133,7 @@ export default function TestTakingPage() {
                       }
                       isFlagged={isFlagged}
                       hidePassage
+                      showOnlyQuestionText
                       isMarkupEnabled={isMarkupEnabled}
                       attemptId={attemptId}
                       onHighlightsChange={(highlights) => {
@@ -3064,6 +3163,107 @@ export default function TestTakingPage() {
                       }}
                     />
                   </div>
+                  {/* Mobil: variantlar sahifada – ABC ON da bosish line qo‘yadi/oladi */}
+                  {hasChoiceOptions(question) && (
+                    <div className="space-y-2 sm:space-y-3 mb-4">
+                      {(question.choices ?? []).map((choice, index) => {
+                        const isSelected = currentAnswer.choiceId === choice.id;
+                        const letter = String.fromCharCode(65 + index);
+                        const isEliminated = eliminatedChoices.has(choice.id);
+                        const choiceImageUrl = getChoiceImageUrl(choice as Record<string, unknown>);
+                        return (
+                          <div
+                            key={choice.id || index}
+                            className={`relative w-full flex items-stretch rounded-lg border-2 overflow-hidden ${isSelected ? "border-black" : isEliminated ? "border-gray-300" : "border-gray-200"}`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (isEliminationMode) {
+                                  setEliminatedChoices((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(choice.id)) next.delete(choice.id);
+                                    else next.add(choice.id);
+                                    return next;
+                                  });
+                                } else {
+                                  handleAnswerChange({
+                                    choiceId: choice.id,
+                                    textAnswer: currentAnswer.textAnswer,
+                                  });
+                                }
+                              }}
+                              className={`flex-1 min-w-0 p-2 sm:p-3 text-left text-xs sm:text-sm flex items-center gap-2 sm:gap-3 ${isEliminated ? "bg-gray-100 opacity-60" : "hover:bg-gray-200"} cursor-pointer rounded-l-md`}
+                            >
+                              <div
+                                className={`flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full font-bold border border-black text-[10px] sm:text-xs ${
+                                  isSelected ? "bg-black text-white" : "text-black"
+                                }`}
+                              >
+                                <span className="text-xs">{letter}</span>
+                              </div>
+                              <div className={`flex-1 min-w-0 ${isEliminated ? "line-through text-gray-500" : ""}`}>
+                                <span className="block">{getChoiceText(choice) || `Choice ${letter}`}</span>
+                                {choiceImageUrl && (
+                                  <span className="block mt-2 bg-white rounded border border-gray-200 overflow-hidden p-1">
+                                    <Image
+                                      src={choiceImageUrl}
+                                      alt={`Variant ${letter}`}
+                                      width={160}
+                                      height={48}
+                                      className="rounded object-contain max-h-12 w-full bg-white min-h-[24px]"
+                                      loading="lazy"
+                                    />
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                            {isEliminationMode && (
+                              <div className="flex-shrink-0 flex items-center gap-1 pl-1 pr-2 py-2 border-l border-gray-200 bg-gray-50/50 rounded-r-md">
+                                {isEliminated && (
+                                  <button
+                                    type="button"
+                                    className="text-[11px] font-medium text-gray-600 hover:underline whitespace-nowrap"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEliminatedChoices((prev) => {
+                                        const next = new Set(prev);
+                                        next.delete(choice.id);
+                                        return next;
+                                      });
+                                    }}
+                                  >
+                                    Undo
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  className={`flex items-center justify-center w-6 h-6 rounded-full border font-bold text-[10px] cursor-pointer shrink-0 ${
+                                    isEliminated ? "border-gray-400 bg-gray-200 text-gray-500" : "border-gray-300 bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                  }`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEliminatedChoices((prev) => {
+                                      const next = new Set(prev);
+                                      if (next.has(choice.id)) next.delete(choice.id);
+                                      else next.add(choice.id);
+                                      return next;
+                                    });
+                                  }}
+                                  aria-label={isEliminated ? `Undo ${letter}` : `Strike ${letter}`}
+                                >
+                                  {letter}
+                                </button>
+                              </div>
+                            )}
+                            {isEliminated && (
+                              <div className="pointer-events-none absolute left-10 right-14 top-1/2 h-[1.5px] bg-gray-400/80 rounded-full -translate-y-1/2" aria-hidden />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                   {/* Passage va image savol blokidan keyin pastda */}
                   {(question.sharedPassage?.content || question.passage) && (
                     <div className="mt-4 sm:mt-5 p-3 sm:p-4 mb-3 sm:mb-4 bg-white rounded-lg">
@@ -3088,9 +3288,11 @@ export default function TestTakingPage() {
                   )}
                   {getQuestionImageUrl(question) && (
                     <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
-                      <img
+                      <Image
                         src={getQuestionImageUrl(question)!}
                         alt="Savol rasmi"
+                        width={600}
+                        height={140}
                         className="w-full h-auto rounded-lg object-contain max-h-[100px] sm:max-h-[140px] bg-gray-100"
                         loading="lazy"
                       />
@@ -3103,9 +3305,9 @@ export default function TestTakingPage() {
               </div>
             </div>
 
-            {/* Footer – 420px+ responsive, pastda qotib turadi */}
+            {/* Footer – responsive: user left, 1/27 center, Back/Next right */}
             <div
-              className="flex-shrink-0 flex-none min-h-[44px] h-11 sm:h-12 bg-blue-100 flex justify-between items-center px-2 sm:px-3 min-[480px]:px-5 gap-1"
+              className="flex-shrink-0 flex-none min-h-[44px] h-11 sm:h-12 bg-blue-100 flex justify-between items-center px-2 sm:px-3 min-[480px]:px-5 gap-1 flex-wrap sm:flex-nowrap"
               style={{
                 minHeight: 44,
                 maxHeight: 48,
@@ -3115,7 +3317,7 @@ export default function TestTakingPage() {
                   "repeating-linear-gradient(to right, rgb(167, 56, 87) 0%, rgb(167, 56, 87) 3.5%, transparent 3.5%, transparent 4%, rgb(249, 223, 205) 4%, rgb(249, 223, 205) 7.5%, transparent 7.5%, transparent 8%, rgb(28, 17, 103) 8%, rgb(28, 17, 103) 11.5%, transparent 11.5%, transparent 12%, rgb(94, 147, 101) 12%, rgb(94, 147, 101) 15.5%, transparent 15.5%, transparent 16%) 1 / 1 / 0 stretch",
               }}
             >
-              <p className="text-xs sm:text-sm truncate max-w-[70px] min-[420px]:max-w-[100px] sm:max-w-[120px] shrink-0">
+              <p className="text-xs sm:text-sm truncate max-w-[60px] min-[380px]:max-w-[90px] min-[420px]:max-w-[100px] sm:max-w-[120px] shrink-0">
                 {currentUser?.name ||
                   currentUser?.email?.split("@")[0] ||
                   "User"}
@@ -3130,7 +3332,7 @@ export default function TestTakingPage() {
                 onClick={() => setShowNavigator((prev) => !prev)}
               >
                 <p className="text-white text-xs min-[420px]:text-sm truncate">
-                  Q {testState.currentQuestionIndex + 1}/{totalQs}
+                  {testState.currentQuestionIndex + 1}/{totalQs}
                 </p>
                 <button
                   className="p-0.5 min-[420px]:p-1 rounded shrink-0"

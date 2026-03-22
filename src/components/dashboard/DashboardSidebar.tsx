@@ -28,6 +28,8 @@ interface MenuItem {
   href: string;
   badge?: string;
   badgeColor?: "emerald" | "blue" | "amber";
+  /** Tashqi sayt (masalan Classroom) */
+  external?: boolean;
 }
 
 // Only show actually available sections; hide "not allowed"/coming-soon items
@@ -41,6 +43,12 @@ const menuItems: MenuItem[] = [
     label: "Practice",
     icon: <BookOpen className="h-5 w-5" />,
     href: "/dashboard/practice",
+  },
+  {
+    label: "Classroom",
+    icon: <BookText className="h-5 w-5" />,
+    href: "https://my-math-academy.com/classroom/",
+    external: true,
   },
 ];
 
@@ -174,66 +182,85 @@ export function DashboardSidebar() {
             )}
             <nav className="space-y-1">
               {menuItems.map((item) => {
-                const isActive = pathname === item.href;
+                const isActive = !item.external && pathname === item.href;
+                const linkClassName = cn(
+                  "flex items-center rounded-xl text-sm font-medium transition-all duration-200 group relative border-r-0 after:content-none after:!hidden",
+                  isCollapsed
+                    ? "justify-center px-2 py-3"
+                    : "justify-between px-4 py-3",
+                  isActive
+                    ? "bg-brand-blue text-white shadow-md"
+                    : "text-brand-blue hover:bg-brand-blue-50 hover:text-brand-blue",
+                );
+                const inner = (
+                  <>
+                    <div className="flex items-center gap-3 relative z-10">
+                      <div
+                        className={cn(
+                          "transition-colors duration-200",
+                          isActive
+                            ? "text-white"
+                            : "text-brand-blue/70 group-hover:text-brand-blue",
+                        )}
+                      >
+                        {item.icon}
+                      </div>
+                      {!isCollapsed && <span>{item.label}</span>}
+                    </div>
+                    {!isCollapsed && item.badge && (
+                      <span
+                        className={cn(
+                          "text-xs px-2.5 py-1 rounded-full font-semibold relative z-10",
+                          item.badgeColor === "emerald"
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                            : item.badgeColor === "blue"
+                              ? "bg-blue-50 text-blue-700 border border-blue-200"
+                              : "bg-amber-50 text-amber-700 border border-amber-200",
+                        )}
+                      >
+                        {item.badge}
+                      </span>
+                    )}
+                    {isCollapsed && item.badge && (
+                      <span
+                        className={cn(
+                          "absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full",
+                          item.badgeColor === "emerald"
+                            ? "bg-emerald-500"
+                            : item.badgeColor === "blue"
+                              ? "bg-blue-500"
+                              : "bg-amber-500",
+                        )}
+                      />
+                    )}
+                  </>
+                );
                 return (
                   <div
                     key={item.href}
                     className="relative group/item [&>*]:after:!content-none [&>*]:after:!hidden"
                   >
-                    <Link
-                      href={item.href}
-                      onClick={() => setIsMobileMenuOpen(false)}
-                      className={cn(
-                        "flex items-center rounded-xl text-sm font-medium transition-all duration-200 group relative border-r-0 after:content-none after:!hidden",
-                        isCollapsed
-                          ? "justify-center px-2 py-3"
-                          : "justify-between px-4 py-3",
-                        isActive
-                          ? "bg-brand-blue text-white shadow-md"
-                          : "text-brand-blue hover:bg-brand-blue-50 hover:text-brand-blue",
-                      )}
-                      title={isCollapsed ? item.label : undefined}
-                    >
-                      <div className="flex items-center gap-3 relative z-10">
-                        <div
-                          className={cn(
-                            "transition-colors duration-200",
-                            isActive
-                              ? "text-white"
-                              : "text-brand-blue/70 group-hover:text-brand-blue",
-                          )}
-                        >
-                          {item.icon}
-                        </div>
-                        {!isCollapsed && <span>{item.label}</span>}
-                      </div>
-                      {!isCollapsed && item.badge && (
-                        <span
-                          className={cn(
-                            "text-xs px-2.5 py-1 rounded-full font-semibold relative z-10",
-                            item.badgeColor === "emerald"
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                              : item.badgeColor === "blue"
-                                ? "bg-blue-50 text-blue-700 border border-blue-200"
-                                : "bg-amber-50 text-amber-700 border border-amber-200",
-                          )}
-                        >
-                          {item.badge}
-                        </span>
-                      )}
-                      {isCollapsed && item.badge && (
-                        <span
-                          className={cn(
-                            "absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full",
-                            item.badgeColor === "emerald"
-                              ? "bg-emerald-500"
-                              : item.badgeColor === "blue"
-                                ? "bg-blue-500"
-                                : "bg-amber-500",
-                          )}
-                        />
-                      )}
-                    </Link>
+                    {item.external ? (
+                      <a
+                        href={item.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className={linkClassName}
+                        title={isCollapsed ? item.label : undefined}
+                      >
+                        {inner}
+                      </a>
+                    ) : (
+                      <Link
+                        href={item.href}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className={linkClassName}
+                        title={isCollapsed ? item.label : undefined}
+                      >
+                        {inner}
+                      </Link>
+                    )}
                   </div>
                 );
               })}

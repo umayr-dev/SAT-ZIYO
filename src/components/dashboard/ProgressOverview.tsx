@@ -261,40 +261,40 @@ export function ProgressOverview() {
   return (
     <div className="space-y-6">
       {/* Progress stats from API: last score, tests completed, accuracy — orange theme */}
-      <Card className="border border-brand-orange-light shadow-sm bg-white overflow-hidden rounded-2xl">
-        <CardHeader className="pb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-14 h-14 bg-brand-orange rounded-2xl flex items-center justify-center shadow-sm">
-              <Award className="h-7 w-7 text-white" />
+      <Card className="border border-brand-orange-light shadow-sm bg-white overflow-hidden rounded-xl sm:rounded-2xl">
+        <CardHeader className="pb-3 sm:pb-4 px-3 sm:px-6 pt-3 sm:pt-6">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-10 h-10 sm:w-14 sm:h-14 bg-brand-orange rounded-xl sm:rounded-2xl flex items-center justify-center shadow-sm flex-shrink-0">
+              <Award className="h-5 w-5 sm:h-7 sm:w-7 text-white" />
             </div>
-            <div>
-              <CardTitle className="text-xl font-bold text-brand-orange">
+            <div className="min-w-0">
+              <CardTitle className="text-base sm:text-xl font-bold text-brand-orange">
                 Your Progress
               </CardTitle>
-              <p className="text-sm text-black mt-0.5">
+              <p className="text-xs sm:text-sm text-black mt-0.5">
                 Real stats from your practice
               </p>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-3 sm:px-6 pb-4 sm:pb-6">
           {isLoadingProgress ? (
-            <div className="text-center py-6">
-              <p className="text-sm text-brand-orange/70">
+            <div className="text-center py-4 sm:py-6">
+              <p className="text-xs sm:text-sm text-brand-orange/70">
                 Loading progress...
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
               {/* Last score */}
-              <div className="p-4 bg-white border border-brand-blue-light rounded-xl">
+              <div className="p-3 sm:p-4 bg-white border border-brand-blue-light rounded-lg sm:rounded-xl">
                 <div className="flex items-center gap-2 mb-2">
                   <TrendingUp className="h-4 w-4 text-brand-blue/70" />
-                  <span className="text-sm text-black">
+                  <span className="text-xs sm:text-sm text-black">
                     Latest score
                   </span>
                 </div>
-                <p className="text-2xl font-bold text-brand-blue">
+                <p className="text-xl sm:text-2xl font-bold text-brand-blue">
                   {progressStats?.lastScore != null
                     ? progressStats.lastScore
                     : "—"}
@@ -304,24 +304,24 @@ export function ProgressOverview() {
                 </p>
               </div>
               {/* Completed tests */}
-              <div className="p-4 bg-white border border-brand-blue-light rounded-xl">
+              <div className="p-3 sm:p-4 bg-white border border-brand-blue-light rounded-lg sm:rounded-xl">
                 <div className="flex items-center gap-2 mb-2">
                   <ClipboardCheck className="h-4 w-4 text-brand-blue/80" />
-                  <span className="text-sm text-black">
+                  <span className="text-xs sm:text-sm text-black">
                     Completed tests
                   </span>
                 </div>
-                <p className="text-2xl font-bold text-brand-blue">
+                <p className="text-xl sm:text-2xl font-bold text-brand-blue">
                   {progressStats?.testsCompleted ?? 0}
                 </p>
               </div>
               {/* Accuracy */}
-              <div className="p-4 bg-white border border-brand-blue-light rounded-xl">
+              <div className="p-3 sm:p-4 bg-white border border-brand-blue-light rounded-lg sm:rounded-xl">
                 <div className="flex items-center gap-2 mb-2">
                   <Percent className="h-4 w-4 text-brand-blue/70" />
-                  <span className="text-sm text-black">Accuracy</span>
+                  <span className="text-xs sm:text-sm text-black">Accuracy</span>
                 </div>
-                <p className="text-2xl font-bold text-brand-blue">
+                <p className="text-xl sm:text-2xl font-bold text-brand-blue">
                   {progressStats?.accuracy != null
                     ? `${progressStats.accuracy}%`
                     : "—"}

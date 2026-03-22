@@ -6,6 +6,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
 
+const CLASSROOM_URL = "https://my-math-academy.com/classroom/";
+
 const NAV_LINKS = [
   { id: "results", label: "Results" },
   { id: "why-us", label: "About us" },
@@ -89,6 +91,14 @@ export default function Header() {
                 </a>
               );
             })}
+            <a
+              href={CLASSROOM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors whitespace-nowrap"
+            >
+              Classroom
+            </a>
           </div>
 
           {/* Right – Sign In + CTA like "Enroll for a class" */}
@@ -145,6 +155,15 @@ export default function Header() {
                   </a>
                 );
               })}
+              <a
+                href={CLASSROOM_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setMobileOpen(false)}
+                className="px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg"
+              >
+                Classroom
+              </a>
               <Link
                 href="/auth/login"
                 onClick={() => setMobileOpen(false)}
