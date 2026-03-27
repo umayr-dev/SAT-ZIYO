@@ -17,9 +17,11 @@ import {
   Shield,
   Check,
   LogOut,
-  ArrowRight,
   Edit,
   Mail,
+  CalendarDays,
+  AlertTriangle,
+  Sparkles,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/src/ui/card";
 import { Button } from "@/src/ui/button";
@@ -50,7 +52,12 @@ export function SettingsPageClient() {
   const [isEditingEmail, setIsEditingEmail] = useState(false);
   const [tempName, setTempName] = useState("");
   const [tempEmail, setTempEmail] = useState("");
+  const [billingLoading, setBillingLoading] = useState(true);
+  const [monthlyCompleted, setMonthlyCompleted] = useState(0);
+  const [isSubscriptionActive, setIsSubscriptionActive] = useState(false);
+  const [subscriptionEndDate, setSubscriptionEndDate] = useState<Date | null>(null);
   const logoutMutation = useLogout();
+  const FREE_MONTHLY_LIMIT = 8;
 
   useEffect(() => {
     async function fetchUser() {
@@ -67,6 +74,139 @@ export function SettingsPageClient() {
 
     fetchUser();
   }, [router]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadBillingState() {
+      try {
+        setBillingLoading(true);
+        const [meRes, attemptsRes] = await Promise.all([
+          fetch("/api/auth/me", { credentials: "include" }),
+          fetch("/api/practice/my-attempts", { credentials: "include" }),
+        ]);
+
+        let active = false;
+        let endDate: Date | null = null;
+
+        if (meRes.ok) {
+          const meRaw = (await meRes.json()) as Record<string, unknown>;
+          const me = ((
+            meRaw?.data as Record<string, unknown> | undefined
+          )?.user ??
+            (meRaw?.data as Record<string, unknown> | undefined) ??
+            (meRaw?.user as Record<string, unknown> | undefined) ??
+            meRaw) as Record<string, unknown>;
+
+          const subscriptionsArr = Array.isArray(me.subscriptions)
+            ? (me.subscriptions as Array<Record<string, unknown>>)
+            : [];
+          const subscriptionObj =
+            ((me.subscription as Record<string, unknown> | null) ??
+              subscriptionsArr.find(
+                (s) => String(s?.status ?? "").toUpperCase() === "ACTIVE",
+              ) ??
+              subscriptionsArr[0] ??
+              null) as
+              | { status?: string; expiresAt?: string; expires_at?: string }
+              | null;
+
+          const status = (
+            me.subscriptionStatus ??
+            me.subscription_status ??
+            subscriptionObj?.status
+          ) as string | undefined;
+          const plan = (me.plan ?? me.subscriptionPlan ?? me.planType) as
+            | string
+            | undefined;
+          const premiumFlag = (me.isPremium ?? me.premium ?? me.hasPremiumAccess) as
+            | boolean
+            | undefined;
+          const rawEnd =
+            (me.subscriptionEndsAt ??
+              me.subscription_end_at ??
+              me.subscriptionEndDate ??
+              me.subscription_expires_at ??
+              me.premiumExpiresAt ??
+              me.premium_expires_at ??
+              subscriptionObj?.expiresAt ??
+              subscriptionObj?.expires_at) as string | undefined;
+
+          if (rawEnd) {
+            const parsed = new Date(rawEnd);
+            if (!Number.isNaN(parsed.getTime())) endDate = parsed;
+          }
+
+          const statusActive =
+            typeof status === "string" && status.toUpperCase() === "ACTIVE";
+          const planActive =
+            typeof plan === "string" && plan.toUpperCase() === "PREMIUM";
+          const dateActive = !!endDate && endDate.getTime() > Date.now();
+          active = Boolean(premiumFlag || statusActive || planActive || dateActive);
+        }
+
+        let completedThisMonth = 0;
+        if (attemptsRes.ok) {
+          const rawAttempts = await attemptsRes.json();
+          const attempts = Array.isArray(rawAttempts)
+            ? rawAttempts
+            : Array.isArray(rawAttempts?.data)
+              ? rawAttempts.data
+              : Array.isArray(rawAttempts?.attempts)
+                ? rawAttempts.attempts
+                : [];
+          const now = new Date();
+          const month = now.getMonth();
+          const year = now.getFullYear();
+          completedThisMonth = attempts.filter((a: any) => {
+            const status = String(a?.status ?? "").toUpperCase();
+            if (status !== "COMPLETED") return false;
+            const rawDate =
+              a?.completedAt ?? a?.completed_at ?? a?.startedAt ?? a?.started_at;
+            if (!rawDate) return false;
+            const d = new Date(rawDate);
+            return (
+              !Number.isNaN(d.getTime()) &&
+              d.getMonth() === month &&
+              d.getFullYear() === year
+            );
+          }).length;
+        }
+
+        if (!cancelled) {
+          setIsSubscriptionActive(active);
+          setSubscriptionEndDate(endDate);
+          setMonthlyCompleted(completedThisMonth);
+        }
+      } finally {
+        if (!cancelled) setBillingLoading(false);
+      }
+    }
+
+    loadBillingState();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleStartPayment = async () => {
+    try {
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("payme_payment_started", "1");
+      }
+      const res = await fetch("/api/payme/create-subscription", {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.redirectUrl) {
+        alert(data?.message || "Could not start payment");
+        return;
+      }
+      window.location.href = data.redirectUrl as string;
+    } catch {
+      alert("Payment initialization failed");
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -120,6 +260,20 @@ export function SettingsPageClient() {
     .join("")
     .toUpperCase()
     .slice(0, 2);
+  const freeRemaining = Math.max(0, FREE_MONTHLY_LIMIT - monthlyCompleted);
+  const isExpired =
+    !isSubscriptionActive &&
+    !!subscriptionEndDate &&
+    subscriptionEndDate.getTime() <= Date.now();
+  const statusLabel = billingLoading
+    ? "Checking..."
+    : isSubscriptionActive
+      ? "Premium active"
+      : isExpired
+        ? "Expired"
+        : freeRemaining <= 0
+          ? "Limit reached"
+          : "Free plan";
 
   return (
     <div className="min-h-screen bg-white ">
@@ -384,14 +538,51 @@ export function SettingsPageClient() {
                     </p>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-center py-8">
-                      <p className="text-gray-600 mb-4">
-                        You don&apos;t have an active subscription.
-                      </p>
-                      <Button className="bg-blue-900 hover:bg-blue-800 text-white">
-                        <ArrowRight className="h-4 w-4 mr-2" />
-                        Upgrade Now
-                      </Button>
+                    <div className="space-y-4">
+                      <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-semibold text-blue-900">Current plan</p>
+                          <span className="text-xs px-2 py-1 rounded-full bg-white border border-blue-200 text-blue-800 font-semibold">
+                            {statusLabel}
+                          </span>
+                        </div>
+                        <div className="mt-2 text-sm text-blue-900">
+                          {isSubscriptionActive ? "Premium" : "Free"}
+                        </div>
+                        <div className="mt-1 text-xs text-blue-800 flex items-center gap-1.5">
+                          <CalendarDays className="h-3.5 w-3.5" />
+                          {subscriptionEndDate
+                            ? `Valid until ${subscriptionEndDate.toLocaleDateString()}`
+                            : "No active subscription end date"}
+                        </div>
+                        {!isSubscriptionActive && (
+                          <p className="mt-2 text-xs text-blue-800">
+                            {freeRemaining} free tests left this month ({monthlyCompleted}/{FREE_MONTHLY_LIMIT} used)
+                          </p>
+                        )}
+                        {!isSubscriptionActive && isExpired && (
+                          <p className="mt-2 text-xs text-amber-700 flex items-center gap-1.5">
+                            <AlertTriangle className="h-3.5 w-3.5" />
+                            Subscription expired. Renew to restore full access.
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          onClick={handleStartPayment}
+                          className="bg-blue-900 hover:bg-blue-800 text-white"
+                        >
+                          <Sparkles className="h-4 w-4 mr-2" />
+                          {isSubscriptionActive ? "Renew Premium" : "Upgrade to Premium"}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => router.push("/dashboard/practice")}
+                        >
+                          Go to Practice
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

@@ -13,6 +13,8 @@ import {
   CreditCard,
   AlertTriangle,
   ChevronRight,
+  Sparkles,
+  CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/src/ui/card";
@@ -66,6 +68,7 @@ export function DashboardSidebar() {
   const [monthlyCompleted, setMonthlyCompleted] = useState(0);
   const [isSubscriptionActive, setIsSubscriptionActive] = useState(false);
   const [subscriptionEndDate, setSubscriptionEndDate] = useState<Date | null>(null);
+  const [showCongrats, setShowCongrats] = useState(false);
   const FREE_MONTHLY_LIMIT = 8;
 
   const toggleSidebar = () => {
@@ -86,8 +89,31 @@ export function DashboardSidebar() {
         let endDate: Date | null = null;
 
         if (meRes.ok) {
-          const me = (await meRes.json()) as Record<string, unknown>;
-          const status = (me.subscriptionStatus ?? me.subscription_status ?? me.subscription) as
+          const meRaw = (await meRes.json()) as Record<string, unknown>;
+          const me = ((
+            meRaw?.data as Record<string, unknown> | undefined
+          )?.user ??
+            (meRaw?.data as Record<string, unknown> | undefined) ??
+            (meRaw?.user as Record<string, unknown> | undefined) ??
+            meRaw) as Record<string, unknown>;
+          const subscriptionsArr = Array.isArray(me.subscriptions)
+            ? (me.subscriptions as Array<Record<string, unknown>>)
+            : [];
+          const subscriptionObj =
+            ((me.subscription as Record<string, unknown> | null) ??
+              subscriptionsArr.find(
+                (s) => String(s?.status ?? "").toUpperCase() === "ACTIVE",
+              ) ??
+              subscriptionsArr[0] ??
+              null) as
+              | { status?: string; expiresAt?: string; expires_at?: string }
+              | null;
+          const status = (
+            me.subscriptionStatus ??
+            me.subscription_status ??
+            subscriptionObj?.status
+          ) as string | undefined;
+          const plan = (me.plan ?? me.subscriptionPlan ?? me.planType) as
             | string
             | undefined;
           const premiumFlag = (me.isPremium ?? me.premium ?? me.hasPremiumAccess) as
@@ -99,7 +125,9 @@ export function DashboardSidebar() {
               me.subscriptionEndDate ??
               me.subscription_expires_at ??
               me.premiumExpiresAt ??
-              me.premium_expires_at) as string | undefined;
+              me.premium_expires_at ??
+              subscriptionObj?.expiresAt ??
+              subscriptionObj?.expires_at) as string | undefined;
 
           if (rawEnd) {
             const parsed = new Date(rawEnd);
@@ -108,8 +136,10 @@ export function DashboardSidebar() {
 
           const statusActive =
             typeof status === "string" && status.toUpperCase() === "ACTIVE";
+          const planActive =
+            typeof plan === "string" && plan.toUpperCase() === "PREMIUM";
           const dateActive = !!endDate && endDate.getTime() > Date.now();
-          active = Boolean(premiumFlag || statusActive || dateActive);
+          active = Boolean(premiumFlag || statusActive || planActive || dateActive);
         }
 
         let completedThisMonth = 0;
@@ -139,6 +169,16 @@ export function DashboardSidebar() {
           setIsSubscriptionActive(active);
           setSubscriptionEndDate(endDate);
           setMonthlyCompleted(completedThisMonth);
+          const paymentStarted =
+            typeof window !== "undefined" &&
+            sessionStorage.getItem("payme_payment_started") === "1";
+          if (paymentStarted && active) {
+            setShowCongrats(true);
+            sessionStorage.removeItem("payme_payment_started");
+            window.setTimeout(() => {
+              setShowCongrats(false);
+            }, 4500);
+          }
         }
       } catch {
         if (!cancelled) {
@@ -168,9 +208,17 @@ export function DashboardSidebar() {
     if (freeRemaining <= 0) return "Limit reached";
     return "Free plan";
   }, [billingLoading, isSubscriptionActive, isExpired, freeRemaining]);
+  const planLabel = isSubscriptionActive ? "Premium" : "Free";
+  const formattedEndDate =
+    subscriptionEndDate && !Number.isNaN(subscriptionEndDate.getTime())
+      ? subscriptionEndDate.toLocaleDateString()
+      : null;
 
   const handleStartPayment = async () => {
     try {
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("payme_payment_started", "1");
+      }
       const res = await fetch("/api/payme/create-subscription", {
         method: "POST",
         credentials: "include",
@@ -188,6 +236,19 @@ export function DashboardSidebar() {
 
   return (
     <>
+      {showCongrats && (
+        <div className="fixed top-4 right-4 z-[90] animate-in fade-in zoom-in-95 duration-300">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-900 shadow-lg px-4 py-3 flex items-start gap-2 max-w-xs">
+            <Sparkles className="h-4 w-4 mt-0.5 text-emerald-600 animate-pulse" />
+            <div>
+              <p className="text-sm font-semibold">Congratulations!</p>
+              <p className="text-xs mt-0.5">
+                Premium activated successfully. Enjoy all features.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Mobile Menu Button */}
       <button
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -384,61 +445,122 @@ export function DashboardSidebar() {
           {/* Account Limit / Subscription Card */}
           {!isCollapsed && (
             <div className="px-4 pb-4">
-              <Card className="bg-brand-blue-50 border border-brand-blue-light overflow-hidden relative">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="p-2 bg-brand-blue/60 rounded-lg">
-                      <CreditCard className="h-4 w-4 text-white" />
+              <Card className="overflow-hidden relative shadow-sm border border-brand-blue/20 bg-white">
+                <CardContent className="p-0">
+                  <div className="px-4 py-3 bg-gradient-to-r from-brand-blue/10 to-indigo-100/70 border-b border-brand-blue/15">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 bg-brand-blue rounded-lg shadow-sm">
+                        <CreditCard className="h-4 w-4 text-white" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-brand-blue leading-tight">
+                          {isSubscriptionActive ? "Premium Plan" : "Account Limit"}
+                        </p>
+                        <p className="text-[11px] text-brand-blue/70 leading-tight">
+                          {isSubscriptionActive
+                            ? "Full access enabled"
+                            : "Monthly free test usage"}
+                        </p>
+                      </div>
+                      <span className="ml-auto text-[11px] px-2.5 py-1 bg-white text-brand-blue rounded-full font-semibold border border-brand-blue/20">
+                        {statusLabel}
+                      </span>
                     </div>
-                    <span className="text-sm font-semibold text-brand-blue/90">
-                      Account Limit
-                    </span>
-                    <span className="ml-auto text-xs px-2 py-1 bg-brand-blue-50 text-brand-blue/80 rounded-full font-medium border border-brand-blue/20">
-                      {statusLabel}
-                    </span>
                   </div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-2xl font-bold text-brand-blue/70">
-                      {billingLoading ? "…" : Math.min(monthlyCompleted, FREE_MONTHLY_LIMIT)}
-                    </span>
-                    <ChevronRight className="h-4 w-4 text-brand-blue/70" />
-                    <span className="text-2xl font-bold text-brand-blue/70">{FREE_MONTHLY_LIMIT}</span>
+
+                  <div className="p-4 space-y-3">
+                    {!isSubscriptionActive ? (
+                      <>
+                        <div className="flex items-end justify-between">
+                          <div>
+                            <p className="text-[11px] uppercase tracking-wide text-brand-blue/70 font-semibold">
+                              Used this month
+                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-2xl font-bold text-brand-blue">
+                                {billingLoading
+                                  ? "…"
+                                  : Math.min(monthlyCompleted, FREE_MONTHLY_LIMIT)}
+                              </span>
+                              <ChevronRight className="h-4 w-4 text-brand-blue/50" />
+                              <span className="text-xl font-semibold text-brand-blue/70">
+                                {FREE_MONTHLY_LIMIT}
+                              </span>
+                            </div>
+                          </div>
+                          <span className="text-[11px] font-semibold px-2 py-1 rounded-full bg-brand-blue/10 text-brand-blue">
+                            Free
+                          </span>
+                        </div>
+
+                        <div className="h-2 w-full rounded-full bg-brand-blue/10 overflow-hidden">
+                          <div
+                            className="h-full bg-brand-blue transition-all duration-300"
+                            style={{
+                              width: `${Math.min(
+                                100,
+                                (Math.min(monthlyCompleted, FREE_MONTHLY_LIMIT) /
+                                  FREE_MONTHLY_LIMIT) *
+                                  100,
+                              )}%`,
+                            }}
+                          />
+                        </div>
+
+                        <p className="text-xs text-brand-blue/80">
+                          {freeRemaining} free tests left this month
+                        </p>
+                      </>
+                    ) : (
+                      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                        <p className="text-sm font-semibold text-emerald-800">
+                          Premium is active
+                        </p>
+                        {formattedEndDate && (
+                          <p className="mt-1 text-xs text-emerald-700 flex items-center gap-1.5">
+                            <CalendarDays className="h-3.5 w-3.5" />
+                            Valid until {formattedEndDate}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {!isSubscriptionActive && isExpired && (
+                      <div className="text-[11px] text-amber-700 flex items-center gap-1">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        Subscription expired. Premium features are restricted.
+                      </div>
+                    )}
+
+                    <Link
+                      href="/settings"
+                      className="inline-flex text-[11px] font-medium text-brand-blue hover:underline"
+                    >
+                      Manage subscription
+                    </Link>
                   </div>
-                  <div className="text-xs text-brand-blue/80">
-                    {isSubscriptionActive
-                      ? "Premium unlocked. All features are available."
-                      : `${freeRemaining} free tests left this month`}
-                  </div>
-                  {!isSubscriptionActive && isExpired && (
-                    <div className="mt-2 text-[11px] text-amber-700 flex items-center gap-1">
-                      <AlertTriangle className="h-3.5 w-3.5" />
-                      Subscription expired. Premium features are restricted.
-                    </div>
-                  )}
-                  {!isSubscriptionActive && freeRemaining <= 0 && (
-                    <div className="mt-2">
-                      <Button
-                        onClick={handleStartPayment}
-                        className="w-full h-8 text-xs bg-brand-blue hover:bg-brand-blue/90 text-white"
-                      >
-                        Activate Premium (Payme)
-                      </Button>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             </div>
           )}
 
-          {/* Secondary upgrade button */}
-          {!isCollapsed && !isSubscriptionActive && (
+          {/* Secondary CTA button */}
+          {!isCollapsed && (
             <div className="px-4 pb-4">
-              <Button
-                onClick={handleStartPayment}
-                className="w-full bg-brand-blue/20 text-brand-blue font-semibold rounded-xl hover:bg-brand-blue/30"
-              >
-                Upgrade to Pro
-              </Button>
+              {isSubscriptionActive ? (
+                <Link href="/settings">
+                  <Button className="w-full bg-brand-blue text-white font-semibold rounded-xl hover:bg-brand-blue/90 shadow-sm h-10">
+                    Manage plan
+                  </Button>
+                </Link>
+              ) : (
+                <Button
+                  onClick={handleStartPayment}
+                  className="w-full bg-brand-blue text-white font-semibold rounded-xl hover:bg-brand-blue/90 shadow-sm h-10"
+                >
+                  Upgrade to Pro
+                </Button>
+              )}
             </div>
           )}
         </div>

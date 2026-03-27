@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "@/src/ui/card";
 import { Button } from "@/src/ui/button";
 import { Input } from "@/src/ui/input";
@@ -18,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { useCurrentUser } from "@/src/hooks/use-auth";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Dialog,
   DialogContent,
@@ -31,14 +31,31 @@ interface User {
   email: string;
   name?: string;
   role?: string;
+  isActive?: boolean;
   createdAt?: string;
   targetScore?: number;
   examDate?: string | null;
   isPremium?: boolean;
+  plan?: "free" | "premium" | string;
+  subscription?: {
+    id?: string;
+    status?: string;
+    startedAt?: string;
+    expiresAt?: string;
+  } | null;
+  _count?: {
+    attempts?: number;
+  };
+  hasUnlimitedTests?: boolean;
+  hasAdvancedAnalytics?: boolean;
+  hasDetailedExplanations?: boolean;
+  hasPrioritySupport?: boolean;
+  hasMobileAppAccess?: boolean;
 }
 
 export default function UsersPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: currentUser } = useCurrentUser();
   const [mounted, setMounted] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
@@ -61,18 +78,50 @@ export default function UsersPage() {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
   const USERS_PER_PAGE = 10;
+  const normalizedSearch = searchQuery.trim();
+  const hasHydratedRef = useRef(false);
+  const initialNormalizedSearchRef = useRef(normalizedSearch);
+  const initialRoleFilterRef = useRef(roleFilter);
+
+  const pageFromUrl = useMemo(() => {
+    const raw = searchParams.get("page");
+    const n = raw ? Number(raw) : 1;
+    if (!Number.isFinite(n)) return 1;
+    return Math.max(1, Math.floor(n));
+  }, [searchParams]);
+
+  const setPageAndUrl = useCallback(
+    (page: number) => {
+      const safePage = Math.max(1, Math.floor(page));
+      setCurrentPage(safePage);
+      router.replace(`?page=${safePage}`);
+    },
+    [router],
+  );
 
   useEffect(() => {
     setMounted(true);
-    fetchUsers();
   }, []);
 
-  async function fetchUsers(page: number = 1) {
+  const fetchUsers = useCallback(async (page: number) => {
     try {
       setLoading(true);
       setError("");
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(USERS_PER_PAGE),
+        sortBy:
+          sortBy === "date"
+            ? "createdAt"
+            : sortBy === "name"
+              ? "name"
+              : "email",
+        sortOrder,
+      });
+      if (roleFilter !== "all") params.set("role", roleFilter);
+      if (normalizedSearch) params.set("search", normalizedSearch);
       const response = await fetch(
-        `/api/admin/users?page=${page}&limit=${USERS_PER_PAGE}`,
+        `/api/admin/users?${params.toString()}`,
         {
           credentials: "include",
         },
@@ -82,13 +131,18 @@ export default function UsersPage() {
         const data = await response.json();
         const usersArray = Array.isArray(data?.data) ? data.data : [];
         console.log(
-          `[Users Page] Fetched ${usersArray.length} users (page ${data?.meta?.page ?? "?"}/${
-            data?.meta?.totalPages ?? "?"
-          })`,
+          `[Users Page] Fetched ${usersArray.length} users (page ${data?.meta?.page ?? page})`,
         );
         setUsers(usersArray);
-        setBackendMeta(data?.meta ?? null);
-        if (usersArray.length === 0) {
+        setBackendMeta(
+          data?.meta ?? {
+            total: usersArray.length,
+            page,
+            limit: USERS_PER_PAGE,
+            totalPages: 1,
+          },
+        );
+        if (usersArray.length === 0 && !normalizedSearch && roleFilter === "all") {
           setError("No users found in the database");
         }
       } else {
@@ -111,7 +165,39 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [USERS_PER_PAGE, sortBy, sortOrder, roleFilter, normalizedSearch]);
+
+  useEffect(() => {
+    if (!mounted || !hasHydratedRef.current) return;
+    const timeout = setTimeout(() => {
+      fetchUsers(currentPage);
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [mounted, currentPage, fetchUsers]);
+
+  // URL'dagi `?page=` qiymatini state'ga sync qilamiz.
+  // Muhim: bu yerda router.replace qilmaymiz, aks holda pagination click → URL o'zgarishi → yana setPageAndUrl → sikl bo'lib qoladi.
+  useEffect(() => {
+    if (!hasHydratedRef.current) {
+      setCurrentPage(pageFromUrl);
+      hasHydratedRef.current = true;
+      return;
+    }
+    setCurrentPage((prev) => (prev === pageFromUrl ? prev : pageFromUrl));
+  }, [pageFromUrl]);
+
+  // Filter/search o'zgarganda har doim 1-betga qaytamiz.
+  useEffect(() => {
+    if (!hasHydratedRef.current) return;
+    // Mount/Reload paytida initial qiymatlar o'zgarmagan bo'lsa, page'ni 1 ga majburlamaymiz.
+    if (
+      normalizedSearch === initialNormalizedSearchRef.current &&
+      roleFilter === initialRoleFilterRef.current
+    ) {
+      return;
+    }
+    setPageAndUrl(1);
+  }, [normalizedSearch, roleFilter, setPageAndUrl]);
 
   async function updateUser(
     userId: string,
@@ -212,58 +298,15 @@ export default function UsersPage() {
     });
   };
 
-  // Filter and sort users (client-side) using the current page's data
-  let filteredUsers = users.filter((user) => {
-    // Search filter
-    const query = searchQuery.toLowerCase();
-    const matchesSearch =
-      !searchQuery ||
-      user.email?.toLowerCase().includes(query) ||
-      user.name?.toLowerCase().includes(query);
-
-    // Role filter
-    const matchesRole =
-      roleFilter === "all" ||
-      user.role?.toUpperCase() === roleFilter.toUpperCase();
-
-    return matchesSearch && matchesRole;
-  });
-
-  // Sort users
-  filteredUsers = [...filteredUsers].sort((a, b) => {
-    let aValue: string | number = "";
-    let bValue: string | number = "";
-
-    switch (sortBy) {
-      case "name":
-        aValue = (a.name || a.email || "").toLowerCase();
-        bValue = (b.name || b.email || "").toLowerCase();
-        break;
-      case "email":
-        aValue = (a.email || "").toLowerCase();
-        bValue = (b.email || "").toLowerCase();
-        break;
-      case "date":
-        aValue = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        bValue = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        break;
-    }
-
-    if (sortOrder === "asc") {
-      return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-    } else {
-      return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
-    }
-  });
-
-  // Backend-driven pagination: total pages from API meta
-  const totalPages = backendMeta?.totalPages ?? 1;
-  const paginatedUsers = filteredUsers;
+  const totalPages = Math.max(1, backendMeta?.totalPages ?? 1);
+  const paginatedUsers = users;
 
   // Get unique roles from database
   const availableRoles = Array.from(
     new Set(
-      users.map((user) => user.role).filter((role): role is string => !!role),
+      ["STUDENT", "ADMIN", "OWNER", ...users.map((user) => user.role || "")].filter(
+        (role): role is string => !!role,
+      ),
     ),
   ).sort();
 
@@ -355,11 +398,11 @@ export default function UsersPage() {
         </div>
       ) : (
         <>
-          {filteredUsers.length === 0 ? (
+          {paginatedUsers.length === 0 ? (
             <Card className="p-8 text-center">
               <p className="text-gray-600">
-                {searchQuery
-                  ? "No users found matching your search"
+                {normalizedSearch || roleFilter !== "all"
+                  ? "No users found for selected filters"
                   : "No users found"}
               </p>
             </Card>
@@ -376,10 +419,10 @@ export default function UsersPage() {
                         Role
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
+                        Plan
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Features
+                        Subscription
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Joined
@@ -444,19 +487,23 @@ export default function UsersPage() {
                               )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              {user.isPremium ? (
-                                <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-700">
-                                  Premium
-                                </span>
-                              ) : (
-                                <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-700">
-                                  Free
-                                </span>
-                              )}
+                              <span
+                                className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                  (user.plan ||
+                                    (user.isPremium ? "premium" : "free")
+                                  ).toLowerCase() === "premium"
+                                    ? "bg-orange-100 text-orange-700"
+                                    : "bg-gray-100 text-gray-700"
+                                }`}
+                              >
+                                {(
+                                  user.plan || (user.isPremium ? "premium" : "free")
+                                ).toUpperCase()}
+                              </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm text-gray-500">
-                                {features.length} active
+                                {user.subscription?.status || "NONE"}
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -540,6 +587,45 @@ export default function UsersPage() {
                                       </div>
                                       <div>
                                         <span className="text-gray-500">
+                                          Plan:
+                                        </span>{" "}
+                                        <span className="text-gray-900">
+                                          {(
+                                            user.plan ||
+                                            (user.isPremium ? "premium" : "free")
+                                          ).toUpperCase()}
+                                        </span>
+                                      </div>
+                                      <div>
+                                        <span className="text-gray-500">
+                                          Subscription:
+                                        </span>{" "}
+                                        <span className="text-gray-900">
+                                          {user.subscription?.status || "NONE"}
+                                        </span>
+                                      </div>
+                                      <div>
+                                        <span className="text-gray-500">
+                                          Expires:
+                                        </span>{" "}
+                                        <span className="text-gray-900">
+                                          {user.subscription?.expiresAt
+                                            ? new Date(
+                                                user.subscription.expiresAt,
+                                              ).toLocaleString()
+                                            : "N/A"}
+                                        </span>
+                                      </div>
+                                      <div>
+                                        <span className="text-gray-500">
+                                          Attempts:
+                                        </span>{" "}
+                                        <span className="text-gray-900">
+                                          {user._count?.attempts ?? 0}
+                                        </span>
+                                      </div>
+                                      <div>
+                                        <span className="text-gray-500">
                                           Joined:
                                         </span>{" "}
                                         <span className="text-gray-900">
@@ -591,8 +677,7 @@ export default function UsersPage() {
                   size="sm"
                   onClick={() => {
                     const newPage = Math.max(1, currentPage - 1);
-                    setCurrentPage(newPage);
-                    fetchUsers(newPage);
+                    setPageAndUrl(newPage);
                   }}
                   disabled={currentPage === 1 || loading}
                   className="flex items-center gap-1"
@@ -610,8 +695,7 @@ export default function UsersPage() {
                         variant={currentPage === page ? "default" : "outline"}
                         size="sm"
                         onClick={() => {
-                          setCurrentPage(page);
-                          fetchUsers(page);
+                          setPageAndUrl(page);
                         }}
                         className={`min-w-[40px] ${
                           currentPage === page
@@ -631,8 +715,7 @@ export default function UsersPage() {
                   size="sm"
                   onClick={() => {
                     const newPage = Math.min(totalPages, currentPage + 1);
-                    setCurrentPage(newPage);
-                    fetchUsers(newPage);
+                    setPageAndUrl(newPage);
                   }}
                   disabled={currentPage === totalPages || loading}
                   className="flex items-center gap-1"
@@ -709,6 +792,8 @@ export default function UsersPage() {
                 setRoleFilter("all");
                 setSortBy("name");
                 setSortOrder("asc");
+                setSearchQuery("");
+                    setPageAndUrl(1);
               }}
             >
               Reset
@@ -725,6 +810,7 @@ export default function UsersPage() {
         onClose={handleCloseModal}
         onUpdate={updateUser}
         availableRoles={availableRoles}
+        canEditPlan={currentUser?.role?.toUpperCase() === "OWNER"}
       />
     </div>
   );

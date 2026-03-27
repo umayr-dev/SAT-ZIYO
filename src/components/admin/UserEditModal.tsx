@@ -16,6 +16,7 @@ interface User {
   targetScore?: number;
   examDate?: string | null;
   isPremium?: boolean;
+  plan?: "free" | "premium" | string;
   hasUnlimitedTests?: boolean;
   hasAdvancedAnalytics?: boolean;
   hasDetailedExplanations?: boolean;
@@ -32,6 +33,7 @@ interface UserEditModalProps {
     updates: Partial<User> & { password?: string },
   ) => Promise<void>;
   availableRoles?: string[]; // Roles from database
+  canEditPlan?: boolean;
 }
 
 /**
@@ -44,12 +46,14 @@ export function UserEditModal({
   onClose,
   onUpdate,
   availableRoles = [],
+  canEditPlan = false,
 }: UserEditModalProps) {
   const [formData, setFormData] = useState<Partial<User>>({});
   const [password, setPassword] = useState("");
   const [targetScoreInput, setTargetScoreInput] = useState("");
   const [examDateInput, setExamDateInput] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isUpdatingSubscription, setIsUpdatingSubscription] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -140,8 +144,10 @@ export function UserEditModal({
 
   // Faqat Premium Access – backendda subscription endpoint orqali boshqariladi
   const handlePremiumToggle = async (value: boolean) => {
+    if (isUpdatingSubscription) return;
     const previous = formData.isPremium || false;
     setFormData((prev) => ({ ...prev, isPremium: value }));
+    setIsUpdatingSubscription(true);
     try {
       const response = await fetch(
         `/api/admin/users/${user.id}/subscription`,
@@ -173,6 +179,8 @@ export function UserEditModal({
           : "Failed to update premium access",
       );
       throw err;
+    } finally {
+      setIsUpdatingSubscription(false);
     }
   };
 
@@ -273,6 +281,33 @@ export function UserEditModal({
                     })()}
                   </select>
                 </div>
+                {canEditPlan && (
+                  <div className="space-y-2">
+                    <Label htmlFor="plan">Plan</Label>
+                    <select
+                      id="plan"
+                      value={formData.isPremium ? "premium" : "free"}
+                      onChange={(e) => {
+                        const next = e.target.value === "premium";
+                        // Select orqali plan o'zgartirish backendda subscription orqali bo'ladi.
+                        void (async () => {
+                          try {
+                            if (next !== (formData.isPremium || false)) {
+                              await handlePremiumToggle(next);
+                            }
+                          } catch {
+                            // handlePremiumToggle ichida error set bo'lgan bo'ladi
+                          }
+                        })();
+                      }}
+                      disabled={isSaving || isUpdatingSubscription}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    >
+                      <option value="free">Free</option>
+                      <option value="premium">Premium</option>
+                    </select>
+                  </div>
+                )}
                 {user.createdAt && (
                   <div className="space-y-2">
                     <Label>Joined Date</Label>
