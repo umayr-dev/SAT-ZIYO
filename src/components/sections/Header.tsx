@@ -93,8 +93,6 @@ export default function Header() {
             })}
             <a
               href={CLASSROOM_URL}
-              target="_blank"
-              rel="noopener noreferrer"
               className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors whitespace-nowrap"
             >
               Classroom
@@ -157,8 +155,6 @@ export default function Header() {
               })}
               <a
                 href={CLASSROOM_URL}
-                target="_blank"
-                rel="noopener noreferrer"
                 onClick={() => setMobileOpen(false)}
                 className="px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg"
               >

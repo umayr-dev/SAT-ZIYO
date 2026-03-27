@@ -2,25 +2,23 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   Home,
   BookOpen,
   BookText,
-  Users,
-  BarChart3,
-  TrendingUp,
   Headphones,
   Menu,
   X,
-  Zap,
+  CreditCard,
+  AlertTriangle,
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/src/ui/card";
 import { Button } from "@/src/ui/button";
 import { useSidebar } from "./SidebarContext";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 interface MenuItem {
   label: string;
@@ -62,12 +60,130 @@ const bottomMenuItems: MenuItem[] = [
 
 export function DashboardSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const { isCollapsed, setIsCollapsed } = useSidebar();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [billingLoading, setBillingLoading] = useState(true);
+  const [monthlyCompleted, setMonthlyCompleted] = useState(0);
+  const [isSubscriptionActive, setIsSubscriptionActive] = useState(false);
+  const [subscriptionEndDate, setSubscriptionEndDate] = useState<Date | null>(null);
+  const FREE_MONTHLY_LIMIT = 8;
 
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadLimitState() {
+      try {
+        setBillingLoading(true);
+        const [meRes, attemptsRes] = await Promise.all([
+          fetch("/api/auth/me", { credentials: "include" }),
+          fetch("/api/practice/my-attempts", { credentials: "include" }),
+        ]);
+
+        let active = false;
+        let endDate: Date | null = null;
+
+        if (meRes.ok) {
+          const me = (await meRes.json()) as Record<string, unknown>;
+          const status = (me.subscriptionStatus ?? me.subscription_status ?? me.subscription) as
+            | string
+            | undefined;
+          const premiumFlag = (me.isPremium ?? me.premium ?? me.hasPremiumAccess) as
+            | boolean
+            | undefined;
+          const rawEnd =
+            (me.subscriptionEndsAt ??
+              me.subscription_end_at ??
+              me.subscriptionEndDate ??
+              me.subscription_expires_at ??
+              me.premiumExpiresAt ??
+              me.premium_expires_at) as string | undefined;
+
+          if (rawEnd) {
+            const parsed = new Date(rawEnd);
+            if (!Number.isNaN(parsed.getTime())) endDate = parsed;
+          }
+
+          const statusActive =
+            typeof status === "string" && status.toUpperCase() === "ACTIVE";
+          const dateActive = !!endDate && endDate.getTime() > Date.now();
+          active = Boolean(premiumFlag || statusActive || dateActive);
+        }
+
+        let completedThisMonth = 0;
+        if (attemptsRes.ok) {
+          const rawAttempts = await attemptsRes.json();
+          const attempts = Array.isArray(rawAttempts)
+            ? rawAttempts
+            : Array.isArray(rawAttempts?.data)
+              ? rawAttempts.data
+              : Array.isArray(rawAttempts?.attempts)
+                ? rawAttempts.attempts
+                : [];
+          const now = new Date();
+          const month = now.getMonth();
+          const year = now.getFullYear();
+          completedThisMonth = attempts.filter((a: any) => {
+            const status = String(a?.status ?? "").toUpperCase();
+            if (status !== "COMPLETED") return false;
+            const rawDate = a?.completedAt ?? a?.completed_at ?? a?.startedAt ?? a?.started_at;
+            if (!rawDate) return false;
+            const d = new Date(rawDate);
+            return !Number.isNaN(d.getTime()) && d.getMonth() === month && d.getFullYear() === year;
+          }).length;
+        }
+
+        if (!cancelled) {
+          setIsSubscriptionActive(active);
+          setSubscriptionEndDate(endDate);
+          setMonthlyCompleted(completedThisMonth);
+        }
+      } catch {
+        if (!cancelled) {
+          setIsSubscriptionActive(false);
+          setSubscriptionEndDate(null);
+          setMonthlyCompleted(0);
+        }
+      } finally {
+        if (!cancelled) setBillingLoading(false);
+      }
+    }
+    loadLimitState();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const freeRemaining = Math.max(0, FREE_MONTHLY_LIMIT - monthlyCompleted);
+  const isExpired =
+    !isSubscriptionActive &&
+    !!subscriptionEndDate &&
+    subscriptionEndDate.getTime() <= Date.now();
+  const statusLabel = useMemo(() => {
+    if (billingLoading) return "Checking...";
+    if (isSubscriptionActive) return "Premium active";
+    if (isExpired) return "Expired";
+    if (freeRemaining <= 0) return "Limit reached";
+    return "Free plan";
+  }, [billingLoading, isSubscriptionActive, isExpired, freeRemaining]);
+
+  const handleStartPayment = async () => {
+    try {
+      const res = await fetch("/api/payme/create-subscription", {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.redirectUrl) {
+        alert(data?.message || "Could not start payment");
+        return;
+      }
+      window.location.href = data.redirectUrl as string;
+    } catch {
+      alert("Payment initialization failed");
+    }
   };
 
   return (
@@ -243,8 +359,6 @@ export function DashboardSidebar() {
                     {item.external ? (
                       <a
                         href={item.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
                         onClick={() => setIsMobileMenuOpen(false)}
                         className={linkClassName}
                         title={isCollapsed ? item.label : undefined}
@@ -267,41 +381,61 @@ export function DashboardSidebar() {
             </nav>
           </div>
 
-          {/* Daily Streak Card — gray, inactive */}
+          {/* Account Limit / Subscription Card */}
           {!isCollapsed && (
             <div className="px-4 pb-4">
               <Card className="bg-brand-blue-50 border border-brand-blue-light overflow-hidden relative">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <div className="p-2 bg-brand-blue/60 rounded-lg">
-                      <Zap className="h-4 w-4 text-white" />
+                      <CreditCard className="h-4 w-4 text-white" />
                     </div>
                     <span className="text-sm font-semibold text-brand-blue/90">
-                      Daily Streak
+                      Account Limit
                     </span>
                     <span className="ml-auto text-xs px-2 py-1 bg-brand-blue-50 text-brand-blue/80 rounded-full font-medium border border-brand-blue/20">
-                      Inactive
+                      {statusLabel}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-2xl font-bold text-brand-blue/70">0</span>
+                    <span className="text-2xl font-bold text-brand-blue/70">
+                      {billingLoading ? "…" : Math.min(monthlyCompleted, FREE_MONTHLY_LIMIT)}
+                    </span>
                     <ChevronRight className="h-4 w-4 text-brand-blue/70" />
-                    <span className="text-2xl font-bold text-brand-blue/70">0</span>
+                    <span className="text-2xl font-bold text-brand-blue/70">{FREE_MONTHLY_LIMIT}</span>
                   </div>
                   <div className="text-xs text-brand-blue/80">
-                    Not active yet
+                    {isSubscriptionActive
+                      ? "Premium unlocked. All features are available."
+                      : `${freeRemaining} free tests left this month`}
                   </div>
+                  {!isSubscriptionActive && isExpired && (
+                    <div className="mt-2 text-[11px] text-amber-700 flex items-center gap-1">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      Subscription expired. Premium features are restricted.
+                    </div>
+                  )}
+                  {!isSubscriptionActive && freeRemaining <= 0 && (
+                    <div className="mt-2">
+                      <Button
+                        onClick={handleStartPayment}
+                        className="w-full h-8 text-xs bg-brand-blue hover:bg-brand-blue/90 text-white"
+                      >
+                        Activate Premium (Payme)
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
           )}
 
-          {/* Upgrade Button — gray, inactive */}
-          {!isCollapsed && (
+          {/* Secondary upgrade button */}
+          {!isCollapsed && !isSubscriptionActive && (
             <div className="px-4 pb-4">
               <Button
-                disabled
-                className="w-full bg-brand-blue/20 text-brand-blue/70 font-semibold rounded-xl cursor-not-allowed hover:bg-brand-blue/20 hover:shadow-none"
+                onClick={handleStartPayment}
+                className="w-full bg-brand-blue/20 text-brand-blue font-semibold rounded-xl hover:bg-brand-blue/30"
               >
                 Upgrade to Pro
               </Button>

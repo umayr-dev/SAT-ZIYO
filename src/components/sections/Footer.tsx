@@ -111,8 +111,6 @@ export default function Footer() {
                 <li>
                   <a
                     href="https://my-math-academy.com/classroom/"
-                    target="_blank"
-                    rel="noopener noreferrer"
                     className="text-sm text-neutral-400 hover:text-white transition-colors"
                   >
                     {lang === "en" ? "Classroom" : "Sinfxona"}
