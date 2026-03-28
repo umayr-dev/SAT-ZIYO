@@ -942,19 +942,36 @@ export default function TestQuestionsPage() {
                                       />
                                     </div>
                                     {kind === "text" ? (
-                                      <MarkdownEditor
-                                        value={textVal}
-                                        onChange={(v) =>
-                                          updateSlot(mid, i, {
-                                            [textKey]: v,
-                                          })
-                                        }
-                                        placeholder={`Javob ${letter} (matn)`}
-                                        minHeight="56px"
-                                        rows={2}
-                                        showTable={false}
-                                        showMathTools={false}
-                                      />
+                                      <div className="space-y-1.5">
+                                        <MarkdownEditor
+                                          value={textVal}
+                                          onChange={(v) =>
+                                            updateSlot(mid, i, {
+                                              [textKey]: v,
+                                            })
+                                          }
+                                          placeholder={`Javob ${letter} (matn)`}
+                                          minHeight="56px"
+                                          rows={2}
+                                          showTable={false}
+                                          showMathTools={
+                                            selectedModule.sectionType === "MATH"
+                                          }
+                                        />
+                                        {selectedModule.sectionType === "MATH" && (
+                                          <>
+                                            <p className="text-xs text-gray-500">
+                                              Ko‘rinishi:
+                                            </p>
+                                            <div className="rounded-md border border-gray-200 bg-white p-2 text-sm min-h-[36px]">
+                                              <MarkdownRenderer
+                                                content={textVal}
+                                                className="text-gray-800"
+                                              />
+                                            </div>
+                                          </>
+                                        )}
+                                      </div>
                                     ) : (
                                       <div className="space-y-2">
                                         <Input

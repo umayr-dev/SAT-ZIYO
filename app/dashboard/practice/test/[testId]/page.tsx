@@ -27,6 +27,7 @@ import {
 import { ApiClientError } from "@/src/lib/api-client";
 import { TestTimer } from "@/src/components/practice/TestTimer";
 import { QuestionDisplay } from "@/src/components/practice/QuestionDisplay";
+import { MarkdownRenderer } from "@/src/components/markdown/MarkdownRenderer";
 import { HighlightablePassage } from "@/src/components/practice/HighlightablePassage";
 import { QuestionNavigator } from "@/src/components/practice/QuestionNavigator";
 import {
@@ -2626,7 +2627,13 @@ export default function TestTakingPage() {
                                 >
                                   <div className={`flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full font-bold border border-black text-[10px] sm:text-xs ${isSelected ? "bg-black text-white" : "text-black"}`}><span className="text-xs">{letter}</span></div>
                                   <div className={`flex-1 min-w-0 ${isEliminated ? "line-through text-gray-500" : ""}`}>
-                                    <span className="block">{getChoiceText(choice) || `Choice ${letter}`}</span>
+                                    {getChoiceText(choice) ? (
+                                      <div className="block text-gray-900">
+                                        <MarkdownRenderer content={getChoiceText(choice)} className="text-inherit" />
+                                      </div>
+                                    ) : (
+                                      <span className="block">Choice {letter}</span>
+                                    )}
                                     {choiceImageUrl && (
                                       <span className="block mt-3 bg-white rounded border border-gray-200 overflow-hidden p-1">
                                         <Image
@@ -2914,10 +2921,13 @@ export default function TestTakingPage() {
                                       isEliminated ? "text-gray-700" : ""
                                     }`}
                                   >
-                                    <span className="block">
-                                      {getChoiceText(choice) ||
-                                        `Choice ${letter}`}
-                                    </span>
+                                    {getChoiceText(choice) ? (
+                                      <div className="block text-gray-900">
+                                        <MarkdownRenderer content={getChoiceText(choice)} className="text-inherit" />
+                                      </div>
+                                    ) : (
+                                      <span className="block">Choice {letter}</span>
+                                    )}
                                     {choiceImageUrl && (
                                       <span className="block mt-3 bg-gray-100 rounded border border-gray-200 overflow-hidden p-1">
                                         <Image
@@ -3203,7 +3213,13 @@ export default function TestTakingPage() {
                                 <span className="text-xs">{letter}</span>
                               </div>
                               <div className={`flex-1 min-w-0 ${isEliminated ? "line-through text-gray-500" : ""}`}>
-                                <span className="block">{getChoiceText(choice) || `Choice ${letter}`}</span>
+                                {getChoiceText(choice) ? (
+                                  <div className="block text-gray-900">
+                                    <MarkdownRenderer content={getChoiceText(choice)} className="text-inherit" />
+                                  </div>
+                                ) : (
+                                  <span className="block">Choice {letter}</span>
+                                )}
                                 {choiceImageUrl && (
                                   <span className="block mt-2 bg-white rounded border border-gray-200 overflow-hidden p-1">
                                     <Image

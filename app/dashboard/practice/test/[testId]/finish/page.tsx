@@ -22,6 +22,7 @@ import {
   getQuestionImageUrl,
 } from "@/src/services/practice.service";
 import { ApiClientError } from "@/src/lib/api-client";
+import { MarkdownRenderer } from "@/src/components/markdown/MarkdownRenderer";
 import { CommentsSection } from "@/src/components/comments/CommentsSection";
 import { TestAnalytics } from "@/src/components/practice/TestAnalytics";
 import {
@@ -766,9 +767,9 @@ export default function FinishTestPage() {
                           </span>
                           <div className="flex-1 min-w-0">
                             {getChoiceText(choice) && (
-                              <span className="text-sm text-gray-900">
-                                {getChoiceText(choice)}
-                              </span>
+                              <div className="text-sm text-gray-900">
+                                <MarkdownRenderer content={getChoiceText(choice)} className="text-inherit" />
+                              </div>
                             )}
                             {getChoiceImageUrl(choice as Record<string, unknown>) && (
                               <img

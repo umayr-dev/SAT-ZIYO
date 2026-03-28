@@ -14,6 +14,7 @@ import {
   getChoiceText,
   getChoiceImageUrl,
 } from "@/src/services/practice.service";
+import { MarkdownRenderer } from "@/src/components/markdown/MarkdownRenderer";
 import { ChevronLeft, ChevronRight, CheckCircle, XCircle } from "lucide-react";
 
 export default function QuestionReviewPage() {
@@ -202,9 +203,9 @@ export default function QuestionReviewPage() {
                       </span>
                       <div className="flex-1 min-w-0">
                         {getChoiceText(choice) && (
-                          <span className="block text-gray-900">
-                            {getChoiceText(choice)}
-                          </span>
+                          <div className="block text-gray-900">
+                            <MarkdownRenderer content={getChoiceText(choice)} className="text-inherit" />
+                          </div>
                         )}
                         {getChoiceImageUrl(choice) && (
                           <span className="block mt-2 bg-gray-100 rounded border border-gray-200 overflow-hidden">

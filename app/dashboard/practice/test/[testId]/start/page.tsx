@@ -6,7 +6,7 @@ import { Card } from "@/src/ui/card";
 import { Button } from "@/src/ui/button";
 import { Loading } from "@/src/ui/loading";
 import { practiceService, Test } from "@/src/services/practice.service";
-import { Clock, FileText, Calculator, Coffee, ClipboardList, Pin } from "lucide-react";
+import { Calculator, Coffee, ClipboardList, Pin } from "lucide-react";
 
 export default function PreTestInstructionsPage() {
   const router = useRouter();
@@ -16,23 +16,12 @@ export default function PreTestInstructionsPage() {
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState("");
-  const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(false);
+  const [showStartModeModal, setShowStartModeModal] = useState(false);
   const [fullscreenError, setFullscreenError] = useState("");
-  const [countdown, setCountdown] = useState(10);
-  const [countdownInterval, setCountdownInterval] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     fetchTest();
   }, [testId]);
-
-  useEffect(() => {
-    // Cleanup countdown on unmount
-    return () => {
-      if (countdownInterval) {
-        clearInterval(countdownInterval);
-      }
-    };
-  }, [countdownInterval]);
 
   async function fetchTest() {
     try {
@@ -62,81 +51,42 @@ export default function PreTestInstructionsPage() {
   }
 
   function handleBeginClick() {
-    // First open fullscreen prompt modal with 10s countdown
     setFullscreenError("");
-    setCountdown(10);
-    setShowFullscreenPrompt(true);
-
-    // Start countdown timer
-    const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          // If fullscreen not enabled, cancel and redirect
-          if (!document.fullscreenElement) {
-            setShowFullscreenPrompt(false);
-            router.push("/dashboard/practice");
-            return 0;
-        }
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    setCountdownInterval(interval);
+    setShowStartModeModal(true);
   }
 
-  async function handleEnterFullscreen() {
+  function handleCloseStartModal() {
+    if (starting) return;
+    setFullscreenError("");
+    setShowStartModeModal(false);
+  }
+
+  async function handleChooseFullscreen() {
     setFullscreenError("");
     try {
-      // Clear countdown
-      if (countdownInterval) {
-        clearInterval(countdownInterval);
-        setCountdownInterval(null);
-      }
-
-      // Try to enter fullscreen
       if (document.fullscreenElement == null) {
         await document.documentElement.requestFullscreen().catch(() => {});
       }
-
-      // Wait a bit for fullscreen to activate
       await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // If fullscreen still not active, do NOT start the test
       if (!document.fullscreenElement) {
         setFullscreenError(
-          "Please allow fullscreen in your browser to start the test."
+          "Fullscreen could not be turned on. Allow it in the browser, try again, or use small screen mode.",
         );
-        // Restart countdown
-        setCountdown(10);
-        const interval = setInterval(() => {
-          setCountdown((prev) => {
-            if (prev <= 1) {
-              clearInterval(interval);
-              if (!document.fullscreenElement) {
-                setShowFullscreenPrompt(false);
-                router.push("/dashboard/practice");
-                return 0;
-              }
-              return 0;
-            }
-            return prev - 1;
-          });
-        }, 1000);
-        setCountdownInterval(interval);
         return;
       }
-
-      // Fullscreen is active, start the test
+      setShowStartModeModal(false);
       await actuallyStartTest();
-      setShowFullscreenPrompt(false);
     } catch {
       setFullscreenError(
-        "Fullscreen mode is required to start this test. Please enable it and try again."
+        "Fullscreen could not be turned on. Use small screen mode or check browser permissions.",
       );
     }
+  }
+
+  async function handleChooseWindowed() {
+    setFullscreenError("");
+    setShowStartModeModal(false);
+    await actuallyStartTest();
   }
 
   if (loading) {
@@ -317,53 +267,41 @@ export default function PreTestInstructionsPage() {
         </Button>
       </div>
 
-      {showFullscreenPrompt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-8 text-center space-y-6">
-            <div className="w-16 h-16 mx-auto rounded-full bg-orange-500 text-white flex items-center justify-center text-2xl font-bold">
-              {countdown > 0 ? countdown : "⚠"}
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                Fullscreen Required
-              </h2>
-              <p className="text-sm text-gray-600 mb-2">
-                You must enable fullscreen mode to start the test.
-              </p>
-              {countdown > 0 && (
-                <p className="text-lg font-semibold text-orange-600 mb-2">
-                  {countdown} seconds remaining
-                </p>
-              )}
-              {countdown === 0 && (
-                <p className="text-sm font-semibold text-red-600 mb-2">
-                  Test cancelled. Redirecting...
-                </p>
-              )}
-              {fullscreenError && (
-                <p className="mt-3 text-sm text-red-600">{fullscreenError}</p>
-              )}
-            </div>
+      {showStartModeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 sm:p-8 text-center space-y-5">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
+              How do you want to start the test?
+            </h2>
+            <p className="text-xs sm:text-sm text-gray-600">
+              Fullscreen feels more like the real exam. Small screen works in a normal browser window.
+            </p>
+            {fullscreenError && (
+              <p className="text-sm text-red-600">{fullscreenError}</p>
+            )}
             <div className="space-y-2">
               <Button
-                className="w-full bg-blue-600 hover:bg-blue-700"
-                onClick={handleEnterFullscreen}
-                disabled={starting || countdown === 0}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={handleChooseFullscreen}
+                disabled={starting}
               >
-                Enter Fullscreen &amp; Start
+                Use fullscreen &amp; start
               </Button>
               <Button
                 variant="outline"
-                className="w-full"
-                onClick={() => {
-                  if (countdownInterval) {
-                    clearInterval(countdownInterval);
-                  }
-                  setShowFullscreenPrompt(false);
-                  router.push("/dashboard/practice");
-                }}
+                className="w-full border-gray-300 text-gray-800 hover:bg-gray-50"
+                onClick={handleChooseWindowed}
+                disabled={starting}
               >
-                Cancel
+                Continue with small screen
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full text-gray-600"
+                onClick={handleCloseStartModal}
+                disabled={starting}
+              >
+                Back
               </Button>
             </div>
           </div>

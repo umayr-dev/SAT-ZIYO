@@ -22,6 +22,23 @@ import { practiceService } from "@/src/services/practice.service";
 
 type Tab = "all" | "in_progress" | "completed";
 
+/** Orange–amber banner with full logo (no crop); title sits in the row below. */
+function TestCardBanner({ priority }: { priority?: boolean }) {
+  return (
+    <div className="rounded-2xl h-40 w-full bg-gradient-to-r from-orange-500 via-amber-400 to-yellow-300 flex items-center justify-center p-4 sm:p-5 shadow-sm border border-orange-400/30">
+      <Image
+        src="/logo.png"
+        alt="SAT Ziyo"
+        width={220}
+        height={220}
+        className="object-contain max-h-full w-auto max-w-[min(100%,200px)]"
+        sizes="(max-width: 768px) 100vw, 280px"
+        priority={priority}
+      />
+    </div>
+  );
+}
+
 export default function PracticePage() {
   const router = useRouter();
   const { data, isLoading, error } = usePracticeOverview();
@@ -239,24 +256,10 @@ export default function PracticePage() {
                     className="p-3 min-[420px]:p-4 bg-white border-2 border-orange-500 hover:border-orange-600 hover:shadow-lg transition-all duration-200 rounded-2xl"
                   >
                     <div className="space-y-3">
-                      <div className="relative overflow-hidden rounded-2xl h-40 w-full">
-                        <div className="absolute inset-[3px]">
-                          <Image
-                            src="/logo.png"
-                            alt="SAT Ziyo"
-                            fill
-                            className="object-cover object-center"
-                            sizes="(max-width: 640px) 100vw, 320px"
-                            priority
-                          />
-                        </div>
-                        <div className="absolute inset-y-0 left-1/5 right-1/5 bg-orange-200/60 backdrop-blur-[2px]" />
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <span className="text-base font-semibold text-white drop-shadow-lg text-center px-4">
-                            {title}
-                          </span>
-                        </div>
-                      </div>
+                      <TestCardBanner priority={index === 0} />
+                      <h2 className="text-base font-bold text-gray-900 leading-snug line-clamp-2">
+                        {title}
+                      </h2>
                       <div className="flex items-center justify-between text-[11px] text-black">
                         <div className="flex items-center gap-2">
                           <div className="flex items-center gap-1">
@@ -264,7 +267,7 @@ export default function PracticePage() {
                             <span>{totalDuration} min</span>
                           </div>
                           <span className="h-1 w-1 rounded-full bg-black" />
-                          <span>{totalQuestions} q</span>
+                          <span>{totalQuestions} questions</span>
                         </div>
                         <span
                           className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${statusBadge.label === "In Progress" ? "bg-blue-100 text-blue-800 border-blue-300" : "bg-gray-100 text-black border-black"}`}
@@ -377,23 +380,10 @@ export default function PracticePage() {
                     className="p-3 min-[420px]:p-4 bg-white border-2 border-orange-500 hover:border-orange-600 hover:shadow-lg transition-all duration-200 rounded-2xl"
                   >
                     <div className="space-y-3">
-                      <div className="relative overflow-hidden rounded-2xl h-40 w-full">
-                        <div className="absolute inset-[3px]">
-                          <Image
-                            src="/logo.png"
-                            alt="SAT Ziyo"
-                            fill
-                            className="object-cover object-center"
-                            sizes="(max-width: 640px) 100vw, 320px"
-                          />
-                        </div>
-                        <div className="absolute inset-y-0 left-1/5 right-1/5 bg-orange-200/60 backdrop-blur-[2px]" />
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <span className="text-base font-semibold text-white drop-shadow-lg text-center px-4">
-                            {title}
-                          </span>
-                        </div>
-                      </div>
+                      <TestCardBanner />
+                      <h2 className="text-base font-bold text-gray-900 leading-snug line-clamp-2">
+                        {title}
+                      </h2>
                       <div className="flex items-center justify-between text-[11px] text-black">
                         <div className="flex items-center gap-2">
                           <div className="flex items-center gap-1">
@@ -401,7 +391,7 @@ export default function PracticePage() {
                             <span>{totalDuration} min</span>
                           </div>
                           <span className="h-1 w-1 rounded-full bg-black" />
-                          <span>{totalQuestions} q</span>
+                          <span>{totalQuestions} questions</span>
                         </div>
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-medium border border-blue-300 bg-blue-100 text-blue-800">
                           In Progress
@@ -482,23 +472,10 @@ export default function PracticePage() {
                     className="p-3 min-[420px]:p-4 bg-white border-2 border-orange-500 hover:border-orange-600 hover:shadow-lg transition-all duration-200 rounded-2xl"
                   >
                     <div className="space-y-3">
-                      <div className="relative overflow-hidden rounded-2xl h-40 w-full">
-                        <div className="absolute inset-[3px]">
-                          <Image
-                            src="/logo.png"
-                            alt="SAT Ziyo"
-                            fill
-                            className="object-cover object-center"
-                            sizes="(max-width: 640px) 100vw, 320px"
-                          />
-                        </div>
-                        <div className="absolute inset-y-0 left-1/5 right-1/5 bg-orange-200/60 backdrop-blur-[2px]" />
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <span className="text-base font-semibold text-white drop-shadow-lg text-center px-4">
-                            {title}
-                          </span>
-                        </div>
-                      </div>
+                      <TestCardBanner />
+                      <h2 className="text-base font-bold text-gray-900 leading-snug line-clamp-2">
+                        {title}
+                      </h2>
                       <div className="flex items-center justify-between text-[11px] text-black">
                         <div className="flex items-center gap-2">
                           {attempt.completedAt && (
