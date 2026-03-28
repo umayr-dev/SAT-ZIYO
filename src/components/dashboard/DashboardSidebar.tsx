@@ -14,13 +14,18 @@ import {
   AlertTriangle,
   ChevronRight,
   Sparkles,
-  CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/src/ui/card";
 import { Button } from "@/src/ui/button";
 import { useSidebar } from "./SidebarContext";
-import { useEffect, useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useState } from "react";
+import {
+  fetchSidebarBillingSnapshot,
+  readSidebarBillingCache,
+  writeSidebarBillingCache,
+  SIDEBAR_BILLING_MAX_AGE_MS,
+} from "@/src/lib/sidebar-billing";
 
 interface MenuItem {
   label: string;
@@ -75,122 +80,65 @@ export function DashboardSidebar() {
     setIsCollapsed(!isCollapsed);
   };
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     let cancelled = false;
-    async function loadLimitState() {
-      try {
-        setBillingLoading(true);
-        const [meRes, attemptsRes] = await Promise.all([
-          fetch("/api/auth/me", { credentials: "include" }),
-          fetch("/api/practice/my-attempts", { credentials: "include" }),
-        ]);
 
-        let active = false;
-        let endDate: Date | null = null;
+    const cached = readSidebarBillingCache();
+    const paymentReturn =
+      typeof window !== "undefined" &&
+      sessionStorage.getItem("payme_payment_started") === "1";
+    const now = Date.now();
+    const cacheFresh =
+      cached != null && now - cached.at < SIDEBAR_BILLING_MAX_AGE_MS;
 
-        if (meRes.ok) {
-          const meRaw = (await meRes.json()) as Record<string, unknown>;
-          const me = ((
-            meRaw?.data as Record<string, unknown> | undefined
-          )?.user ??
-            (meRaw?.data as Record<string, unknown> | undefined) ??
-            (meRaw?.user as Record<string, unknown> | undefined) ??
-            meRaw) as Record<string, unknown>;
-          const subscriptionsArr = Array.isArray(me.subscriptions)
-            ? (me.subscriptions as Array<Record<string, unknown>>)
-            : [];
-          const subscriptionObj =
-            ((me.subscription as Record<string, unknown> | null) ??
-              subscriptionsArr.find(
-                (s) => String(s?.status ?? "").toUpperCase() === "ACTIVE",
-              ) ??
-              subscriptionsArr[0] ??
-              null) as
-              | { status?: string; expiresAt?: string; expires_at?: string }
-              | null;
-          const status = (
-            me.subscriptionStatus ??
-            me.subscription_status ??
-            subscriptionObj?.status
-          ) as string | undefined;
-          const plan = (me.plan ?? me.subscriptionPlan ?? me.planType) as
-            | string
-            | undefined;
-          const premiumFlag = (me.isPremium ?? me.premium ?? me.hasPremiumAccess) as
-            | boolean
-            | undefined;
-          const rawEnd =
-            (me.subscriptionEndsAt ??
-              me.subscription_end_at ??
-              me.subscriptionEndDate ??
-              me.subscription_expires_at ??
-              me.premiumExpiresAt ??
-              me.premium_expires_at ??
-              subscriptionObj?.expiresAt ??
-              subscriptionObj?.expires_at) as string | undefined;
+    if (cached) {
+      setIsSubscriptionActive(cached.snapshot.isSubscriptionActive);
+      setSubscriptionEndDate(cached.snapshot.subscriptionEndDate);
+      setMonthlyCompleted(cached.snapshot.monthlyCompleted);
+      setBillingLoading(false);
+    }
 
-          if (rawEnd) {
-            const parsed = new Date(rawEnd);
-            if (!Number.isNaN(parsed.getTime())) endDate = parsed;
-          }
+    if (cacheFresh && !paymentReturn) {
+      return () => {
+        cancelled = true;
+      };
+    }
 
-          const statusActive =
-            typeof status === "string" && status.toUpperCase() === "ACTIVE";
-          const planActive =
-            typeof plan === "string" && plan.toUpperCase() === "PREMIUM";
-          const dateActive = !!endDate && endDate.getTime() > Date.now();
-          active = Boolean(premiumFlag || statusActive || planActive || dateActive);
+    if (!cached) {
+      setBillingLoading(true);
+    }
+
+    fetchSidebarBillingSnapshot()
+      .then((snap) => {
+        if (cancelled) return;
+        setIsSubscriptionActive(snap.isSubscriptionActive);
+        setSubscriptionEndDate(snap.subscriptionEndDate);
+        setMonthlyCompleted(snap.monthlyCompleted);
+        writeSidebarBillingCache(snap);
+
+        const paymentStarted =
+          typeof window !== "undefined" &&
+          sessionStorage.getItem("payme_payment_started") === "1";
+        if (paymentStarted && snap.isSubscriptionActive) {
+          setShowCongrats(true);
+          sessionStorage.removeItem("payme_payment_started");
+          window.setTimeout(() => {
+            setShowCongrats(false);
+          }, 4500);
         }
-
-        let completedThisMonth = 0;
-        if (attemptsRes.ok) {
-          const rawAttempts = await attemptsRes.json();
-          const attempts = Array.isArray(rawAttempts)
-            ? rawAttempts
-            : Array.isArray(rawAttempts?.data)
-              ? rawAttempts.data
-              : Array.isArray(rawAttempts?.attempts)
-                ? rawAttempts.attempts
-                : [];
-          const now = new Date();
-          const month = now.getMonth();
-          const year = now.getFullYear();
-          completedThisMonth = attempts.filter((a: any) => {
-            const status = String(a?.status ?? "").toUpperCase();
-            if (status !== "COMPLETED") return false;
-            const rawDate = a?.completedAt ?? a?.completed_at ?? a?.startedAt ?? a?.started_at;
-            if (!rawDate) return false;
-            const d = new Date(rawDate);
-            return !Number.isNaN(d.getTime()) && d.getMonth() === month && d.getFullYear() === year;
-          }).length;
-        }
-
-        if (!cancelled) {
-          setIsSubscriptionActive(active);
-          setSubscriptionEndDate(endDate);
-          setMonthlyCompleted(completedThisMonth);
-          const paymentStarted =
-            typeof window !== "undefined" &&
-            sessionStorage.getItem("payme_payment_started") === "1";
-          if (paymentStarted && active) {
-            setShowCongrats(true);
-            sessionStorage.removeItem("payme_payment_started");
-            window.setTimeout(() => {
-              setShowCongrats(false);
-            }, 4500);
-          }
-        }
-      } catch {
-        if (!cancelled) {
+      })
+      .catch(() => {
+        if (cancelled) return;
+        if (!cached) {
           setIsSubscriptionActive(false);
           setSubscriptionEndDate(null);
           setMonthlyCompleted(0);
         }
-      } finally {
+      })
+      .finally(() => {
         if (!cancelled) setBillingLoading(false);
-      }
-    }
-    loadLimitState();
+      });
+
     return () => {
       cancelled = true;
     };
@@ -208,12 +156,6 @@ export function DashboardSidebar() {
     if (freeRemaining <= 0) return "Limit reached";
     return "Free plan";
   }, [billingLoading, isSubscriptionActive, isExpired, freeRemaining]);
-  const planLabel = isSubscriptionActive ? "Premium" : "Free";
-  const formattedEndDate =
-    subscriptionEndDate && !Number.isNaN(subscriptionEndDate.getTime())
-      ? subscriptionEndDate.toLocaleDateString()
-      : null;
-
   const handleStartPayment = async () => {
     try {
       if (typeof window !== "undefined") {
@@ -445,100 +387,79 @@ export function DashboardSidebar() {
           {/* Account Limit / Subscription Card */}
           {!isCollapsed && (
             <div className="px-4 pb-4">
-              <Card className="overflow-hidden relative shadow-sm border border-brand-blue/20 bg-white">
+              <Card className="relative overflow-hidden rounded-md border border-slate-200/90 bg-white shadow-sm">
                 <CardContent className="p-0">
-                  <div className="px-4 py-3 bg-gradient-to-r from-brand-blue/10 to-indigo-100/70 border-b border-brand-blue/15">
-                    <div className="flex items-center gap-2">
-                      <div className="p-2 bg-brand-blue rounded-lg shadow-sm">
+                  <div className="border-b border-slate-200/80 bg-slate-50 px-3 py-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-brand-blue shadow-sm">
                         <CreditCard className="h-4 w-4 text-white" />
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-brand-blue leading-tight">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold leading-tight text-slate-800">
                           {isSubscriptionActive ? "Premium Plan" : "Account Limit"}
                         </p>
-                        <p className="text-[11px] text-brand-blue/70 leading-tight">
+                        <p className="text-[11px] leading-tight text-slate-500">
                           {isSubscriptionActive
                             ? "Full access enabled"
                             : "Monthly free test usage"}
                         </p>
                       </div>
-                      <span className="ml-auto text-[11px] px-2.5 py-1 bg-white text-brand-blue rounded-full font-semibold border border-brand-blue/20">
+                      <span className="shrink-0 rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-medium text-slate-600">
                         {statusLabel}
                       </span>
                     </div>
                   </div>
 
-                  <div className="p-4 space-y-3">
-                    {!isSubscriptionActive ? (
-                      <>
-                        <div className="flex items-end justify-between">
-                          <div>
-                            <p className="text-[11px] uppercase tracking-wide text-brand-blue/70 font-semibold">
-                              Used this month
-                            </p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-2xl font-bold text-brand-blue">
-                                {billingLoading
-                                  ? "…"
-                                  : Math.min(monthlyCompleted, FREE_MONTHLY_LIMIT)}
-                              </span>
-                              <ChevronRight className="h-4 w-4 text-brand-blue/50" />
-                              <span className="text-xl font-semibold text-brand-blue/70">
-                                {FREE_MONTHLY_LIMIT}
-                              </span>
-                            </div>
-                          </div>
-                          <span className="text-[11px] font-semibold px-2 py-1 rounded-full bg-brand-blue/10 text-brand-blue">
-                            Free
-                          </span>
-                        </div>
-
-                        <div className="h-2 w-full rounded-full bg-brand-blue/10 overflow-hidden">
-                          <div
-                            className="h-full bg-brand-blue transition-all duration-300"
-                            style={{
-                              width: `${Math.min(
-                                100,
-                                (Math.min(monthlyCompleted, FREE_MONTHLY_LIMIT) /
-                                  FREE_MONTHLY_LIMIT) *
-                                  100,
-                              )}%`,
-                            }}
-                          />
-                        </div>
-
-                        <p className="text-xs text-brand-blue/80">
-                          {freeRemaining} free tests left this month
-                        </p>
-                      </>
-                    ) : (
-                      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-                        <p className="text-sm font-semibold text-emerald-800">
-                          Premium is active
-                        </p>
-                        {formattedEndDate && (
-                          <p className="mt-1 text-xs text-emerald-700 flex items-center gap-1.5">
-                            <CalendarDays className="h-3.5 w-3.5" />
-                            Valid until {formattedEndDate}
+                  {!isSubscriptionActive && (
+                    <div className="space-y-3 p-3">
+                      <div className="flex items-end justify-between">
+                        <div>
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                            Used this month
                           </p>
-                        )}
+                          <div className="mt-1 flex items-center gap-2">
+                            <span className="text-2xl font-bold text-slate-800">
+                              {billingLoading
+                                ? "…"
+                                : Math.min(monthlyCompleted, FREE_MONTHLY_LIMIT)}
+                            </span>
+                            <ChevronRight className="h-4 w-4 text-slate-300" />
+                            <span className="text-xl font-semibold text-slate-500">
+                              {FREE_MONTHLY_LIMIT}
+                            </span>
+                          </div>
+                        </div>
+                        <span className="rounded-md bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600">
+                          Free
+                        </span>
                       </div>
-                    )}
 
-                    {!isSubscriptionActive && isExpired && (
-                      <div className="text-[11px] text-amber-700 flex items-center gap-1">
-                        <AlertTriangle className="h-3.5 w-3.5" />
-                        Subscription expired. Premium features are restricted.
+                      <div className="h-1.5 w-full overflow-hidden rounded-md bg-slate-200">
+                        <div
+                          className="h-full rounded-md bg-brand-blue transition-all duration-300"
+                          style={{
+                            width: `${Math.min(
+                              100,
+                              (Math.min(monthlyCompleted, FREE_MONTHLY_LIMIT) /
+                                FREE_MONTHLY_LIMIT) *
+                                100,
+                            )}%`,
+                          }}
+                        />
                       </div>
-                    )}
 
-                    <Link
-                      href="/settings"
-                      className="inline-flex text-[11px] font-medium text-brand-blue hover:underline"
-                    >
-                      Manage subscription
-                    </Link>
-                  </div>
+                      <p className="text-xs text-slate-600">
+                        {freeRemaining} free tests left this month
+                      </p>
+
+                      {isExpired && (
+                        <div className="flex items-center gap-1 text-[11px] text-amber-800">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                          Subscription expired. Premium features are restricted.
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -548,15 +469,15 @@ export function DashboardSidebar() {
           {!isCollapsed && (
             <div className="px-4 pb-4">
               {isSubscriptionActive ? (
-                <Link href="/settings">
-                  <Button className="w-full bg-brand-blue text-white font-semibold rounded-xl hover:bg-brand-blue/90 shadow-sm h-10">
+                <Link href="/dashboard/settings">
+                  <Button className="h-9 w-full rounded-md bg-brand-blue font-semibold text-white shadow-sm hover:bg-brand-blue/90">
                     Manage plan
                   </Button>
                 </Link>
               ) : (
                 <Button
                   onClick={handleStartPayment}
-                  className="w-full bg-brand-blue text-white font-semibold rounded-xl hover:bg-brand-blue/90 shadow-sm h-10"
+                  className="h-9 w-full rounded-md bg-brand-blue font-semibold text-white shadow-sm hover:bg-brand-blue/90"
                 >
                   Upgrade to Pro
                 </Button>

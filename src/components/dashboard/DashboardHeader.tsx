@@ -60,7 +60,7 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
           </Button>
 
           {/* User Profile */}
-          <Link href="/settings" className="flex-shrink-0">
+          <Link href="/dashboard/settings" className="flex-shrink-0">
             <Button
               variant="ghost"
               className="h-9 sm:h-10 px-2 sm:px-3 rounded-lg sm:rounded-xl bg-brand-blue-light hover:bg-brand-blue-50 border border-brand-blue-light transition-all duration-200 gap-1.5 sm:gap-2"

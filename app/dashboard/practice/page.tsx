@@ -22,19 +22,30 @@ import { practiceService } from "@/src/services/practice.service";
 
 type Tab = "all" | "in_progress" | "completed";
 
-/** Orange–amber banner with full logo (no crop); title sits in the row below. */
+/** Orange gradient + light glass on background only; logo sits above so it stays sharp. */
 function TestCardBanner({ priority }: { priority?: boolean }) {
   return (
-    <div className="rounded-2xl h-40 w-full bg-gradient-to-r from-orange-500 via-amber-400 to-yellow-300 flex items-center justify-center p-4 sm:p-5 shadow-sm border border-orange-400/30">
-      <Image
-        src="/logo.png"
-        alt="SAT Ziyo"
-        width={220}
-        height={220}
-        className="object-contain max-h-full w-auto max-w-[min(100%,200px)]"
-        sizes="(max-width: 768px) 100vw, 280px"
-        priority={priority}
+    <div className="relative h-40 w-full overflow-hidden rounded-2xl border border-orange-400/50 shadow-sm ring-1 ring-orange-300/30">
+      <div
+        className="absolute inset-0 z-0 bg-gradient-to-r from-orange-500 via-orange-400 to-amber-300"
+        aria-hidden
       />
+      {/* Glass faqat fon ustida — logo bu qatlam ostida emas */}
+      <div
+        className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-b from-white/20 via-orange-400/10 to-orange-600/20 backdrop-blur-[2px] sm:backdrop-blur-sm"
+        aria-hidden
+      />
+      <div className="absolute inset-0 z-10 flex items-center justify-center p-3 sm:p-4">
+        <Image
+          src="/logo-bg.png"
+          alt="SAT Ziyo"
+          width={280}
+          height={280}
+          className="max-h-[min(100%,9rem)] w-auto max-w-[min(100%,260px)] object-contain drop-shadow-lg sm:max-h-[9.25rem] sm:max-w-[280px]"
+          sizes="(max-width: 768px) 100vw, 300px"
+          priority={priority}
+        />
+      </div>
     </div>
   );
 }

@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { DashboardSidebar } from "@/src/components/dashboard/DashboardSidebar";
-import { useSidebar } from "@/src/components/dashboard/SidebarContext";
 import { authService } from "@/src/services/auth.service";
 import { useLogout } from "@/src/hooks/use-auth";
 import type { UserProfile } from "@/src/types";
@@ -44,7 +42,6 @@ const TABS: TabConfig[] = [
 
 export function SettingsPageClient() {
   const router = useRouter();
-  const { isCollapsed } = useSidebar();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
@@ -276,17 +273,8 @@ export function SettingsPageClient() {
           : "Free plan";
 
   return (
-    <div className="min-h-screen bg-white ">
-      <DashboardSidebar />
-
-      <div
-        className={cn(
-          "flex-1 transition-all duration-300",
-          isCollapsed ? "ml-20" : "ml-64"
-        )}
-      >
-        <div className="flex justify-center px-4 py-4">
-          <div className="w-full max-w-2xl">
+    <div className="w-full">
+      <div className="mx-auto w-full max-w-2xl py-4 sm:py-6">
             {/* User Profile Header */}
             <Card className="bg-blue-900 text-white border-0 mb-4">
               <CardContent className="p-4">
@@ -624,8 +612,6 @@ export function SettingsPageClient() {
                 </Card>
               )}
             </div>
-          </div>
-        </div>
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
-import { SettingsPageClient } from "@/src/components/settings/SettingsPageClient";
+import { redirect } from "next/navigation";
 
+/** Eski havolalar; kontent dashboard layout ichida yangilanadi */
 export default function SettingsPage() {
-  return <SettingsPageClient />;
+  redirect("/dashboard/settings");
 }
