@@ -316,7 +316,7 @@ export default function PracticePage() {
                             type="button"
                             onClick={() => handleContinueAttempt(inProgress)}
                             disabled={continuingAttemptId != null}
-                            className="flex-1 bg-gray-900 hover:bg-gray-800 text-white rounded-xl py-2 text-sm font-semibold"
+                            className="flex-1 bg-brand-orange hover:bg-brand-orange/90 text-white rounded-xl py-2 text-sm font-semibold"
                           >
                             {isContinuing ? (
                               <Loading size="sm" />
@@ -334,7 +334,7 @@ export default function PracticePage() {
                                 `/dashboard/practice/test/${test.id}/start`,
                               )
                             }
-                            className="flex-1 bg-gray-900 hover:bg-gray-800 text-white rounded-xl py-2 text-sm font-semibold"
+                            className="flex-1 bg-brand-orange hover:bg-brand-orange/90 text-white rounded-xl py-2 text-sm font-semibold"
                           >
                             {bestAttempt ? (
                               <>
@@ -422,7 +422,7 @@ export default function PracticePage() {
                           type="button"
                           onClick={() => handleContinueAttempt(attempt)}
                           disabled={continuingAttemptId != null}
-                          className="flex-1 bg-gray-900 hover:bg-gray-800 text-white rounded-xl py-2 text-sm font-semibold"
+                          className="flex-1 bg-brand-orange hover:bg-brand-orange/90 text-white rounded-xl py-2 text-sm font-semibold"
                         >
                           {isContinuing ? (
                             <Loading size="sm" />
@@ -538,13 +538,12 @@ export default function PracticePage() {
                       </div>
                       <div className="flex items-center gap-2 pt-1">
                         <Button
-                          variant="outline"
                           onClick={() =>
                             router.push(
                               `/dashboard/practice/test/${attempt.id}/finish`,
                             )
                           }
-                          className="flex-1 border-black text-black hover:bg-gray-100 rounded-xl py-2 text-sm font-semibold"
+                          className="flex-1 bg-brand-orange hover:bg-brand-orange/90 text-white rounded-xl py-2 text-sm font-semibold"
                         >
                           View Results
                         </Button>
