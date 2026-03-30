@@ -271,6 +271,90 @@ export interface QuestionResult {
   }[];
 }
 
+function resultId(v: unknown): string | undefined {
+  if (v == null || v === "") return undefined;
+  return String(v);
+}
+
+/** Backend snake_case / boshqa nomlar va raqamli id → UI bilan mos keladigan format */
+function normalizeQuestionResult(q: Record<string, unknown>): QuestionResult {
+  const base = { ...(q as unknown as QuestionResult) };
+  const uid =
+    resultId(
+      q.userChoiceId ??
+        q.user_choice_id ??
+        q.selectedChoiceId ??
+        q.selected_choice_id,
+    ) ?? base.userChoiceId;
+  const userText = (q.userTextAnswer ?? q.user_text_answer) as
+    | string
+    | undefined;
+  const correctId =
+    resultId(
+      q.correctChoiceId ?? q.correct_choice_id ?? base.correctChoiceId,
+    ) ?? base.correctChoiceId;
+
+  let choices = base.choices;
+  const rawChoices = q.choices;
+  if (Array.isArray(rawChoices)) {
+    choices = rawChoices.map((c) => {
+      const row = c as Record<string, unknown>;
+      return {
+        id: resultId(row.id ?? row.choiceId) ?? "",
+        choiceText: String(
+          row.choiceText ?? row.choice_text ?? row.text ?? "",
+        ),
+        isCorrect: Boolean(row.isCorrect ?? row.is_correct ?? false),
+        imageUrl: (row.imageUrl ?? row.image_url ?? null) as string | null,
+        orderIndex:
+          typeof row.orderIndex === "number"
+            ? row.orderIndex
+            : typeof row.order_index === "number"
+              ? row.order_index
+              : undefined,
+      };
+    });
+  }
+
+  return {
+    ...base,
+    userChoiceId: uid,
+    userTextAnswer: userText ?? base.userTextAnswer,
+    correctChoiceId: correctId,
+    choices,
+  };
+}
+
+function normalizeTestResults(raw: unknown): TestResults {
+  if (!raw || typeof raw !== "object") {
+    return raw as unknown as TestResults;
+  }
+  let payload: unknown = raw;
+  const top = raw as Record<string, unknown>;
+  if (top.data != null && typeof top.data === "object") {
+    payload = top.data;
+  }
+  const r = payload as Record<string, unknown>;
+  const sections: SectionResult[] = Array.isArray(r.sections)
+    ? (r.sections as Record<string, unknown>[]).map((sec) => {
+        const modules: ModuleResult[] = Array.isArray(sec.modules)
+          ? (sec.modules as Record<string, unknown>[]).map((mod) => {
+              const questions: QuestionResult[] = Array.isArray(mod.questions)
+                ? (mod.questions as Record<string, unknown>[]).map((qq) =>
+                    normalizeQuestionResult(qq),
+                  )
+                : [];
+              return { ...mod, questions } as ModuleResult;
+            })
+          : [];
+        return { ...sec, modules } as SectionResult;
+      })
+    : Array.isArray((r as unknown as Partial<TestResults>).sections)
+      ? (r as unknown as TestResults).sections
+      : [];
+  return { ...(r as object), sections } as unknown as TestResults;
+}
+
 class PracticeService {
   /**
    * Get available tests
@@ -554,12 +638,13 @@ class PracticeService {
    * Get test results
    */
   async getResults(attemptId: string): Promise<TestResults> {
-    return apiClient<TestResults>(
+    const raw = await apiClient<unknown>(
       `/api/practice/attempts/${attemptId}/results`,
       {
         requireAuth: true,
       },
     );
+    return normalizeTestResults(raw);
   }
 
   /**

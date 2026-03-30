@@ -139,6 +139,11 @@ export default function ModuleReviewPage() {
 
       const result = await practiceService.finishModule(attemptId);
 
+      // Eski loadStateCache modul 1 holatini ushlab qolmasin — test sahifasi yangi modulni yuklasin
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem(`test_force_refresh_state_${attemptId}`, "1");
+      }
+
       switch (result.nextStep) {
         case "BREAK":
           router.push(`/dashboard/practice/test/${attemptId}/break`);

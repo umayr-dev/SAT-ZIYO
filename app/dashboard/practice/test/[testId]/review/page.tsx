@@ -156,17 +156,19 @@ export default function QuestionReviewPage() {
           {question.questionText && (
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
               <h3 className="font-semibold text-gray-900 mb-2">PASSAGE</h3>
-              <p className="text-gray-700 whitespace-pre-wrap">
-                {question.questionText}
-              </p>
+              <MarkdownRenderer
+                content={question.questionText}
+                className="text-gray-700 whitespace-pre-wrap"
+              />
             </div>
           )}
 
           {/* Question Text */}
           <div className="mb-6">
-            <p className="text-lg font-medium text-gray-900">
-              {question.questionText}
-            </p>
+            <MarkdownRenderer
+              content={question.questionText}
+              className="text-lg font-medium text-gray-900"
+            />
           </div>
 
           {/* Multiple Choice Review */}
@@ -175,7 +177,9 @@ export default function QuestionReviewPage() {
               {(question.choices ?? []).map((choice, index) => {
                 const letter = String.fromCharCode(65 + index);
                 const isCorrect = choice.isCorrect;
-                const isUserChoice = choice.id === question.userChoiceId;
+                const isUserChoice =
+                  question.userChoiceId != null &&
+                  String(choice.id) === String(question.userChoiceId);
 
                 let buttonClass =
                   "w-full text-left p-4 rounded-lg border-2 transition-all";
@@ -240,15 +244,33 @@ export default function QuestionReviewPage() {
             <div className="space-y-3 mb-6">
               <div className="p-4 bg-blue-50 rounded-lg">
                 <p className="text-sm text-gray-600 mb-1">Your Answer</p>
-                <p className="text-lg font-mono text-gray-900">
-                  {question.userTextAnswer || "No answer provided"}
-                </p>
+                {(() => {
+                  const s = question.userTextAnswer || "No answer provided";
+                  const looksLikeLatex = s.includes("$") || s.includes("\\");
+                  return looksLikeLatex ? (
+                    <MarkdownRenderer
+                      content={s}
+                      className="text-lg font-mono text-gray-900 whitespace-pre-wrap"
+                    />
+                  ) : (
+                    <p className="text-lg font-mono text-gray-900">{s}</p>
+                  );
+                })()}
               </div>
               <div className="p-4 bg-green-50 rounded-lg">
                 <p className="text-sm text-gray-600 mb-1">Correct Answer</p>
-                <p className="text-lg font-mono text-gray-900">
-                  {question.correctAnswer || "No correct answer provided"}
-                </p>
+                {(() => {
+                  const s = question.correctAnswer || "No correct answer provided";
+                  const looksLikeLatex = s.includes("$") || s.includes("\\");
+                  return looksLikeLatex ? (
+                    <MarkdownRenderer
+                      content={s}
+                      className="text-lg font-mono text-gray-900 whitespace-pre-wrap"
+                    />
+                  ) : (
+                    <p className="text-lg font-mono text-gray-900">{s}</p>
+                  );
+                })()}
               </div>
             </div>
           )}
@@ -257,9 +279,10 @@ export default function QuestionReviewPage() {
           {question.explanation && (
             <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <h3 className="font-semibold text-gray-900 mb-2">Explanation</h3>
-              <p className="text-gray-700 whitespace-pre-wrap">
-                {question.explanation}
-              </p>
+              <MarkdownRenderer
+                content={question.explanation}
+                className="text-gray-700 whitespace-pre-wrap"
+              />
             </div>
           )}
         </Card>

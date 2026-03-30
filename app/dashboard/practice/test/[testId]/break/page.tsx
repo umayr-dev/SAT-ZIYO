@@ -8,6 +8,12 @@ import { Loading } from "@/src/ui/loading";
 import { practiceService, BreakStatusResponse } from "@/src/services/practice.service";
 import { Clock, Coffee } from "lucide-react";
 
+function setForceRefreshTestState(attemptId: string) {
+  if (typeof window !== "undefined") {
+    sessionStorage.setItem(`test_force_refresh_state_${attemptId}`, "1");
+  }
+}
+
 export default function BreakPage() {
   const router = useRouter();
   const params = useParams();
@@ -36,6 +42,7 @@ export default function BreakPage() {
 
         // When break timer finishes, always move user to the next module/section
         if (remaining === 0) {
+          setForceRefreshTestState(attemptId);
           router.push(`/dashboard/practice/test/${attemptId}`);
         }
       };
@@ -52,6 +59,7 @@ export default function BreakPage() {
       setBreakStatus(status);
 
       if (status.nextStep === "NEW_SECTION") {
+        setForceRefreshTestState(attemptId);
         router.push(`/dashboard/practice/test/${attemptId}`);
       }
     } catch (err) {
@@ -66,6 +74,7 @@ export default function BreakPage() {
     setContinuing(true);
     try {
       await practiceService.endBreak(attemptId);
+      setForceRefreshTestState(attemptId);
       router.push(`/dashboard/practice/test/${attemptId}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to continue test";

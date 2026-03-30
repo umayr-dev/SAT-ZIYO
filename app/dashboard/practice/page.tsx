@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Card } from "@/src/ui/card";
@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import { usePracticeOverview } from "@/src/components/practice/usePracticeOverview";
 import type { Attempt, Test } from "@/src/services/practice.service";
-import { practiceService } from "@/src/services/practice.service";
 
 type Tab = "all" | "in_progress" | "completed";
 
@@ -63,7 +62,11 @@ export default function PracticePage() {
   );
 
   const [activeTab, setActiveTab] = useState<Tab>("all");
-  const [startingId, setStartingId] = useState<string | null>(null);
+  /** Sinxron qulf: state yangilanishidan oldin ikkinchi bosishni bloklaydi */
+  const continueLockRef = useRef(false);
+  const [continuingAttemptId, setContinuingAttemptId] = useState<string | null>(
+    null,
+  );
 
   // ---- Helpers ----
 
@@ -117,16 +120,16 @@ export default function PracticePage() {
     });
   }
 
-  async function handleContinue(testId: string) {
-    if (startingId) return;
-    try {
-      setStartingId(testId);
-      const response = await practiceService.startTest(testId);
-      router.push(`/dashboard/practice/test/${response.attemptId}`);
-    } catch (err) {
-      console.error("Failed to resume test:", err);
-      setStartingId(null);
-    }
+  /**
+   * IN_PROGRESS urinishni davom ettirish: URL segment aslida attemptId
+   * (app/dashboard/practice/test/[testId]/page.tsx). Qayta startTest chaqirmasdan
+   * to‘g‘ridan-to‘g‘ri shu attempt sahifasiga o‘tamiz — parallel so‘rovlar yo‘q.
+   */
+  function handleContinueAttempt(attempt: Attempt) {
+    if (continueLockRef.current) return;
+    continueLockRef.current = true;
+    setContinuingAttemptId(attempt.id);
+    router.push(`/dashboard/practice/test/${attempt.id}`);
   }
 
   // ---- Derived section data ----
@@ -242,7 +245,9 @@ export default function PracticePage() {
                 const bestAttempt = getBestCompletedAttempt(test.id);
                 const totalDuration = calculateTotalDuration(test);
                 const totalQuestions = calculateTotalQuestions(test);
-                const isStarting = startingId === test.id;
+                const isContinuing =
+                  continuingAttemptId != null &&
+                  inProgress?.id === continuingAttemptId;
 
                 const accessType = (
                   (test as { accessType?: string }).accessType ?? "FREE"
@@ -308,11 +313,12 @@ export default function PracticePage() {
                       <div className="flex items-center gap-2 pt-1">
                         {inProgress ? (
                           <Button
-                            onClick={() => handleContinue(inProgress.testId)}
-                            disabled={!!startingId}
+                            type="button"
+                            onClick={() => handleContinueAttempt(inProgress)}
+                            disabled={continuingAttemptId != null}
                             className="flex-1 bg-brand-orange hover:bg-brand-orange/90 text-white rounded-xl py-2 text-sm font-semibold"
                           >
-                            {isStarting ? (
+                            {isContinuing ? (
                               <Loading size="sm" />
                             ) : (
                               <>
@@ -380,7 +386,7 @@ export default function PracticePage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 min-[420px]:gap-4">
               {inProgressAttempts.map((attempt) => {
-                const isStarting = startingId === attempt.testId;
+                const isContinuing = continuingAttemptId === attempt.id;
                 const test = tests.find((t) => t.id === attempt.testId);
                 const totalDuration = test ? calculateTotalDuration(test) : 0;
                 const totalQuestions = test ? calculateTotalQuestions(test) : 0;
@@ -413,11 +419,12 @@ export default function PracticePage() {
                       </p>
                       <div className="flex items-center gap-2 pt-1">
                         <Button
-                          onClick={() => handleContinue(attempt.testId)}
-                          disabled={!!startingId}
+                          type="button"
+                          onClick={() => handleContinueAttempt(attempt)}
+                          disabled={continuingAttemptId != null}
                           className="flex-1 bg-brand-orange hover:bg-brand-orange/90 text-white rounded-xl py-2 text-sm font-semibold"
                         >
-                          {isStarting ? (
+                          {isContinuing ? (
                             <Loading size="sm" />
                           ) : (
                             <>

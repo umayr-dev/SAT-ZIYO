@@ -23,6 +23,7 @@ import {
   getQuestionImageUrl,
   getChoiceText,
   getChoiceImageUrl,
+  shouldUnoptimizeImage,
 } from "@/src/services/practice.service";
 import { ApiClientError } from "@/src/lib/api-client";
 import { TestTimer } from "@/src/components/practice/TestTimer";
@@ -511,6 +512,13 @@ export default function TestTakingPage() {
   const navigationInFlightRef = useRef(false);
   /** Faqat so‘nggi so‘ralgan jump indexiga mos javobni state ga yozamiz – kechikkan/aralash javoblar e’tiborsiz */
   const latestRequestedJumpRef = useRef<number | null>(null);
+  /** Timer / visibility: oxirgi renderdagi state, handleAnswer stale bo‘lmasin */
+  const currentAnswerRef = useRef<{
+    choiceId?: string;
+    textAnswer?: string;
+  }>({});
+  const testStateRef = useRef<StartTestResponse | null>(null);
+  const handleAnswerRef = useRef<() => void>(() => {});
 
   // 920px gacha desktop 2-ustun; 920px dan pastda mobil (1-ustun, passage+image tepada)
   const [isDesktopLayout, setIsDesktopLayout] = useState(false);
@@ -1037,47 +1045,70 @@ export default function TestTakingPage() {
     [getAllAnswersFromStorage],
   );
 
-  // Persist current question answer to localStorage whenever user changes selection/text/flag/eliminations
-  // So all questions' answers are saved; user can go to any question and see/edit their answer before finishing
+  // Persist javobni faqat tanlov/matn/bayroq/eliminatsiya o‘zgarganda (indeks o‘zgarishi birinchi paintda stale javob bilan yozilmasin)
   const isFlaggedCurrent = testState?.question
     ? flaggedQuestions.has(testState.currentQuestionIndex)
     : false;
+  currentAnswerRef.current = currentAnswer;
+  testStateRef.current = testState;
+
   useEffect(() => {
-    if (!testState?.question) return;
-    const idx = testState.currentQuestionIndex;
-    const questionId = testState.question.id;
+    const ts = testStateRef.current;
+    if (!ts?.question) return;
+    const idx = ts.currentQuestionIndex;
+    const questionId = ts.question.id;
+    const live = currentAnswerRef.current;
+    const choiceIdNorm =
+      live.choiceId != null && live.choiceId !== ""
+        ? String(live.choiceId)
+        : undefined;
+    const hasAnswer = hasActualAnswer({
+      choiceId: choiceIdNorm,
+      textAnswer: live.textAnswer,
+    });
+    const hasMeta = isFlaggedCurrent || eliminatedChoices.size > 0;
     const answerData = {
       questionId,
-      choiceId: currentAnswer.choiceId,
-      textAnswer: currentAnswer.textAnswer,
+      choiceId: choiceIdNorm,
+      textAnswer: live.textAnswer,
       markedForReview: isFlaggedCurrent,
       eliminatedChoices: Array.from(eliminatedChoices),
     };
-    saveAnswerToStorage(idx, answerData);
-    setPendingAnswers((prev) => {
-      const next = new Map(prev);
-      next.set(idx, answerData);
-      return next;
-    });
-    if (
-      currentAnswer.choiceId != null ||
-      (currentAnswer.textAnswer != null &&
-        currentAnswer.textAnswer.trim() !== "")
-    ) {
+    if (hasAnswer || hasMeta) {
+      saveAnswerToStorage(idx, answerData);
+      setPendingAnswers((prev) => {
+        const next = new Map(prev);
+        next.set(idx, answerData);
+        return next;
+      });
+      if (hasAnswer) {
+        setAnsweredQuestions((prev) => {
+          const next = new Set(prev);
+          next.add(idx);
+          return next;
+        });
+      }
+    } else {
+      removeAnswerFromStorage(idx);
+      setPendingAnswers((prev) => {
+        const next = new Map(prev);
+        next.delete(idx);
+        return next;
+      });
       setAnsweredQuestions((prev) => {
         const next = new Set(prev);
-        next.add(idx);
+        next.delete(idx);
         return next;
       });
     }
   }, [
-    testState?.currentQuestionIndex,
-    testState?.question,
     currentAnswer.choiceId,
     currentAnswer.textAnswer,
     isFlaggedCurrent,
     eliminatedChoices,
+    hasActualAnswer,
     saveAnswerToStorage,
+    removeAnswerFromStorage,
   ]);
 
   // Clear localStorage on unmount (only if test is completed)
@@ -1279,6 +1310,15 @@ export default function TestTakingPage() {
 
   async function loadTestState() {
     if (loadTestStateInFlightRef.current) return;
+
+    if (
+      typeof window !== "undefined" &&
+      sessionStorage.getItem(`test_force_refresh_state_${attemptId}`) === "1"
+    ) {
+      loadStateCache = null;
+      sessionStorage.removeItem(`test_force_refresh_state_${attemptId}`);
+    }
+
     // Strict Mode / double mount: yaqinda cache bo‘lsa so‘rov yubormaymiz – dublikat current kamayadi
     if (
       loadStateCache?.attemptId === attemptId &&
@@ -1620,16 +1660,25 @@ export default function TestTakingPage() {
   }
 
   const handleAnswer = useCallback(() => {
-    if (!testState?.question) return;
+    const ts = testStateRef.current;
+    if (!ts?.question) return;
 
-    const currentIndex = testState.currentQuestionIndex;
-    const questionId = testState.question.id;
-    const hasAnswer = hasActualAnswer(currentAnswer);
+    const currentIndex = ts.currentQuestionIndex;
+    const questionId = ts.question.id;
+    const live = currentAnswerRef.current;
+    const choiceIdNorm =
+      live.choiceId != null && live.choiceId !== ""
+        ? String(live.choiceId)
+        : undefined;
+    const hasAnswer = hasActualAnswer({
+      choiceId: choiceIdNorm,
+      textAnswer: live.textAnswer,
+    });
 
     const answerData = {
       questionId,
-      choiceId: currentAnswer.choiceId,
-      textAnswer: currentAnswer.textAnswer,
+      choiceId: choiceIdNorm,
+      textAnswer: live.textAnswer,
       markedForReview: flaggedQuestions.has(currentIndex),
       eliminatedChoices: Array.from(eliminatedChoices),
     };
@@ -1666,14 +1715,32 @@ export default function TestTakingPage() {
     }
     // NO SERVER REQUEST - answers will be submitted when test finishes
   }, [
-    testState,
-    currentAnswer,
     hasActualAnswer,
     saveAnswerToStorage,
     removeAnswerFromStorage,
     flaggedQuestions,
     eliminatedChoices,
   ]);
+
+  useEffect(() => {
+    handleAnswerRef.current = handleAnswer;
+  }, [handleAnswer]);
+
+  // Tab yopilganda / sahifa yashirilganda oxirgi tanlovni darhol localStorage ga yozish (mobil / vaqt tugashi race)
+  useEffect(() => {
+    const flush = () => {
+      if (document.visibilityState === "hidden") {
+        handleAnswerRef.current();
+      }
+    };
+    const onPageHide = () => handleAnswerRef.current();
+    document.addEventListener("visibilitychange", flush);
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      document.removeEventListener("visibilitychange", flush);
+      window.removeEventListener("pagehide", onPageHide);
+    };
+  }, []);
 
   // Navigate to module review page (no server calls, only local state). Persist timer so it is not reset on return.
   const handleGoToModuleReview = useCallback(() => {
@@ -2586,13 +2653,15 @@ export default function TestTakingPage() {
                         <QuestionDisplay key={question.id} question={question} selectedChoiceId={currentAnswer.choiceId} textAnswer={currentAnswer.textAnswer} onSelectChoice={(choiceId) => handleAnswerChange({ choiceId, textAnswer: currentAnswer.textAnswer })} onTextAnswerChange={(text) => handleAnswerChange({ textAnswer: text, choiceId: currentAnswer.choiceId })} isFlagged={isFlagged} hidePassage showOnlyQuestionText isMarkupEnabled={isMarkupEnabled} attemptId={attemptId} onHighlightsChange={(highlights) => { if (highlights.length > 0) saveHighlightsToStorage(question.id, highlights); else { const all = getAllHighlightsFromStorage(); all.delete(question.id); if (typeof window !== "undefined") try { const o = {}; all.forEach((v, k) => { (o as any)[k] = v; }); localStorage.setItem(getHighlightsStorageKey(), JSON.stringify(o)); } catch (e) { console.error(e); } } }} />
                       </div>
                       {getQuestionImageUrl(question) && (
-                        <div className="mt-2 sm:mt-3 md:mt-4 p-2 sm:p-3 bg-white rounded-lg border border-gray-200 flex items-center justify-center overflow-hidden mb-4">
+                        <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-white rounded-lg border border-gray-200 flex justify-center items-center overflow-hidden">
                           <Image
                             src={getQuestionImageUrl(question)!}
-                            alt="Question"
-                            width={640}
-                            height={180}
-                            className="w-full h-auto rounded-lg object-contain max-h-[140px] sm:max-h-[180px] bg-white"
+                            alt="Question figure"
+                            width={1200}
+                            height={900}
+                            unoptimized={shouldUnoptimizeImage(getQuestionImageUrl(question)!)}
+                            className="max-h-[min(48vh,480px)] w-auto max-w-full h-auto rounded-lg object-contain bg-white"
+                            sizes="(max-width: 1024px) 95vw, 100vw"
                             loading="lazy"
                           />
                         </div>
@@ -2687,6 +2756,20 @@ export default function TestTakingPage() {
                     }}
                   >
                     <div className="pr-2 md:pr-4 pb-4 md:pb-6 pl-0.5 md:pl-1">
+                      {getQuestionImageUrl(question) && (
+                        <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-gray-100 rounded-lg flex justify-center items-center overflow-hidden">
+                          <Image
+                            src={getQuestionImageUrl(question)!}
+                            alt="Question figure"
+                            width={1200}
+                            height={900}
+                            unoptimized={shouldUnoptimizeImage(getQuestionImageUrl(question)!)}
+                            className="max-h-[min(52vh,520px)] w-auto max-w-full h-auto rounded-lg object-contain bg-gray-100"
+                            sizes="(max-width: 1024px) 92vw, 46vw"
+                            loading="lazy"
+                          />
+                        </div>
+                      )}
                       {/* Math + grid-in: chapda Student-Produced Response Directions */}
                       {testState.currentSection.type === "MATH" &&
                       isOpenAnswerQuestion(question) ? (
@@ -2742,22 +2825,11 @@ export default function TestTakingPage() {
                           />
                         </div>
                       ) : (
-                        <div className="text-gray-500 text-sm italic">
-                          No passage for this question.
-                        </div>
-                      )}
-                      {/* Savol rasmi passage/directions ostida chap ustunda */}
-                      {getQuestionImageUrl(question) && (
-                        <div className="mt-2 sm:mt-3 md:mt-4 p-2 sm:p-3 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
-                          <Image
-                            src={getQuestionImageUrl(question)!}
-                            alt="Question"
-                            width={640}
-                            height={180}
-                            className="w-full h-auto rounded-lg object-contain max-h-[100px] sm:max-h-[140px] md:max-h-[180px] bg-gray-100"
-                            loading="lazy"
-                          />
-                        </div>
+                        !getQuestionImageUrl(question) && (
+                          <div className="text-gray-500 text-sm italic">
+                            No passage for this question.
+                          </div>
+                        )
                       )}
                     </div>
                   </div>
@@ -3280,9 +3352,22 @@ export default function TestTakingPage() {
                       })}
                     </div>
                   )}
-                  {/* Passage va image savol blokidan keyin pastda */}
+                  {getQuestionImageUrl(question) && (
+                    <div className="mt-4 sm:mt-5 mb-3 sm:mb-4 p-2 sm:p-3 bg-gray-100 rounded-lg flex justify-center items-center overflow-hidden">
+                      <Image
+                        src={getQuestionImageUrl(question)!}
+                        alt="Question figure"
+                        width={1200}
+                        height={900}
+                        unoptimized={shouldUnoptimizeImage(getQuestionImageUrl(question)!)}
+                        className="max-h-[min(50vh,500px)] w-auto max-w-full h-auto rounded-lg object-contain bg-gray-100"
+                        sizes="100vw"
+                        loading="lazy"
+                      />
+                    </div>
+                  )}
                   {(question.sharedPassage?.content || question.passage) && (
-                    <div className="mt-4 sm:mt-5 p-3 sm:p-4 mb-3 sm:mb-4 bg-white rounded-lg">
+                    <div className="mt-2 sm:mt-3 p-3 sm:p-4 mb-3 sm:mb-4 bg-white rounded-lg">
                       <HighlightablePassage
                         passageText={question.sharedPassage?.content || question.passage || ""}
                         isMarkupEnabled={isMarkupEnabled}
@@ -3299,18 +3384,6 @@ export default function TestTakingPage() {
                             } catch (e) { console.error(e); }
                           }
                         }}
-                      />
-                    </div>
-                  )}
-                  {getQuestionImageUrl(question) && (
-                    <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
-                      <Image
-                        src={getQuestionImageUrl(question)!}
-                        alt="Savol rasmi"
-                        width={600}
-                        height={140}
-                        className="w-full h-auto rounded-lg object-contain max-h-[100px] sm:max-h-[140px] bg-gray-100"
-                        loading="lazy"
                       />
                     </div>
                   )}

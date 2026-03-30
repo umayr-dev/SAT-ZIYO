@@ -300,6 +300,16 @@ export default function FinishTestPage() {
     return "—";
   }
 
+  function renderAnswerCell(text: string) {
+    // Ba'zida javob ichida `$...$` yoki `\frac` kabi LaTeX bo'ladi,
+    // oddiy tekst bo'lib qolsa KaTeX render bo'lmaydi.
+    const s = text ?? "—";
+    if (s === "—") return s;
+    const looksLikeLatex = s.includes("$") || s.includes("\\");
+    if (!looksLikeLatex) return s;
+    return <MarkdownRenderer content={s} className="text-inherit" />;
+  }
+
   function openReview(questions: QuestionResult[], index: number) {
     setReviewQuestions(questions);
     setReviewIndex(index);
@@ -546,16 +556,16 @@ export default function FinishTestPage() {
                       </td>
                       <td className="px-4 py-3 text-gray-600">{sectionLabel}</td>
                       <td
-                        className="px-4 py-3 text-gray-700 max-w-[160px] truncate"
+                        className="px-4 py-3 text-gray-700 max-w-[220px] break-words"
                         title={userAns}
                       >
-                        {userAns}
+                        {renderAnswerCell(userAns)}
                       </td>
                       <td
-                        className="px-4 py-3 text-gray-700 max-w-[160px] truncate"
+                        className="px-4 py-3 text-gray-700 max-w-[220px] break-words"
                         title={correctAns}
                       >
-                        {correctAns}
+                        {renderAnswerCell(correctAns)}
                       </td>
                       <td className="px-4 py-3 text-center">
                         {q.isUnanswered ? (
@@ -689,9 +699,10 @@ export default function FinishTestPage() {
                           {reviewQuestion.sharedPassage.title}
                         </p>
                       )}
-                      <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
-                        {reviewQuestion.sharedPassage.content}
-                      </p>
+                      <MarkdownRenderer
+                        content={reviewQuestion.sharedPassage.content ?? ""}
+                        className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap"
+                      />
                       {reviewQuestion.sharedPassage.source && (
                         <p className="text-xs text-gray-400 mt-2 italic">
                           — {reviewQuestion.sharedPassage.source}
@@ -699,9 +710,10 @@ export default function FinishTestPage() {
                       )}
                     </>
                   ) : (
-                    <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
-                      {reviewQuestion.passage}
-                    </p>
+                    <MarkdownRenderer
+                      content={reviewQuestion.passage ?? ""}
+                      className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap"
+                    />
                   )}
                 </div>
               )}
@@ -718,9 +730,10 @@ export default function FinishTestPage() {
               )}
 
               {/* Question text */}
-              <p className="text-base font-medium text-gray-900 leading-relaxed">
-                {reviewQuestion.questionText}
-              </p>
+              <MarkdownRenderer
+                content={reviewQuestion.questionText ?? ""}
+                className="text-base font-medium text-gray-900 leading-relaxed"
+              />
 
               {/* MCQ choices */}
               {hasChoiceOptions(reviewQuestion) && (
@@ -730,7 +743,10 @@ export default function FinishTestPage() {
                     .map((choice, idx) => {
                       const letter = String.fromCharCode(65 + idx);
                       const isCorrect = choice.isCorrect;
-                      const isUser = choice.id === reviewQuestion.userChoiceId;
+                      const isUser =
+                        reviewQuestion.userChoiceId != null &&
+                        String(choice.id) ===
+                          String(reviewQuestion.userChoiceId);
 
                       // showAnswer OFF → user's pick = grey, everything else = neutral
                       // showAnswer ON  → correct = green, user's wrong pick = red, rest = neutral
@@ -828,9 +844,10 @@ export default function FinishTestPage() {
                   <p className="text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
                     Explanation
                   </p>
-                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
-                    {reviewQuestion.explanation}
-                  </p>
+                  <MarkdownRenderer
+                    content={reviewQuestion.explanation ?? ""}
+                    className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap"
+                  />
                 </div>
               )}
             </div>
