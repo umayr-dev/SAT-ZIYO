@@ -28,7 +28,7 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
             <span className="text-sm sm:text-base font-bold text-white">{initials}</span>
           </div>
           <div className="min-w-0">
-            <h1 className="text-lg sm:text-xl font-bold text-brand-orange truncate">
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate">
               Welcome back, {displayName}
             </h1>
             <p className="text-xs sm:text-sm text-black mt-0.5">

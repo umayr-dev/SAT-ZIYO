@@ -268,7 +268,7 @@ export function ProgressOverview() {
               <Award className="h-5 w-5 sm:h-7 sm:w-7 text-white" />
             </div>
             <div className="min-w-0">
-              <CardTitle className="text-base sm:text-xl font-bold text-brand-orange">
+              <CardTitle className="text-base sm:text-xl font-bold text-gray-900">
                 Your Progress
               </CardTitle>
               <p className="text-xs sm:text-sm text-black mt-0.5">
@@ -351,7 +351,7 @@ export function ProgressOverview() {
                 <Calendar className="h-7 w-7 text-white" />
               </div>
               <div>
-                <CardTitle className="text-xl font-bold text-brand-orange">
+                <CardTitle className="text-xl font-bold text-gray-900">
                   Exam Countdown
                 </CardTitle>
                 <p className="text-sm text-black mt-0.5">
@@ -485,7 +485,7 @@ export function ProgressOverview() {
                 <TrendingUp className="h-7 w-7 text-white" />
               </div>
               <div>
-                <CardTitle className="text-xl font-bold text-brand-orange">
+                <CardTitle className="text-xl font-bold text-gray-900">
                   Your Target Score
                 </CardTitle>
                 <p className="text-sm text-black mt-0.5">
