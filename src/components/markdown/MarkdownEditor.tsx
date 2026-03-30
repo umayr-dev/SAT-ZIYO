@@ -1,7 +1,16 @@
 "use client";
 
 import React, { useRef, useCallback, useState, useEffect } from "react";
-import { Bold, Italic, List, ListOrdered, Table2, Sigma, ChevronDown, Underline } from "lucide-react";
+import {
+  Bold,
+  Italic,
+  List,
+  ListOrdered,
+  Table2,
+  Sigma,
+  ChevronDown,
+  Underline,
+} from "lucide-react";
 
 interface MarkdownEditorProps {
   value: string;
@@ -21,7 +30,7 @@ interface MarkdownEditorProps {
 function insertMathAtCursor(
   textarea: HTMLTextAreaElement,
   insert: string,
-  onChange: (v: string) => void
+  onChange: (v: string) => void,
 ) {
   const start = textarea.selectionStart;
   const end = textarea.selectionEnd;
@@ -39,7 +48,7 @@ function insertAtCursor(
   textarea: HTMLTextAreaElement,
   before: string,
   after: string = "",
-  wrapSelection: boolean = true
+  wrapSelection: boolean = true,
 ) {
   const start = textarea.selectionStart;
   const end = textarea.selectionEnd;
@@ -50,7 +59,12 @@ function insertAtCursor(
   let newCursor: number;
 
   if (wrapSelection && selected) {
-    newText = text.substring(0, start) + before + selected + after + text.substring(end);
+    newText =
+      text.substring(0, start) +
+      before +
+      selected +
+      after +
+      text.substring(end);
     newCursor = start + before.length + selected.length + after.length;
   } else {
     newText = text.substring(0, start) + before + after + text.substring(end);
@@ -76,14 +90,19 @@ export function MarkdownEditor({
     (before: string, after: string = "", wrapSelection = true) => {
       const ta = textareaRef.current;
       if (!ta) return;
-      const { newText, newCursor } = insertAtCursor(ta, before, after, wrapSelection);
+      const { newText, newCursor } = insertAtCursor(
+        ta,
+        before,
+        after,
+        wrapSelection,
+      );
       onChange(newText);
       requestAnimationFrame(() => {
         ta.focus();
         ta.setSelectionRange(newCursor, newCursor);
       });
     },
-    [onChange]
+    [onChange],
   );
 
   const handleBold = () => applyFormat("**", "**");
@@ -96,11 +115,15 @@ export function MarkdownEditor({
     const text = ta.value;
     const lineStart = text.lastIndexOf("\n", start - 1) + 1;
     const insert = "- ";
-    const newText = text.substring(0, lineStart) + insert + text.substring(lineStart);
+    const newText =
+      text.substring(0, lineStart) + insert + text.substring(lineStart);
     onChange(newText);
     requestAnimationFrame(() => {
       ta.focus();
-      ta.setSelectionRange(lineStart + insert.length, lineStart + insert.length);
+      ta.setSelectionRange(
+        lineStart + insert.length,
+        lineStart + insert.length,
+      );
     });
   };
   const handleNumberedList = () => {
@@ -110,11 +133,15 @@ export function MarkdownEditor({
     const text = ta.value;
     const lineStart = text.lastIndexOf("\n", start - 1) + 1;
     const insert = "1. ";
-    const newText = text.substring(0, lineStart) + insert + text.substring(lineStart);
+    const newText =
+      text.substring(0, lineStart) + insert + text.substring(lineStart);
     onChange(newText);
     requestAnimationFrame(() => {
       ta.focus();
-      ta.setSelectionRange(lineStart + insert.length, lineStart + insert.length);
+      ta.setSelectionRange(
+        lineStart + insert.length,
+        lineStart + insert.length,
+      );
     });
   };
 
@@ -143,7 +170,10 @@ export function MarkdownEditor({
   useEffect(() => {
     if (!mathOpen) return;
     const close = (e: MouseEvent) => {
-      if (mathMenuRef.current && !mathMenuRef.current.contains(e.target as Node)) {
+      if (
+        mathMenuRef.current &&
+        !mathMenuRef.current.contains(e.target as Node)
+      ) {
         setMathOpen(false);
       }
     };
@@ -158,7 +188,7 @@ export function MarkdownEditor({
       insertMathAtCursor(ta, s, onChange);
       setMathOpen(false);
     },
-    [onChange]
+    [onChange],
   );
 
   const mathItems: { label: string; insert: string }[] = [
@@ -232,14 +262,19 @@ export function MarkdownEditor({
     { label: "(a+b)³", insert: "$(a+b)^3$" },
     { label: "√(x²+y²)", insert: "$\\sqrt{x^2+y^2}$" },
     { label: "√(a²−b²)", insert: "$\\sqrt{a^2-b^2}$" },
-    { label: "Kvadrat formulasi", insert: "$\\dfrac{-b \\pm \\sqrt{b^2-4ac}}{2a}$" },
+    {
+      label: "Kvadrat formulasi",
+      insert: "$\\dfrac{-b \\pm \\sqrt{b^2-4ac}}{2a}$",
+    },
     { label: "√a + √b", insert: "$\\sqrt{a}+\\sqrt{b}$" },
     { label: "x^(1/2)", insert: "$x^{1/2}$" },
     { label: "x^(2/3)", insert: "$x^{2/3}$" },
   ];
 
   return (
-    <div className={`border border-gray-300 rounded-md overflow-hidden ${className}`}>
+    <div
+      className={`border border-gray-300 rounded-md overflow-hidden ${className}`}
+    >
       <div className="flex items-center gap-0.5 p-1 bg-gray-100 border-b border-gray-300">
         <button
           type="button"
@@ -303,36 +338,36 @@ export function MarkdownEditor({
               <ChevronDown className="w-3 h-3 opacity-70" />
             </button>
             {mathOpen && (
-            <div className="absolute left-0 top-full mt-0.5 z-50 min-w-[280px] max-w-[380px] rounded-lg border border-gray-200 bg-white shadow-lg p-2 grid grid-cols-3 gap-1 text-left max-h-[70vh] overflow-y-auto">
-              <p className="col-span-3 text-[10px] font-medium text-gray-500 uppercase tracking-wide px-1 py-0.5">
-                Math (LaTeX) — SAT
-              </p>
-              {mathItems.map(({ label, insert }) => (
-                <button
-                  key={`s-${label}-${insert}`}
-                  type="button"
-                  onClick={() => insertMath(insert)}
-                  className="text-xs px-2 py-1.5 rounded hover:bg-gray-100 text-gray-700 text-left truncate"
-                  title={insert}
-                >
-                  {label}
-                </button>
-              ))}
-              <p className="col-span-3 text-[10px] font-medium text-gray-600 mt-2 pt-1.5 border-t border-gray-100 px-1">
-                Murakkab (surat/maxrajda ildiz, qavs, daraja)
-              </p>
-              {mathCompound.map(({ label, insert }) => (
-                <button
-                  key={`c-${label}-${insert}`}
-                  type="button"
-                  onClick={() => insertMath(insert)}
-                  className="text-xs px-2 py-1.5 rounded hover:bg-gray-100 text-gray-700 text-left truncate"
-                  title={insert}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+              <div className="absolute left-0 top-full mt-0.5 z-50 min-w-[280px] max-w-[380px] rounded-lg border border-gray-200 bg-white shadow-lg p-2 grid grid-cols-3 gap-1 text-left max-h-[70vh] overflow-y-auto">
+                <p className="col-span-3 text-[10px] font-medium text-gray-500 uppercase tracking-wide px-1 py-0.5">
+                  Math (LaTeX) — SAT
+                </p>
+                {mathItems.map(({ label, insert }) => (
+                  <button
+                    key={`s-${label}-${insert}`}
+                    type="button"
+                    onClick={() => insertMath(insert)}
+                    className="text-xs px-2 py-1.5 rounded hover:bg-gray-100 text-gray-700 text-left truncate"
+                    title={insert}
+                  >
+                    {label}
+                  </button>
+                ))}
+                <p className="col-span-3 text-[10px] font-medium text-gray-600 mt-2 pt-1.5 border-t border-gray-100 px-1">
+                  Murakkab (surat/maxrajda ildiz, qavs, daraja)
+                </p>
+                {mathCompound.map(({ label, insert }) => (
+                  <button
+                    key={`c-${label}-${insert}`}
+                    type="button"
+                    onClick={() => insertMath(insert)}
+                    className="text-xs px-2 py-1.5 rounded hover:bg-gray-100 text-gray-700 text-left truncate"
+                    title={insert}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             )}
           </div>
         )}

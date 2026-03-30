@@ -311,44 +311,31 @@ export default function PracticePage() {
                         )}
                       </div>
                       <div className="flex items-center gap-2 pt-1">
-                        {inProgress ? (
-                          <Button
-                            type="button"
-                            onClick={() => handleContinueAttempt(inProgress)}
-                            disabled={continuingAttemptId != null}
-                            className="flex-1 bg-brand-orange hover:bg-brand-orange/90 text-white rounded-xl py-2 text-sm font-semibold"
-                          >
-                            {isContinuing ? (
-                              <Loading size="sm" />
-                            ) : (
-                              <>
-                                <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
-                                Continue
-                              </>
-                            )}
-                          </Button>
-                        ) : (
-                          <Button
-                            onClick={() =>
-                              router.push(
-                                `/dashboard/practice/test/${test.id}/start`,
-                              )
-                            }
-                            className="flex-1 bg-brand-orange hover:bg-brand-orange/90 text-white rounded-xl py-2 text-sm font-semibold"
-                          >
-                            {bestAttempt ? (
-                              <>
-                                <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
-                                Retake
-                              </>
-                            ) : (
-                              <>
-                                <Play className="w-3.5 h-3.5 mr-1.5" />
-                                Start Test
-                              </>
-                            )}
-                          </Button>
-                        )}
+                        <Button
+                          onClick={() =>
+                            router.push(
+                              `/dashboard/practice/test/${test.id}/start?fresh=1`,
+                            )
+                          }
+                          className="flex-1 bg-brand-orange hover:bg-brand-orange/90 text-white rounded-xl py-2 text-sm font-semibold"
+                        >
+                          {inProgress ? (
+                            <>
+                              <Play className="w-3.5 h-3.5 mr-1.5" />
+                              Start New
+                            </>
+                          ) : bestAttempt ? (
+                            <>
+                              <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                              Retake
+                            </>
+                          ) : (
+                            <>
+                              <Play className="w-3.5 h-3.5 mr-1.5" />
+                              Start Test
+                            </>
+                          )}
+                        </Button>
                         <Button
                           type="button"
                           variant="outline"

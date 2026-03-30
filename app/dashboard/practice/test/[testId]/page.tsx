@@ -94,14 +94,26 @@ function DesmosCalculatorPanel({
   const [scriptReady, setScriptReady] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && (window as unknown as { Desmos?: unknown }).Desmos) {
+    if (
+      typeof window !== "undefined" &&
+      (window as unknown as { Desmos?: unknown }).Desmos
+    ) {
       setScriptReady(true);
     }
   }, []);
 
   useEffect(() => {
     if (!scriptReady || !containerRef.current) return;
-    const Desmos = (window as unknown as { Desmos?: { GraphingCalculator: (el: HTMLElement, opts?: object) => { destroy: () => void } } }).Desmos;
+    const Desmos = (
+      window as unknown as {
+        Desmos?: {
+          GraphingCalculator: (
+            el: HTMLElement,
+            opts?: object,
+          ) => { destroy: () => void };
+        };
+      }
+    ).Desmos;
     if (!Desmos?.GraphingCalculator) return;
     const el = containerRef.current;
     calculatorRef.current = Desmos.GraphingCalculator(el, {
@@ -135,8 +147,14 @@ function DesmosCalculatorPanel({
       const handleMove = (moveEvent: MouseEvent) => {
         const dx = moveEvent.clientX - startRef.current.x;
         const dy = moveEvent.clientY - startRef.current.y;
-        const newW = Math.max(DESMOS_MIN_W, Math.min(DESMOS_MAX_W, startRef.current.w + dx));
-        const newH = Math.max(DESMOS_MIN_H, Math.min(DESMOS_MAX_H, startRef.current.h + dy));
+        const newW = Math.max(
+          DESMOS_MIN_W,
+          Math.min(DESMOS_MAX_W, startRef.current.w + dx),
+        );
+        const newH = Math.max(
+          DESMOS_MIN_H,
+          Math.min(DESMOS_MAX_H, startRef.current.h + dy),
+        );
         onSizeChange({ width: newW, height: newH });
       };
       const handleUp = () => {
@@ -200,40 +218,54 @@ function DesmosCalculatorPanel({
       style={{ width: `${width}px`, height: `${height}px` }}
       onMouseDown={handleDragStart}
     >
-        <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-200 bg-gray-50 cursor-move select-none">
-          <h2 className="text-xs font-semibold text-gray-800">Desmos Calculator</h2>
-          <button type="button" onClick={onClose} className="text-[10px] text-gray-500 hover:text-gray-800">
-            Close
-          </button>
-        </div>
-        <div className="flex-1 min-h-0 relative bg-gray-50">
-          <div ref={containerRef} className="w-full h-full min-h-[200px]" />
-          {!scriptReady && (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-500 text-sm">
-              Loading calculator…
-            </div>
-          )}
-          <div
-            data-desmos-resize
-            onMouseDown={handleResizeStart}
-            className="absolute bottom-0 right-0 w-5 h-5 cursor-se-resize bg-gray-300 hover:bg-gray-400 rounded-tl border-t border-l border-gray-400"
-            aria-label="Resize"
-          />
-        </div>
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-200 bg-gray-50 cursor-move select-none">
+        <h2 className="text-xs font-semibold text-gray-800">
+          Desmos Calculator
+        </h2>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-[10px] text-gray-500 hover:text-gray-800"
+        >
+          Close
+        </button>
       </div>
+      <div className="flex-1 min-h-0 relative bg-gray-50">
+        <div ref={containerRef} className="w-full h-full min-h-[200px]" />
+        {!scriptReady && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-500 text-sm">
+            Loading calculator…
+          </div>
+        )}
+        <div
+          data-desmos-resize
+          onMouseDown={handleResizeStart}
+          className="absolute bottom-0 right-0 w-5 h-5 cursor-se-resize bg-gray-300 hover:bg-gray-400 rounded-tl border-t border-l border-gray-400"
+          aria-label="Resize"
+        />
+      </div>
+    </div>
   );
 
   if (embedded) {
     return (
       <>
-        <Script src={DESMOS_SCRIPT_URL} strategy="lazyOnload" onLoad={() => setScriptReady(true)} />
+        <Script
+          src={DESMOS_SCRIPT_URL}
+          strategy="lazyOnload"
+          onLoad={() => setScriptReady(true)}
+        />
         {panel}
       </>
     );
   }
   return (
     <div className="pointer-events-none fixed inset-0 z-40">
-      <Script src={DESMOS_SCRIPT_URL} strategy="lazyOnload" onLoad={() => setScriptReady(true)} />
+      <Script
+        src={DESMOS_SCRIPT_URL}
+        strategy="lazyOnload"
+        onLoad={() => setScriptReady(true)}
+      />
       {panel}
     </div>
   );
@@ -343,57 +375,54 @@ function ReferenceSheetPanel({
       style={{ width: `${width}px`, height: `${height}px` }}
       onMouseDown={handleDragStart}
     >
-        <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-200 bg-gray-50 cursor-move select-none">
-          <h2 className="text-xs font-semibold text-gray-800">
-            Reference Sheet
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-[10px] text-gray-500 hover:text-gray-800"
-          >
-            Close
-          </button>
-        </div>
-        <div className="flex-1 min-h-0 overflow-auto relative bg-gray-100">
-          <Image
-            src="/reference-sheet.png"
-            alt="Math Reference Sheet - formulas and facts"
-            className="w-full h-auto object-contain block"
-            width={1200}
-            height={800}
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.style.display = "none";
-              const fallback = target.nextElementSibling;
-              if (fallback instanceof HTMLElement) fallback.hidden = false;
-            }}
-          />
-          <div
-            hidden
-            className="p-4 text-sm text-gray-600 text-center"
-            aria-hidden="true"
-          >
-            Add <span className="bg-gray-200 px-1 font-mono">reference-sheet.png</span> to
-            the <span className="bg-gray-200 px-1 font-mono">public</span> folder for the
-            formula reference image.
-          </div>
-          <div
-            data-ref-resize
-            onMouseDown={handleResizeStart}
-            className="absolute bottom-0 right-0 w-5 h-5 cursor-se-resize bg-gray-300 hover:bg-gray-400 rounded-tl border-t border-l border-gray-400"
-            aria-label="Resize"
-          />
-        </div>
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-200 bg-gray-50 cursor-move select-none">
+        <h2 className="text-xs font-semibold text-gray-800">Reference Sheet</h2>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-[10px] text-gray-500 hover:text-gray-800"
+        >
+          Close
+        </button>
       </div>
+      <div className="flex-1 min-h-0 overflow-auto relative bg-gray-100">
+        <Image
+          src="/reference-sheet.png"
+          alt="Math Reference Sheet - formulas and facts"
+          className="w-full h-auto object-contain block"
+          width={1200}
+          height={800}
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            target.style.display = "none";
+            const fallback = target.nextElementSibling;
+            if (fallback instanceof HTMLElement) fallback.hidden = false;
+          }}
+        />
+        <div
+          hidden
+          className="p-4 text-sm text-gray-600 text-center"
+          aria-hidden="true"
+        >
+          Add{" "}
+          <span className="bg-gray-200 px-1 font-mono">
+            reference-sheet.png
+          </span>{" "}
+          to the <span className="bg-gray-200 px-1 font-mono">public</span>{" "}
+          folder for the formula reference image.
+        </div>
+        <div
+          data-ref-resize
+          onMouseDown={handleResizeStart}
+          className="absolute bottom-0 right-0 w-5 h-5 cursor-se-resize bg-gray-300 hover:bg-gray-400 rounded-tl border-t border-l border-gray-400"
+          aria-label="Resize"
+        />
+      </div>
+    </div>
   );
 
   if (embedded) return panel;
-  return (
-    <div className="pointer-events-none fixed inset-0 z-40">
-      {panel}
-    </div>
-  );
+  return <div className="pointer-events-none fixed inset-0 z-40">{panel}</div>;
 }
 
 export default function TestTakingPage() {
@@ -428,7 +457,9 @@ export default function TestTakingPage() {
   >(new Map());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showFullscreenWarning, setShowFullscreenWarning] = useState(false);
-  const [fullscreenModalReason, setFullscreenModalReason] = useState<"initial" | "exited">("initial");
+  const [fullscreenModalReason, setFullscreenModalReason] = useState<
+    "initial" | "exited"
+  >("initial");
   const [countdown, setCountdown] = useState(10);
   const [showCalculator, setShowCalculator] = useState(false);
   const [showReferenceSheet, setShowReferenceSheet] = useState(false);
@@ -518,12 +549,16 @@ export default function TestTakingPage() {
     textAnswer?: string;
   }>({});
   const testStateRef = useRef<StartTestResponse | null>(null);
+  const flaggedQuestionsRef = useRef<Set<number>>(new Set());
   const handleAnswerRef = useRef<() => void>(() => {});
 
   // 920px gacha desktop 2-ustun; 920px dan pastda mobil (1-ustun, passage+image tepada)
   const [isDesktopLayout, setIsDesktopLayout] = useState(false);
   useEffect(() => {
-    const mq = typeof window !== "undefined" ? window.matchMedia("(min-width: 920px)") : null;
+    const mq =
+      typeof window !== "undefined"
+        ? window.matchMedia("(min-width: 920px)")
+        : null;
     if (!mq) return;
     setIsDesktopLayout(mq.matches);
     const handler = () => setIsDesktopLayout(mq.matches);
@@ -537,7 +572,10 @@ export default function TestTakingPage() {
   const isDraggingDividerRef = useRef(false);
   const [desmosSize, setDesmosSize] = useState({ width: 480, height: 420 });
   const [desmosPosition, setDesmosPosition] = useState({ x: 0, y: 0 });
-  const [referenceSheetPosition, setReferenceSheetPosition] = useState({ x: 0, y: 0 });
+  const [referenceSheetPosition, setReferenceSheetPosition] = useState({
+    x: 0,
+    y: 0,
+  });
 
   // Persist timer on every tick so reload / hard refresh keeps exact remaining time
   useEffect(() => {
@@ -1012,6 +1050,10 @@ export default function TestTakingPage() {
     (index: number) => {
       const savedAnswer = getAllAnswersFromStorage().get(index);
       if (savedAnswer) {
+        currentAnswerRef.current = {
+          choiceId: savedAnswer.choiceId,
+          textAnswer: savedAnswer.textAnswer,
+        };
         setCurrentAnswer({
           choiceId: savedAnswer.choiceId,
           textAnswer: savedAnswer.textAnswer,
@@ -1038,6 +1080,7 @@ export default function TestTakingPage() {
           });
         }
       } else {
+        currentAnswerRef.current = {};
         setCurrentAnswer({});
         setEliminatedChoices(new Set());
       }
@@ -1049,7 +1092,6 @@ export default function TestTakingPage() {
   const isFlaggedCurrent = testState?.question
     ? flaggedQuestions.has(testState.currentQuestionIndex)
     : false;
-  currentAnswerRef.current = currentAnswer;
   testStateRef.current = testState;
 
   useEffect(() => {
@@ -1940,6 +1982,8 @@ export default function TestTakingPage() {
         } else {
           next.add(idx);
         }
+        // Navigator "For Review" holati real-time uchun ref'da ham sinxron qilamiz.
+        flaggedQuestionsRef.current = next;
         return next;
       });
     } catch (err) {
@@ -2060,6 +2104,71 @@ export default function TestTakingPage() {
     choiceId?: string;
     textAnswer?: string;
   }) {
+    // Real-time:
+    // 1) Navigator 1s ichida to'g'ri ko'rsatishi uchun
+    // 2) Finish bo'lganda ham localStorage'da saqlangan bo'lishi uchun
+    currentAnswerRef.current = answer;
+
+    // Darhol localStorage'ga yozib qo'yamiz (useEffect kechikishi sabab finish-da yo'qolib qolmasin)
+    try {
+      const ts = testStateRef.current;
+      const idx = ts?.currentQuestionIndex;
+      if (typeof window !== "undefined" && ts?.question && idx != null) {
+        const questionId = ts.question.id;
+
+        const choiceIdNorm =
+          answer.choiceId != null && String(answer.choiceId).trim() !== ""
+            ? String(answer.choiceId)
+            : undefined;
+
+        const hasAnswer = hasActualAnswer({
+          choiceId: choiceIdNorm,
+          textAnswer: answer.textAnswer,
+        });
+
+        const isFlaggedCurrent = flaggedQuestionsRef.current.has(idx);
+        const hasMeta = isFlaggedCurrent || eliminatedChoices.size > 0;
+
+        const answerData = {
+          questionId,
+          choiceId: choiceIdNorm,
+          textAnswer: answer.textAnswer,
+          markedForReview: isFlaggedCurrent,
+          eliminatedChoices: Array.from(eliminatedChoices),
+        };
+
+        if (hasAnswer || hasMeta) {
+          saveAnswerToStorage(idx, answerData);
+          setPendingAnswers((prev) => {
+            const next = new Map(prev);
+            next.set(idx, answerData);
+            return next;
+          });
+          if (hasAnswer) {
+            setAnsweredQuestions((prev) => {
+              const next = new Set(prev);
+              next.add(idx);
+              return next;
+            });
+          }
+        } else {
+          removeAnswerFromStorage(idx);
+          setPendingAnswers((prev) => {
+            const next = new Map(prev);
+            next.delete(idx);
+            return next;
+          });
+          setAnsweredQuestions((prev) => {
+            const next = new Set(prev);
+            next.delete(idx);
+            return next;
+          });
+        }
+      }
+    } catch (e) {
+      console.error("[Test Page] persist answer failed:", e);
+    }
+
     setCurrentAnswer(answer);
   }
 
@@ -2080,8 +2189,13 @@ export default function TestTakingPage() {
 
       // Joriy modul javoblarini yuborish, keyin finishModule – keyingi module/break/finish ga o‘tish
       const prefix = getCurrentModulePrefix();
-      const stored = typeof window !== "undefined" ? localStorage.getItem(getStorageKey()) : null;
-      const answersObj = stored ? (JSON.parse(stored) as Record<string, Record<string, unknown>>) : {};
+      const stored =
+        typeof window !== "undefined"
+          ? localStorage.getItem(getStorageKey())
+          : null;
+      const answersObj = stored
+        ? (JSON.parse(stored) as Record<string, Record<string, unknown>>)
+        : {};
       const answersArray = Object.entries(answersObj)
         .filter(([key]) => key.startsWith(prefix))
         .map(([, a]) => ({
@@ -2127,7 +2241,9 @@ export default function TestTakingPage() {
         return;
       }
       console.error("Failed on time up:", err);
-      setError("Vaqt tugadi. Keyingi bo‘limga o‘tishda xatolik. Qaytadan urinib ko‘ring.");
+      setError(
+        "Vaqt tugadi. Keyingi bo‘limga o‘tishda xatolik. Qaytadan urinib ko‘ring.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -2518,12 +2634,18 @@ export default function TestTakingPage() {
                 >
                   <div
                     className="h-full w-full overflow-visible transition-opacity duration-250 ease-out"
-                    style={{ opacity: showCalculator || showReferenceSheet ? 1 : 0 }}
+                    style={{
+                      opacity: showCalculator || showReferenceSheet ? 1 : 0,
+                    }}
                   >
                     {showCalculator ? (
                       <div
                         className="absolute min-w-0"
-                        style={{ left: desmosPosition.x, top: desmosPosition.y, overflow: "visible" }}
+                        style={{
+                          left: desmosPosition.x,
+                          top: desmosPosition.y,
+                          overflow: "visible",
+                        }}
                       >
                         <DesmosCalculatorPanel
                           width={desmosSize.width}
@@ -2538,7 +2660,11 @@ export default function TestTakingPage() {
                     ) : showReferenceSheet ? (
                       <div
                         className="absolute min-w-0"
-                        style={{ left: referenceSheetPosition.x, top: referenceSheetPosition.y, overflow: "visible" }}
+                        style={{
+                          left: referenceSheetPosition.x,
+                          top: referenceSheetPosition.y,
+                          overflow: "visible",
+                        }}
                       >
                         <ReferenceSheetPanel
                           width={referenceSheetSize.width}
@@ -2557,318 +2683,962 @@ export default function TestTakingPage() {
               {/* Right column: MATH 1-ustun = 60%, MATH 2-ustun = 100%, ENGLISH = 100% */}
               <div
                 className={`min-h-[45vh] flex flex-col relative overflow-hidden px-3 sm:px-4 lg:px-5 z-0 min-w-0 w-full flex-1 transition-[flex,max-width,width] duration-300 ease-out ${
-                  testState.currentSection.type === "MATH" && (showCalculator || showReferenceSheet)
+                  testState.currentSection.type === "MATH" &&
+                  (showCalculator || showReferenceSheet)
                     ? "lg:flex-[0_0_50%] lg:w-auto"
-                    : testState.currentSection.type === "MATH" && hasChoiceOptions(question)
+                    : testState.currentSection.type === "MATH" &&
+                        hasChoiceOptions(question)
                       ? "lg:w-[60%] lg:max-w-full lg:flex-none"
                       : ""
                 }`}
               >
                 {/* Desktop (≥920px): 2-ustun; JS orqali faqat katta ekranda */}
                 {isDesktopLayout && (
-                <div className="flex flex-1 min-h-0 min-w-0">
-                  <div
-                    className="relative flex flex-col flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-                    ref={layoutContainerRef}
-                    style={{ WebkitOverflowScrolling: "touch" }}
-                  >
-                {/* Math: faqat ko‘p tanlov (A/B/C/D) = bitta ustun; grid-in yoki ochiq savol = ikki ustun */}
-                {testState.currentSection.type === "MATH" && hasChoiceOptions(question) ? (
-                  <div className="w-full flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                    <div className="w-full px-0 pb-6">
-                      {isOpenAnswerQuestion(question) && (
-                        <div className="pt-5 p-3 sm:p-4 md:p-5 bg-gray-50/80 rounded-lg text-xs sm:text-sm md:text-base leading-relaxed mb-4">
-                          <h2 className="text-sm sm:text-base md:text-lg font-bold text-black mb-2 sm:mb-3 md:mb-4">
-                            Student-Produced Response Directions
-                          </h2>
-                          <ul className="list-disc pl-4 sm:pl-5 space-y-1 sm:space-y-2 mb-2 sm:mb-3 md:mb-4 text-gray-800">
-                            <li>If you find more than one correct answer, enter only one answer.</li>
-                            <li>You can enter up to 5 characters for a positive answer and up to 6 characters (including the negative sign) for a negative answer.</li>
-                            <li>If your answer is a fraction that doesn&apos;t fit in the provided space, enter the decimal equivalent.</li>
-                            <li>If your answer is a decimal that doesn&apos;t fit in the provided space, enter it by truncating or rounding at the fourth digit.</li>
-                            <li>If your answer is a mixed number (such as 3½), enter it as an improper fraction (7/2) or its decimal equivalent (3.5).</li>
-                            <li>Don&apos;t enter symbols such as a percent sign, comma, or dollar sign.</li>
-                          </ul>
-                          <p className="font-semibold text-black mb-1 sm:mb-2 text-xs sm:text-sm">Examples</p>
-                          <div className="overflow-x-auto border border-gray-300 rounded-lg">
-                            <table className="w-full text-xs sm:text-sm border-collapse">
-                              <thead>
-                                <tr className="bg-gray-100 border-b border-gray-300">
-                                  <th className="text-left p-1 sm:p-2 font-semibold text-black border-r border-gray-300">Answer</th>
-                                  <th className="text-left p-1 sm:p-2 font-semibold text-black border-r border-gray-300">Acceptable ways to enter answer</th>
-                                  <th className="text-left p-1 sm:p-2 font-semibold text-black">Unacceptable: will NOT receive credit</th>
-                                </tr>
-                              </thead>
-                              <tbody className="text-gray-800">
-                                <tr className="border-b border-gray-200"><td className="p-1 sm:p-2 border-r border-gray-200">3.5</td><td className="p-1 sm:p-2 border-r border-gray-200">3.5, 3.50, 7/2</td><td className="p-1 sm:p-2">3 1/2</td></tr>
-                                <tr className="border-b border-gray-200"><td className="p-1 sm:p-2 border-r border-gray-200">2/3</td><td className="p-1 sm:p-2 border-r border-gray-200">2/3, .6666, .6667, 0.666, 0.667</td><td className="p-1 sm:p-2">0.66, .66, 0.67, .67</td></tr>
-                                <tr><td className="p-1 sm:p-2 border-r border-gray-200">-1/3</td><td className="p-1 sm:p-2 border-r border-gray-200">-1/3, -.3333, -0.333</td><td className="p-1 sm:p-2">-.33, -0.33</td></tr>
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between bg-gray-200 rounded-lg mb-4 sm:mb-5 md:mb-6 py-0.5 sm:py-1 pt-5">
-                        <div className="flex items-center h-full">
-                          <p className="question-index font-semibold bg-black text-white text-xs sm:text-sm h-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-l rounded-r-none">
-                            {testState.currentQuestionIndex + 1}
-                          </p>
-                          <button type="button" onClick={handleToggleFlag} className="flex items-center text-xs sm:text-sm text-gray-600 hover:text-black mr-1 sm:mr-2 h-full px-1 sm:px-2">
-                            <Flag className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-500 ${isFlagged ? "fill-orange-500 text-orange-500" : ""}`} />
-                            <span className="ml-0.5 sm:ml-1 text-xs sm:text-sm">Mark for Review</span>
-                          </button>
-                        </div>
-                        {hasChoiceOptions(question) && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsEliminationMode((prev) => !prev);
-                              if (isEliminationMode)
-                                setEliminatedChoices(new Set());
-                            }}
-                            className={`flex items-center text-xs sm:text-sm text-gray-600 hover:text-black ml-2 sm:ml-3 h-7 sm:h-8 px-2 rounded-full border border-gray-300 bg-white ${
-                              isEliminationMode ? "bg-blue-100" : ""
-                            }`}
-                          >
-                            <span className="text-[12px] font-medium text-gray-600">ABC</span>
-                            {isEliminationMode && (
-                              <svg
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                                className="w-4 h-4 text-gray-500 ml-1"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth="1"
-                                  d="M18 6L6 18"
-                                />
-                              </svg>
+                  <div className="flex flex-1 min-h-0 min-w-0">
+                    <div
+                      className="relative flex flex-col flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                      ref={layoutContainerRef}
+                      style={{ WebkitOverflowScrolling: "touch" }}
+                    >
+                      {/* Math: faqat ko‘p tanlov (A/B/C/D) = bitta ustun; grid-in yoki ochiq savol = ikki ustun */}
+                      {testState.currentSection.type === "MATH" &&
+                      hasChoiceOptions(question) ? (
+                        <div className="w-full flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                          <div className="w-full px-0 pb-6">
+                            {isOpenAnswerQuestion(question) && (
+                              <div className="pt-5 p-3 sm:p-4 md:p-5 bg-gray-50/80 rounded-lg text-xs sm:text-sm md:text-base leading-relaxed mb-4">
+                                <h2 className="text-sm sm:text-base md:text-lg font-bold text-black mb-2 sm:mb-3 md:mb-4">
+                                  Student-Produced Response Directions
+                                </h2>
+                                <ul className="list-disc pl-4 sm:pl-5 space-y-1 sm:space-y-2 mb-2 sm:mb-3 md:mb-4 text-gray-800">
+                                  <li>
+                                    If you find more than one correct answer,
+                                    enter only one answer.
+                                  </li>
+                                  <li>
+                                    You can enter up to 5 characters for a
+                                    positive answer and up to 6 characters
+                                    (including the negative sign) for a negative
+                                    answer.
+                                  </li>
+                                  <li>
+                                    If your answer is a fraction that
+                                    doesn&apos;t fit in the provided space,
+                                    enter the decimal equivalent.
+                                  </li>
+                                  <li>
+                                    If your answer is a decimal that
+                                    doesn&apos;t fit in the provided space,
+                                    enter it by truncating or rounding at the
+                                    fourth digit.
+                                  </li>
+                                  <li>
+                                    If your answer is a mixed number (such as
+                                    3½), enter it as an improper fraction (7/2)
+                                    or its decimal equivalent (3.5).
+                                  </li>
+                                  <li>
+                                    Don&apos;t enter symbols such as a percent
+                                    sign, comma, or dollar sign.
+                                  </li>
+                                </ul>
+                                <p className="font-semibold text-black mb-1 sm:mb-2 text-xs sm:text-sm">
+                                  Examples
+                                </p>
+                                <div className="overflow-x-auto border border-gray-300 rounded-lg">
+                                  <table className="w-full text-xs sm:text-sm border-collapse">
+                                    <thead>
+                                      <tr className="bg-gray-100 border-b border-gray-300">
+                                        <th className="text-left p-1 sm:p-2 font-semibold text-black border-r border-gray-300">
+                                          Answer
+                                        </th>
+                                        <th className="text-left p-1 sm:p-2 font-semibold text-black border-r border-gray-300">
+                                          Acceptable ways to enter answer
+                                        </th>
+                                        <th className="text-left p-1 sm:p-2 font-semibold text-black">
+                                          Unacceptable: will NOT receive credit
+                                        </th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="text-gray-800">
+                                      <tr className="border-b border-gray-200">
+                                        <td className="p-1 sm:p-2 border-r border-gray-200">
+                                          3.5
+                                        </td>
+                                        <td className="p-1 sm:p-2 border-r border-gray-200">
+                                          3.5, 3.50, 7/2
+                                        </td>
+                                        <td className="p-1 sm:p-2">3 1/2</td>
+                                      </tr>
+                                      <tr className="border-b border-gray-200">
+                                        <td className="p-1 sm:p-2 border-r border-gray-200">
+                                          2/3
+                                        </td>
+                                        <td className="p-1 sm:p-2 border-r border-gray-200">
+                                          2/3, .6666, .6667, 0.666, 0.667
+                                        </td>
+                                        <td className="p-1 sm:p-2">
+                                          0.66, .66, 0.67, .67
+                                        </td>
+                                      </tr>
+                                      <tr>
+                                        <td className="p-1 sm:p-2 border-r border-gray-200">
+                                          -1/3
+                                        </td>
+                                        <td className="p-1 sm:p-2 border-r border-gray-200">
+                                          -1/3, -.3333, -0.333
+                                        </td>
+                                        <td className="p-1 sm:p-2">
+                                          -.33, -0.33
+                                        </td>
+                                      </tr>
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
                             )}
-                          </button>
-                        )}
-                      </div>
-                      <div className="prose prose-sm sm:prose max-w-none mb-2 sm:mb-3 md:mb-4 text-xs sm:text-sm md:text-base">
-                        <QuestionDisplay key={question.id} question={question} selectedChoiceId={currentAnswer.choiceId} textAnswer={currentAnswer.textAnswer} onSelectChoice={(choiceId) => handleAnswerChange({ choiceId, textAnswer: currentAnswer.textAnswer })} onTextAnswerChange={(text) => handleAnswerChange({ textAnswer: text, choiceId: currentAnswer.choiceId })} isFlagged={isFlagged} hidePassage showOnlyQuestionText isMarkupEnabled={isMarkupEnabled} attemptId={attemptId} onHighlightsChange={(highlights) => { if (highlights.length > 0) saveHighlightsToStorage(question.id, highlights); else { const all = getAllHighlightsFromStorage(); all.delete(question.id); if (typeof window !== "undefined") try { const o = {}; all.forEach((v, k) => { (o as any)[k] = v; }); localStorage.setItem(getHighlightsStorageKey(), JSON.stringify(o)); } catch (e) { console.error(e); } } }} />
-                      </div>
-                      {getQuestionImageUrl(question) && (
-                        <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-white rounded-lg border border-gray-200 flex justify-center items-center overflow-hidden">
-                          <Image
-                            src={getQuestionImageUrl(question)!}
-                            alt="Question figure"
-                            width={1200}
-                            height={900}
-                            unoptimized={shouldUnoptimizeImage(getQuestionImageUrl(question)!)}
-                            className="max-h-[min(48vh,480px)] w-auto max-w-full h-auto rounded-lg object-contain bg-white"
-                            sizes="(max-width: 1024px) 95vw, 100vw"
-                            loading="lazy"
-                          />
-                        </div>
-                      )}
-                      {hasChoiceOptions(question) && (
-                        <div className="space-y-2 sm:space-y-3 md:space-y-4">
-                          {(question.choices ?? []).map((choice, index) => {
-                            const isSelected = currentAnswer.choiceId === choice.id;
-                            const letter = String.fromCharCode(65 + index);
-                            const isEliminated = eliminatedChoices.has(choice.id);
-                            const choiceImageUrl = getChoiceImageUrl(choice as Record<string, unknown>);
-                            return (
-                              <div key={choice.id || index} className={`relative w-full flex items-stretch rounded-lg border-2 overflow-hidden ${isSelected ? "border-black" : isEliminated ? "border-gray-300" : "border-gray-200"}`}>
+                            <div className="flex items-center justify-between bg-gray-200 rounded-lg mb-4 sm:mb-5 md:mb-6 py-0.5 sm:py-1 pt-5">
+                              <div className="flex items-center h-full">
+                                <p className="question-index font-semibold bg-black text-white text-xs sm:text-sm h-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-l rounded-r-none">
+                                  {testState.currentQuestionIndex + 1}
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={handleToggleFlag}
+                                  className="flex items-center text-xs sm:text-sm text-gray-600 hover:text-black mr-1 sm:mr-2 h-full px-1 sm:px-2"
+                                >
+                                  <Flag
+                                    className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-500 ${isFlagged ? "fill-orange-500 text-orange-500" : ""}`}
+                                  />
+                                  <span className="ml-0.5 sm:ml-1 text-xs sm:text-sm">
+                                    Mark for Review
+                                  </span>
+                                </button>
+                              </div>
+                              {hasChoiceOptions(question) && (
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    if (isEliminationMode) {
-                                      setEliminatedChoices((prev) => {
-                                        const next = new Set(prev);
-                                        if (next.has(choice.id)) next.delete(choice.id);
-                                        else next.add(choice.id);
-                                        return next;
-                                      });
-                                    } else {
-                                      handleAnswerChange({
-                                        choiceId: choice.id,
-                                        textAnswer: currentAnswer.textAnswer,
-                                      });
-                                    }
+                                    setIsEliminationMode((prev) => !prev);
+                                    if (isEliminationMode)
+                                      setEliminatedChoices(new Set());
                                   }}
-                                  className={`flex-1 min-w-0 p-2 sm:p-3 md:p-4 text-left text-xs sm:text-sm md:text-base flex items-center gap-2 md:gap-3 ${isEliminated ? "bg-gray-100 opacity-60" : "hover:bg-gray-200"} cursor-pointer rounded-l-md`}
+                                  className={`flex items-center text-xs sm:text-sm text-gray-600 hover:text-black ml-2 sm:ml-3 h-7 sm:h-8 px-2 rounded-full border border-gray-300 bg-white ${
+                                    isEliminationMode ? "bg-blue-100" : ""
+                                  }`}
                                 >
-                                  <div className={`flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full font-bold border border-black text-[10px] sm:text-xs ${isSelected ? "bg-black text-white" : "text-black"}`}><span className="text-xs">{letter}</span></div>
-                                  <div className={`flex-1 min-w-0 ${isEliminated ? "line-through text-gray-500" : ""}`}>
-                                    {getChoiceText(choice) ? (
-                                      <div className="block text-gray-900">
-                                        <MarkdownRenderer content={getChoiceText(choice)} className="text-inherit" />
-                                      </div>
-                                    ) : (
-                                      <span className="block">Choice {letter}</span>
-                                    )}
-                                    {choiceImageUrl && (
-                                      <span className="block mt-3 bg-white rounded border border-gray-200 overflow-hidden p-1">
-                                        <Image
-                                          src={choiceImageUrl}
-                                          alt={`Variant ${letter}`}
-                                          width={160}
-                                          height={48}
-                                          className="rounded object-contain max-h-12 w-full bg-white min-h-[24px]"
-                                          loading="lazy"
-                                        />
-                                      </span>
-                                    )}
-                                  </div>
+                                  <span className="text-[12px] font-medium text-gray-600">
+                                    ABC
+                                  </span>
+                                  {isEliminationMode && (
+                                    <svg
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                      className="w-4 h-4 text-gray-500 ml-1"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth="1"
+                                        d="M18 6L6 18"
+                                      />
+                                    </svg>
+                                  )}
                                 </button>
-                                {isEliminationMode && (
-                                  <div className="flex-shrink-0 flex items-center gap-1.5 pl-1 pr-2 py-2 border-l border-gray-200 bg-gray-50/50 rounded-r-md">
-                                    {isEliminated && (
-                                      <button type="button" className="text-[11px] sm:text-xs font-medium text-gray-600 hover:underline whitespace-nowrap" onClick={() => setEliminatedChoices((prev) => { const next = new Set(prev); next.delete(choice.id); return next; })}>Undo</button>
-                                    )}
-                                    <button type="button" className={`flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full border font-bold text-[10px] sm:text-xs cursor-pointer shrink-0 ${isEliminated ? "border-gray-400 bg-gray-200 text-gray-500" : "border-gray-300 bg-gray-100 text-gray-700 hover:bg-gray-200"}`} onClick={() => setEliminatedChoices((prev) => { const next = new Set(prev); if (next.has(choice.id)) next.delete(choice.id); else next.add(choice.id); return next; })} aria-label={isEliminated ? `Undo strike-through ${letter}` : `Strike through ${letter}`}>
-                                      {letter}
-                                    </button>
-                                  </div>
-                                )}
-                                {isEliminated && (
-                                  <div className="pointer-events-none absolute left-10 right-14 sm:right-16 top-1/2 h-[1.5px] bg-gray-400/80 rounded-full -translate-y-1/2" aria-hidden />
+                              )}
+                            </div>
+                            <div className="prose prose-sm sm:prose max-w-none mb-2 sm:mb-3 md:mb-4 text-xs sm:text-sm md:text-base">
+                              <QuestionDisplay
+                                key={question.id}
+                                question={question}
+                                selectedChoiceId={currentAnswer.choiceId}
+                                textAnswer={currentAnswer.textAnswer}
+                                onSelectChoice={(choiceId) =>
+                                  handleAnswerChange({
+                                    choiceId,
+                                    textAnswer: currentAnswer.textAnswer,
+                                  })
+                                }
+                                onTextAnswerChange={(text) =>
+                                  handleAnswerChange({
+                                    textAnswer: text,
+                                    choiceId: currentAnswer.choiceId,
+                                  })
+                                }
+                                isFlagged={isFlagged}
+                                hidePassage
+                                showOnlyQuestionText
+                                isMarkupEnabled={isMarkupEnabled}
+                                attemptId={attemptId}
+                                onHighlightsChange={(highlights) => {
+                                  if (highlights.length > 0)
+                                    saveHighlightsToStorage(
+                                      question.id,
+                                      highlights,
+                                    );
+                                  else {
+                                    const all = getAllHighlightsFromStorage();
+                                    all.delete(question.id);
+                                    if (typeof window !== "undefined")
+                                      try {
+                                        const o = {};
+                                        all.forEach((v, k) => {
+                                          (o as any)[k] = v;
+                                        });
+                                        localStorage.setItem(
+                                          getHighlightsStorageKey(),
+                                          JSON.stringify(o),
+                                        );
+                                      } catch (e) {
+                                        console.error(e);
+                                      }
+                                  }
+                                }}
+                              />
+                            </div>
+                            {getQuestionImageUrl(question) && (
+                              <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-white rounded-lg border border-gray-200 flex justify-center items-center overflow-hidden">
+                                <Image
+                                  src={getQuestionImageUrl(question)!}
+                                  alt="Question figure"
+                                  width={1200}
+                                  height={900}
+                                  unoptimized={shouldUnoptimizeImage(
+                                    getQuestionImageUrl(question)!,
+                                  )}
+                                  className="max-h-[min(48vh,480px)] w-auto max-w-full h-auto rounded-lg object-contain bg-white"
+                                  sizes="(max-width: 1024px) 95vw, 100vw"
+                                  loading="lazy"
+                                />
+                              </div>
+                            )}
+                            {hasChoiceOptions(question) && (
+                              <div className="space-y-2 sm:space-y-3 md:space-y-4">
+                                {(question.choices ?? []).map(
+                                  (choice, index) => {
+                                    const isSelected =
+                                      currentAnswer.choiceId === choice.id;
+                                    const letter = String.fromCharCode(
+                                      65 + index,
+                                    );
+                                    const isEliminated = eliminatedChoices.has(
+                                      choice.id,
+                                    );
+                                    const choiceImageUrl = getChoiceImageUrl(
+                                      choice as Record<string, unknown>,
+                                    );
+                                    return (
+                                      <div
+                                        key={choice.id || index}
+                                        className={`relative w-full flex items-stretch rounded-lg border-2 overflow-hidden ${isSelected ? "border-black" : isEliminated ? "border-gray-300" : "border-gray-200"}`}
+                                      >
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            if (isEliminationMode) {
+                                              setEliminatedChoices((prev) => {
+                                                const next = new Set(prev);
+                                                if (next.has(choice.id))
+                                                  next.delete(choice.id);
+                                                else next.add(choice.id);
+                                                return next;
+                                              });
+                                            } else {
+                                              handleAnswerChange({
+                                                choiceId: choice.id,
+                                                textAnswer:
+                                                  currentAnswer.textAnswer,
+                                              });
+                                            }
+                                          }}
+                                          className={`flex-1 min-w-0 p-2 sm:p-3 md:p-4 text-left text-xs sm:text-sm md:text-base flex items-center gap-2 md:gap-3 ${isEliminated ? "bg-gray-100 opacity-60" : "hover:bg-gray-200"} cursor-pointer rounded-l-md`}
+                                        >
+                                          <div
+                                            className={`flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full font-bold border border-black text-[10px] sm:text-xs ${isSelected ? "bg-black text-white" : "text-black"}`}
+                                          >
+                                            <span className="text-xs">
+                                              {letter}
+                                            </span>
+                                          </div>
+                                          <div
+                                            className={`flex-1 min-w-0 ${isEliminated ? "line-through text-gray-500" : ""}`}
+                                          >
+                                            {getChoiceText(choice) ? (
+                                              <div className="block text-gray-900">
+                                                <MarkdownRenderer
+                                                  content={getChoiceText(
+                                                    choice,
+                                                  )}
+                                                  className="text-inherit"
+                                                />
+                                              </div>
+                                            ) : (
+                                              <span className="block">
+                                                Choice {letter}
+                                              </span>
+                                            )}
+                                            {choiceImageUrl && (
+                                              <span className="block mt-3 bg-white rounded border border-gray-200 overflow-hidden p-1">
+                                                <Image
+                                                  src={choiceImageUrl}
+                                                  alt={`Variant ${letter}`}
+                                                  width={160}
+                                                  height={48}
+                                                  className="rounded object-contain max-h-12 w-full bg-white min-h-[24px]"
+                                                  loading="lazy"
+                                                />
+                                              </span>
+                                            )}
+                                          </div>
+                                        </button>
+                                        {isEliminationMode && (
+                                          <div className="flex-shrink-0 flex items-center gap-1.5 pl-1 pr-2 py-2 border-l border-gray-200 bg-gray-50/50 rounded-r-md">
+                                            {isEliminated && (
+                                              <button
+                                                type="button"
+                                                className="text-[11px] sm:text-xs font-medium text-gray-600 hover:underline whitespace-nowrap"
+                                                onClick={() =>
+                                                  setEliminatedChoices(
+                                                    (prev) => {
+                                                      const next = new Set(
+                                                        prev,
+                                                      );
+                                                      next.delete(choice.id);
+                                                      return next;
+                                                    },
+                                                  )
+                                                }
+                                              >
+                                                Undo
+                                              </button>
+                                            )}
+                                            <button
+                                              type="button"
+                                              className={`flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full border font-bold text-[10px] sm:text-xs cursor-pointer shrink-0 ${isEliminated ? "border-gray-400 bg-gray-200 text-gray-500" : "border-gray-300 bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                                              onClick={() =>
+                                                setEliminatedChoices((prev) => {
+                                                  const next = new Set(prev);
+                                                  if (next.has(choice.id))
+                                                    next.delete(choice.id);
+                                                  else next.add(choice.id);
+                                                  return next;
+                                                })
+                                              }
+                                              aria-label={
+                                                isEliminated
+                                                  ? `Undo strike-through ${letter}`
+                                                  : `Strike through ${letter}`
+                                              }
+                                            >
+                                              {letter}
+                                            </button>
+                                          </div>
+                                        )}
+                                        {isEliminated && (
+                                          <div
+                                            className="pointer-events-none absolute left-10 right-14 sm:right-16 top-1/2 h-[1.5px] bg-gray-400/80 rounded-full -translate-y-1/2"
+                                            aria-hidden
+                                          />
+                                        )}
+                                      </div>
+                                    );
+                                  },
                                 )}
                               </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                      {isOpenAnswerQuestion(question) && (
-                        <div className="mt-3 pt-2 space-y-2">
-                          <input type="text" value={currentAnswer.textAnswer || ""} onChange={(e) => handleAnswerChange({ textAnswer: e.target.value, choiceId: currentAnswer.choiceId })} placeholder="Enter your answer (e.g. 5.566, -5.566, 2/3, -2/3)" pattern="[0-9.\\-/]+" className="max-w-[180px] sm:max-w-[220px] md:max-w-[240px] w-full px-2 sm:px-3 py-1.5 sm:py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm md:text-base" />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                <div
-                  className="flex flex-1 gap-0 items-stretch"
-                  style={{ minHeight: "min-content" }}
-                >
-                  {/* Left Column – passage (R&W) yoki Math grid-in directions */}
-                  <div
-                    className="content-pane flex-shrink-0 pr-1 md:pr-2 min-w-0"
-                    style={{
-                      width: `calc(${splitPosition}% - 4px)`,
-                      minWidth: 200,
-                    }}
-                  >
-                    <div className="pr-2 md:pr-4 pb-4 md:pb-6 pl-0.5 md:pl-1">
-                      {getQuestionImageUrl(question) && (
-                        <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-gray-100 rounded-lg flex justify-center items-center overflow-hidden">
-                          <Image
-                            src={getQuestionImageUrl(question)!}
-                            alt="Question figure"
-                            width={1200}
-                            height={900}
-                            unoptimized={shouldUnoptimizeImage(getQuestionImageUrl(question)!)}
-                            className="max-h-[min(52vh,520px)] w-auto max-w-full h-auto rounded-lg object-contain bg-gray-100"
-                            sizes="(max-width: 1024px) 92vw, 46vw"
-                            loading="lazy"
-                          />
-                        </div>
-                      )}
-                      {/* Math + grid-in: chapda Student-Produced Response Directions */}
-                      {testState.currentSection.type === "MATH" &&
-                      isOpenAnswerQuestion(question) ? (
-                        <div className="pt-5 p-3 sm:p-4 md:p-5 bg-white rounded-lg text-xs sm:text-sm md:text-base leading-relaxed">
-                          <h2 className="text-sm sm:text-base md:text-lg font-bold text-black mb-2 sm:mb-3 md:mb-4">
-                            Student-Produced Response Directions
-                          </h2>
-                          <ul className="list-disc pl-4 sm:pl-5 space-y-1 sm:space-y-2 mb-2 sm:mb-3 md:mb-4 text-gray-800">
-                            <li>If you find more than one correct answer, enter only one answer.</li>
-                            <li>You can enter up to 5 characters for a positive answer and up to 6 characters (including the negative sign) for a negative answer.</li>
-                            <li>If your answer is a fraction that doesn&apos;t fit in the provided space, enter the decimal equivalent.</li>
-                            <li>If your answer is a decimal that doesn&apos;t fit in the provided space, enter it by truncating or rounding at the fourth digit.</li>
-                            <li>If your answer is a mixed number (such as 3½), enter it as an improper fraction (7/2) or its decimal equivalent (3.5).</li>
-                            <li>Don&apos;t enter symbols such as a percent sign, comma, or dollar sign.</li>
-                          </ul>
-                          <p className="font-semibold text-black mb-1 sm:mb-2 text-xs sm:text-sm">Examples</p>
-                          <div className="overflow-x-auto border border-gray-300 rounded-lg">
-                            <table className="w-full text-xs sm:text-sm border-collapse">
-                              <thead>
-                                <tr className="bg-gray-100 border-b border-gray-300">
-                                  <th className="text-left p-1 sm:p-2 font-semibold text-black border-r border-gray-300">Answer</th>
-                                  <th className="text-left p-1 sm:p-2 font-semibold text-black border-r border-gray-300">Acceptable ways to enter answer</th>
-                                  <th className="text-left p-1 sm:p-2 font-semibold text-black">Unacceptable: will NOT receive credit</th>
-                                </tr>
-                              </thead>
-                              <tbody className="text-gray-800">
-                                <tr className="border-b border-gray-200"><td className="p-1 sm:p-2 border-r border-gray-200">3.5</td><td className="p-1 sm:p-2 border-r border-gray-200">3.5, 3.50, 7/2</td><td className="p-1 sm:p-2">3 1/2</td></tr>
-                                <tr className="border-b border-gray-200"><td className="p-1 sm:p-2 border-r border-gray-200">2/3</td><td className="p-1 sm:p-2 border-r border-gray-200">2/3, .6666, .6667, 0.666, 0.667</td><td className="p-1 sm:p-2">0.66, .66, 0.67, .67</td></tr>
-                                <tr><td className="p-1 sm:p-2 border-r border-gray-200">-1/3</td><td className="p-1 sm:p-2 border-r border-gray-200">-1/3, -.3333, -0.333</td><td className="p-1 sm:p-2">-.33, -0.33</td></tr>
-                              </tbody>
-                            </table>
+                            )}
+                            {isOpenAnswerQuestion(question) && (
+                              <div className="mt-3 pt-2 space-y-2">
+                                <input
+                                  type="text"
+                                  value={currentAnswer.textAnswer || ""}
+                                  onChange={(e) =>
+                                    handleAnswerChange({
+                                      textAnswer: e.target.value,
+                                      choiceId: currentAnswer.choiceId,
+                                    })
+                                  }
+                                  placeholder="Enter your answer (e.g. 5.566, -5.566, 2/3, -2/3)"
+                                  pattern="[0-9.\\-/]+"
+                                  className="max-w-[180px] sm:max-w-[220px] md:max-w-[240px] w-full px-2 sm:px-3 py-1.5 sm:py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm md:text-base"
+                                />
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      ) : question.sharedPassage?.content ||
-                        question.passage ? (
-                        <div className="p-3 sm:p-4 md:p-5 bg-white rounded-lg">
-                          <HighlightablePassage
-                            passageText={question.sharedPassage?.content || question.passage || ""}
-                            isMarkupEnabled={isMarkupEnabled}
-                            attemptId={attemptId}
-                            questionId={question.id}
-                            onHighlightsChange={(highlights) => {
-                              if (highlights.length > 0) {
-                                const key = getHighlightsStorageKey();
-                                try {
-                                  const raw = typeof window !== "undefined" ? localStorage.getItem(key) : null;
-                                  const all = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
-                                  all[`${question.id}_passage`] = highlights;
-                                  if (typeof window !== "undefined") localStorage.setItem(key, JSON.stringify(all));
-                                } catch (e) { console.error(e); }
-                              }
-                            }}
-                          />
                         </div>
                       ) : (
-                        !getQuestionImageUrl(question) && (
-                          <div className="text-gray-500 text-sm italic">
-                            No passage for this question.
+                        <div
+                          className="flex flex-1 gap-0 items-stretch"
+                          style={{ minHeight: "min-content" }}
+                        >
+                          {/* Left Column – passage (R&W) yoki Math grid-in directions */}
+                          <div
+                            className="content-pane flex-shrink-0 pr-1 md:pr-2 min-w-0"
+                            style={{
+                              width: `calc(${splitPosition}% - 4px)`,
+                              minWidth: 200,
+                            }}
+                          >
+                            <div className="pr-2 md:pr-4 pb-4 md:pb-6 pl-0.5 md:pl-1">
+                              {getQuestionImageUrl(question) && (
+                                <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-gray-100 rounded-lg flex justify-center items-center overflow-hidden">
+                                  <Image
+                                    src={getQuestionImageUrl(question)!}
+                                    alt="Question figure"
+                                    width={1200}
+                                    height={900}
+                                    unoptimized={shouldUnoptimizeImage(
+                                      getQuestionImageUrl(question)!,
+                                    )}
+                                    className="max-h-[min(52vh,520px)] w-auto max-w-full h-auto rounded-lg object-contain bg-gray-100"
+                                    sizes="(max-width: 1024px) 92vw, 46vw"
+                                    loading="lazy"
+                                  />
+                                </div>
+                              )}
+                              {/* Math + grid-in: chapda Student-Produced Response Directions */}
+                              {testState.currentSection.type === "MATH" &&
+                              isOpenAnswerQuestion(question) ? (
+                                <div className="pt-5 p-3 sm:p-4 md:p-5 bg-white rounded-lg text-xs sm:text-sm md:text-base leading-relaxed">
+                                  <h2 className="text-sm sm:text-base md:text-lg font-bold text-black mb-2 sm:mb-3 md:mb-4">
+                                    Student-Produced Response Directions
+                                  </h2>
+                                  <ul className="list-disc pl-4 sm:pl-5 space-y-1 sm:space-y-2 mb-2 sm:mb-3 md:mb-4 text-gray-800">
+                                    <li>
+                                      If you find more than one correct answer,
+                                      enter only one answer.
+                                    </li>
+                                    <li>
+                                      You can enter up to 5 characters for a
+                                      positive answer and up to 6 characters
+                                      (including the negative sign) for a
+                                      negative answer.
+                                    </li>
+                                    <li>
+                                      If your answer is a fraction that
+                                      doesn&apos;t fit in the provided space,
+                                      enter the decimal equivalent.
+                                    </li>
+                                    <li>
+                                      If your answer is a decimal that
+                                      doesn&apos;t fit in the provided space,
+                                      enter it by truncating or rounding at the
+                                      fourth digit.
+                                    </li>
+                                    <li>
+                                      If your answer is a mixed number (such as
+                                      3½), enter it as an improper fraction
+                                      (7/2) or its decimal equivalent (3.5).
+                                    </li>
+                                    <li>
+                                      Don&apos;t enter symbols such as a percent
+                                      sign, comma, or dollar sign.
+                                    </li>
+                                  </ul>
+                                  <p className="font-semibold text-black mb-1 sm:mb-2 text-xs sm:text-sm">
+                                    Examples
+                                  </p>
+                                  <div className="overflow-x-auto border border-gray-300 rounded-lg">
+                                    <table className="w-full text-xs sm:text-sm border-collapse">
+                                      <thead>
+                                        <tr className="bg-gray-100 border-b border-gray-300">
+                                          <th className="text-left p-1 sm:p-2 font-semibold text-black border-r border-gray-300">
+                                            Answer
+                                          </th>
+                                          <th className="text-left p-1 sm:p-2 font-semibold text-black border-r border-gray-300">
+                                            Acceptable ways to enter answer
+                                          </th>
+                                          <th className="text-left p-1 sm:p-2 font-semibold text-black">
+                                            Unacceptable: will NOT receive
+                                            credit
+                                          </th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="text-gray-800">
+                                        <tr className="border-b border-gray-200">
+                                          <td className="p-1 sm:p-2 border-r border-gray-200">
+                                            3.5
+                                          </td>
+                                          <td className="p-1 sm:p-2 border-r border-gray-200">
+                                            3.5, 3.50, 7/2
+                                          </td>
+                                          <td className="p-1 sm:p-2">3 1/2</td>
+                                        </tr>
+                                        <tr className="border-b border-gray-200">
+                                          <td className="p-1 sm:p-2 border-r border-gray-200">
+                                            2/3
+                                          </td>
+                                          <td className="p-1 sm:p-2 border-r border-gray-200">
+                                            2/3, .6666, .6667, 0.666, 0.667
+                                          </td>
+                                          <td className="p-1 sm:p-2">
+                                            0.66, .66, 0.67, .67
+                                          </td>
+                                        </tr>
+                                        <tr>
+                                          <td className="p-1 sm:p-2 border-r border-gray-200">
+                                            -1/3
+                                          </td>
+                                          <td className="p-1 sm:p-2 border-r border-gray-200">
+                                            -1/3, -.3333, -0.333
+                                          </td>
+                                          <td className="p-1 sm:p-2">
+                                            -.33, -0.33
+                                          </td>
+                                        </tr>
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              ) : question.sharedPassage?.content ||
+                                question.passage ? (
+                                <div className="p-3 sm:p-4 md:p-5 bg-white rounded-lg">
+                                  <HighlightablePassage
+                                    passageText={
+                                      question.sharedPassage?.content ||
+                                      question.passage ||
+                                      ""
+                                    }
+                                    isMarkupEnabled={isMarkupEnabled}
+                                    attemptId={attemptId}
+                                    questionId={question.id}
+                                    onHighlightsChange={(highlights) => {
+                                      if (highlights.length > 0) {
+                                        const key = getHighlightsStorageKey();
+                                        try {
+                                          const raw =
+                                            typeof window !== "undefined"
+                                              ? localStorage.getItem(key)
+                                              : null;
+                                          const all = raw
+                                            ? (JSON.parse(raw) as Record<
+                                                string,
+                                                unknown
+                                              >)
+                                            : {};
+                                          all[`${question.id}_passage`] =
+                                            highlights;
+                                          if (typeof window !== "undefined")
+                                            localStorage.setItem(
+                                              key,
+                                              JSON.stringify(all),
+                                            );
+                                        } catch (e) {
+                                          console.error(e);
+                                        }
+                                      }
+                                    }}
+                                  />
+                                </div>
+                              ) : (
+                                !getQuestionImageUrl(question) && (
+                                  <div className="text-gray-500 text-sm italic">
+                                    No passage for this question.
+                                  </div>
+                                )
+                              )}
+                            </div>
                           </div>
-                        )
+
+                          {/* Resizable Divider (in-flow, scroll bilan birga harakat qiladi) */}
+                          <div
+                            className="divider-inline self-stretch"
+                            onMouseDown={handleDividerMouseDown}
+                            aria-label="Resize columns"
+                          />
+
+                          {/* Right Column – scroll yo‘q, kontent to‘liq ko‘rinadi */}
+                          <div
+                            className="content-pane flex-1 min-w-0 pl-1 md:pl-2"
+                            style={{
+                              width: `calc(${100 - splitPosition}% - 4px)`,
+                              minWidth: 260,
+                            }}
+                          >
+                            <div className="px-2 md:px-4 pb-4 md:pb-6">
+                              {/* O'ng ustun: savol raqami + Mark for Review + ABC */}
+                              <div className="flex items-center justify-between bg-gray-200 rounded-lg mb-4 sm:mb-5 md:mb-6 py-0.5 sm:py-1 pt-5">
+                                <div className="flex items-center h-full">
+                                  <p className="question-index font-semibold bg-black text-white text-xs sm:text-sm h-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-l rounded-r-none">
+                                    {testState.currentQuestionIndex + 1}
+                                  </p>
+                                  <button
+                                    type="button"
+                                    onClick={handleToggleFlag}
+                                    className="flex items-center text-xs sm:text-sm text-gray-600 hover:text-black mr-1 sm:mr-2 h-full px-1 sm:px-2"
+                                  >
+                                    <Flag
+                                      className={`w-5 h-5 sm:w-6 sm:h-6 ${
+                                        isFlagged
+                                          ? "fill-orange-500 text-orange-500 drop-shadow-sm"
+                                          : "text-gray-500"
+                                      }`}
+                                    />
+                                    <span className="ml-0.5 sm:ml-1 text-xs sm:text-sm">
+                                      Mark for Review
+                                    </span>
+                                  </button>
+                                </div>
+                                {hasChoiceOptions(question) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setIsEliminationMode((prev) => !prev);
+                                      if (isEliminationMode)
+                                        setEliminatedChoices(new Set());
+                                    }}
+                                    className={`flex items-center text-xs sm:text-sm text-gray-600 hover:text-black ml-2 sm:ml-3 h-7 sm:h-8 px-2 rounded-full border border-gray-300 bg-white ${
+                                      isEliminationMode ? "bg-blue-100" : ""
+                                    }`}
+                                  >
+                                    <span className="text-[12px] font-medium text-gray-600">
+                                      ABC
+                                    </span>
+                                    {isEliminationMode && (
+                                      <svg
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                        className="w-4 h-4 text-gray-500 ml-1"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth="1"
+                                          d="M18 6L6 18"
+                                        />
+                                      </svg>
+                                    )}
+                                  </button>
+                                )}
+                              </div>
+                              {/* Savol matni – rasm chapda passage ostida */}
+                              <div className="prose prose-sm sm:prose max-w-none mb-2 sm:mb-3 md:mb-4 text-xs sm:text-sm md:text-base">
+                                <QuestionDisplay
+                                  key={question.id}
+                                  question={question}
+                                  selectedChoiceId={undefined}
+                                  textAnswer={undefined}
+                                  onSelectChoice={() => {}}
+                                  onTextAnswerChange={() => {}}
+                                  isFlagged={isFlagged}
+                                  hidePassage
+                                  isMarkupEnabled={isMarkupEnabled}
+                                  showOnlyQuestionText
+                                  attemptId={attemptId}
+                                  onHighlightsChange={(highlights) => {
+                                    if (highlights.length > 0) {
+                                      saveHighlightsToStorage(
+                                        question.id,
+                                        highlights,
+                                      );
+                                    } else {
+                                      const allHighlights =
+                                        getAllHighlightsFromStorage();
+                                      allHighlights.delete(question.id);
+                                      if (typeof window !== "undefined") {
+                                        try {
+                                          const highlightsObj: Record<
+                                            string,
+                                            any
+                                          > = {};
+                                          allHighlights.forEach(
+                                            (value, key) => {
+                                              highlightsObj[key] = value;
+                                            },
+                                          );
+                                          localStorage.setItem(
+                                            getHighlightsStorageKey(),
+                                            JSON.stringify(highlightsObj),
+                                          );
+                                        } catch (err) {
+                                          console.error(
+                                            "Failed to save highlights from localStorage:",
+                                            err,
+                                          );
+                                        }
+                                      }
+                                    }
+                                  }}
+                                />
+                              </div>
+
+                              {hasChoiceOptions(question) && (
+                                <div className="space-y-2 sm:space-y-3 md:space-y-4">
+                                  {(question.choices ?? []).map(
+                                    (choice, index) => {
+                                      const isSelected =
+                                        currentAnswer.choiceId === choice.id;
+                                      const letter = String.fromCharCode(
+                                        65 + index,
+                                      );
+                                      const isEliminated =
+                                        eliminatedChoices.has(choice.id);
+                                      const choiceImageUrl = getChoiceImageUrl(
+                                        choice as Record<string, unknown>,
+                                      );
+
+                                      return (
+                                        <div
+                                          key={choice.id || index}
+                                          className={`relative w-full flex items-stretch rounded-lg border-2 overflow-hidden ${isSelected ? "border-black" : isEliminated ? "border-gray-300" : "border-gray-200"}`}
+                                        >
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              handleAnswerChange({
+                                                choiceId: choice.id,
+                                                textAnswer:
+                                                  currentAnswer.textAnswer,
+                                              })
+                                            }
+                                            className={`flex-1 min-w-0 p-2 sm:p-3 md:p-4 text-left text-xs sm:text-sm md:text-base flex items-center gap-2 md:gap-3 rounded-l-md cursor-pointer ${isEliminated ? "bg-white" : "hover:bg-gray-200"}`}
+                                          >
+                                            <div
+                                              className={`flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full font-bold border text-[10px] sm:text-xs ${
+                                                isEliminationMode
+                                                  ? "border-gray-400 bg-white text-gray-700"
+                                                  : isSelected
+                                                    ? "border-black bg-black text-white"
+                                                    : "border-black text-black"
+                                              }`}
+                                            >
+                                              <span className="text-xs">
+                                                {letter}
+                                              </span>
+                                            </div>
+                                            <div
+                                              className={`flex-1 min-w-0 ${
+                                                isEliminated
+                                                  ? "text-gray-700"
+                                                  : ""
+                                              }`}
+                                            >
+                                              {getChoiceText(choice) ? (
+                                                <div className="block text-gray-900">
+                                                  <MarkdownRenderer
+                                                    content={getChoiceText(
+                                                      choice,
+                                                    )}
+                                                    className="text-inherit"
+                                                  />
+                                                </div>
+                                              ) : (
+                                                <span className="block">
+                                                  Choice {letter}
+                                                </span>
+                                              )}
+                                              {choiceImageUrl && (
+                                                <span className="block mt-3 bg-gray-100 rounded border border-gray-200 overflow-hidden p-1">
+                                                  <Image
+                                                    src={choiceImageUrl}
+                                                    alt={`Variant ${letter}`}
+                                                    width={160}
+                                                    height={48}
+                                                    className="rounded object-contain max-h-12 w-full bg-gray-100 min-h-[24px]"
+                                                    loading="lazy"
+                                                  />
+                                                </span>
+                                              )}
+                                            </div>
+                                          </button>
+                                          {isEliminationMode && (
+                                            <div className="flex-shrink-0 flex items-center gap-1.5 pl-1 pr-2 py-2 border-l border-gray-200 bg-gray-50/50 rounded-r-md">
+                                              {isEliminated && (
+                                                <button
+                                                  type="button"
+                                                  className="text-[11px] sm:text-xs font-medium text-gray-600 hover:underline whitespace-nowrap"
+                                                  onClick={() =>
+                                                    setEliminatedChoices(
+                                                      (prev) => {
+                                                        const next = new Set(
+                                                          prev,
+                                                        );
+                                                        next.delete(choice.id);
+                                                        return next;
+                                                      },
+                                                    )
+                                                  }
+                                                >
+                                                  Undo
+                                                </button>
+                                              )}
+                                              <button
+                                                type="button"
+                                                className={`flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full border font-bold text-[10px] sm:text-xs cursor-pointer shrink-0 ${isEliminated ? "border-gray-400 bg-gray-200 text-gray-500" : "border-gray-300 bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                                                onClick={() =>
+                                                  setEliminatedChoices(
+                                                    (prev) => {
+                                                      const next = new Set(
+                                                        prev,
+                                                      );
+                                                      if (next.has(choice.id))
+                                                        next.delete(choice.id);
+                                                      else next.add(choice.id);
+                                                      return next;
+                                                    },
+                                                  )
+                                                }
+                                                aria-label={
+                                                  isEliminated
+                                                    ? `Undo strike-through ${letter}`
+                                                    : `Strike through ${letter}`
+                                                }
+                                              >
+                                                {letter}
+                                              </button>
+                                            </div>
+                                          )}
+                                          {isEliminated && (
+                                            <div
+                                              className="pointer-events-none absolute left-10 right-14 sm:right-16 top-1/2 h-[1.5px] bg-gray-400/80 rounded-full -translate-y-1/2"
+                                              aria-hidden
+                                            />
+                                          )}
+                                        </div>
+                                      );
+                                    },
+                                  )}
+                                </div>
+                              )}
+
+                              {isOpenAnswerQuestion(question) && (
+                                <div className="mt-3 pt-2 space-y-2">
+                                  <input
+                                    type="text"
+                                    value={currentAnswer.textAnswer || ""}
+                                    onChange={(e) =>
+                                      handleAnswerChange({
+                                        textAnswer: e.target.value,
+                                        choiceId: currentAnswer.choiceId,
+                                      })
+                                    }
+                                    placeholder="Enter your answer (e.g. 5.566, -5.566, 2/3, -2/3)"
+                                    pattern="[0-9.\\-/]+"
+                                    className="max-w-[180px] sm:max-w-[220px] md:max-w-[240px] w-full px-2 sm:px-3 py-1.5 sm:py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm md:text-base"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>
+                )}
 
-                  {/* Resizable Divider (in-flow, scroll bilan birga harakat qiladi) */}
-                  <div
-                    className="divider-inline self-stretch"
-                    onMouseDown={handleDividerMouseDown}
-                    aria-label="Resize columns"
-                  />
-
-                  {/* Right Column – scroll yo‘q, kontent to‘liq ko‘rinadi */}
-                  <div
-                    className="content-pane flex-1 min-w-0 pl-1 md:pl-2"
-                    style={{
-                      width: `calc(${100 - splitPosition}% - 4px)`,
-                      minWidth: 260,
-                    }}
-                  >
-                    <div className="px-2 md:px-4 pb-4 md:pb-6">
-                      {/* O'ng ustun: savol raqami + Mark for Review + ABC */}
-                      <div className="flex items-center justify-between bg-gray-200 rounded-lg mb-4 sm:mb-5 md:mb-6 py-0.5 sm:py-1 pt-5">
-                        <div className="flex items-center h-full">
-                          <p className="question-index font-semibold bg-black text-white text-xs sm:text-sm h-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-l rounded-r-none">
+                {/* Mobil (<920px): bitta ustun, passage+image tepada, keyin savol – JS orqali */}
+                {!isDesktopLayout && (
+                  <div className="flex flex-1 min-h-[40vh] min-w-0 w-full overflow-y-auto overflow-x-hidden overscroll-contain">
+                    <div className="w-full min-w-0 flex-1 px-3 min-[480px]:px-4 pb-4 sm:pb-6">
+                      {/* 1) MATH grid-in: directions tepada */}
+                      {testState.currentSection.type === "MATH" &&
+                        isOpenAnswerQuestion(question) && (
+                          <div className="pt-5 p-3 sm:p-4 mb-3 sm:mb-5 bg-gray-50/80 rounded-lg text-xs sm:text-sm leading-relaxed">
+                            <h2 className="text-sm sm:text-base md:text-lg font-bold text-black mb-2 sm:mb-3">
+                              Student-Produced Response Directions
+                            </h2>
+                            <ul className="list-disc pl-4 sm:pl-5 space-y-1 sm:space-y-1.5 mb-2 sm:mb-3 text-gray-800 text-xs sm:text-sm">
+                              <li>
+                                If you find more than one correct answer, enter
+                                only one answer.
+                              </li>
+                              <li>
+                                You can enter up to 5 characters for a positive
+                                answer and up to 6 (including the negative sign)
+                                for a negative answer.
+                              </li>
+                              <li>
+                                If your answer is a fraction that doesn&apos;t
+                                fit, enter the decimal equivalent.
+                              </li>
+                              <li>
+                                If your answer is a decimal that doesn&apos;t
+                                fit, enter it by truncating or rounding at the
+                                fourth digit.
+                              </li>
+                              <li>
+                                If your answer is a mixed number (e.g. 3½),
+                                enter it as an improper fraction (7/2) or
+                                decimal (3.5).
+                              </li>
+                              <li>
+                                Don&apos;t enter symbols such as %, comma, or $.
+                              </li>
+                            </ul>
+                            <p className="font-semibold text-black mb-1 sm:mb-1.5 text-xs sm:text-sm">
+                              Examples
+                            </p>
+                            <div className="overflow-x-auto border border-gray-300 rounded text-xs sm:text-sm">
+                              <table className="w-full border-collapse">
+                                <thead>
+                                  <tr className="bg-gray-100 border-b border-gray-300">
+                                    <th className="text-left p-1 sm:p-1.5 font-semibold border-r border-gray-300">
+                                      Answer
+                                    </th>
+                                    <th className="text-left p-1 sm:p-1.5 font-semibold border-r border-gray-300">
+                                      Acceptable
+                                    </th>
+                                    <th className="text-left p-1 sm:p-1.5 font-semibold">
+                                      Unacceptable
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  <tr className="border-b border-gray-200">
+                                    <td className="p-1 sm:p-1.5 border-r">
+                                      3.5
+                                    </td>
+                                    <td className="p-1 sm:p-1.5 border-r">
+                                      3.5, 3.50, 7/2
+                                    </td>
+                                    <td className="p-1 sm:p-1.5">3 1/2</td>
+                                  </tr>
+                                  <tr className="border-b border-gray-200">
+                                    <td className="p-1 sm:p-1.5 border-r">
+                                      2/3
+                                    </td>
+                                    <td className="p-1 sm:p-1.5 border-r">
+                                      2/3, .6666, .6667, 0.666, 0.667
+                                    </td>
+                                    <td className="p-1 sm:p-1.5">
+                                      0.66, .66, 0.67, .67
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td className="p-1 sm:p-1.5 border-r">
+                                      -1/3
+                                    </td>
+                                    <td className="p-1 sm:p-1.5 border-r">
+                                      -1/3, -.3333, -0.333
+                                    </td>
+                                    <td className="p-1 sm:p-1.5">
+                                      -.33, -0.33
+                                    </td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+                      <div className="question-index-container flex items-center justify-between bg-gray-200 rounded-lg mb-4 sm:mb-6 py-1 px-2 sm:px-3">
+                        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                          <p className="question-index font-semibold bg-black text-white text-xs sm:text-sm px-2 sm:px-3 py-1 rounded-l rounded-r-none">
                             {testState.currentQuestionIndex + 1}
                           </p>
                           <button
                             type="button"
                             onClick={handleToggleFlag}
-                            className="flex items-center text-xs sm:text-sm text-gray-600 hover:text-black mr-1 sm:mr-2 h-full px-1 sm:px-2"
+                            className="flex items-center text-xs sm:text-sm text-gray-600 hover:text-black"
                           >
                             <Flag
-                              className={`w-5 h-5 sm:w-6 sm:h-6 ${
+                              className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-500 ${
                                 isFlagged
-                                  ? "fill-orange-500 text-orange-500 drop-shadow-sm"
-                                  : "text-gray-500"
+                                  ? "fill-orange-500 text-orange-500"
+                                  : ""
                               }`}
                             />
-                            <span className="ml-0.5 sm:ml-1 text-xs sm:text-sm">
+                            <span className="ml-0.5 sm:ml-1">
                               Mark for Review
                             </span>
                           </button>
@@ -2878,14 +3648,15 @@ export default function TestTakingPage() {
                             type="button"
                             onClick={() => {
                               setIsEliminationMode((prev) => !prev);
-                              if (isEliminationMode)
+                              if (!isEliminationMode) {
                                 setEliminatedChoices(new Set());
+                              }
                             }}
-                            className={`flex items-center text-xs sm:text-sm text-gray-600 hover:text-black ml-2 sm:ml-3 h-7 sm:h-8 px-2 rounded-full border border-gray-300 bg-white ${
+                            className={`flex-shrink-0 flex items-center text-[11px] sm:text-xs text-gray-700 hover:text-black h-7 sm:h-8 px-2 rounded-full border border-gray-300 bg-white ${
                               isEliminationMode ? "bg-blue-100" : ""
                             }`}
                           >
-                            <span className="text-[12px] font-medium text-gray-600">
+                            <span className="text-[11px] font-medium text-gray-700">
                               ABC
                             </span>
                             {isEliminationMode && (
@@ -2893,7 +3664,7 @@ export default function TestTakingPage() {
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
-                                className="w-4 h-4 text-gray-500 ml-1"
+                                className="w-3.5 h-3.5 text-gray-500 ml-1"
                               >
                                 <path
                                   strokeLinecap="round"
@@ -2906,19 +3677,28 @@ export default function TestTakingPage() {
                           </button>
                         )}
                       </div>
-                      {/* Savol matni – rasm chapda passage ostida */}
-                      <div className="prose prose-sm sm:prose max-w-none mb-2 sm:mb-3 md:mb-4 text-xs sm:text-sm md:text-base">
+                      <div className="prose prose-sm sm:prose max-w-none mt-0 mb-3 sm:mb-5 text-xs sm:text-sm">
                         <QuestionDisplay
                           key={question.id}
                           question={question}
-                          selectedChoiceId={undefined}
-                          textAnswer={undefined}
-                          onSelectChoice={() => {}}
-                          onTextAnswerChange={() => {}}
+                          selectedChoiceId={currentAnswer.choiceId}
+                          textAnswer={currentAnswer.textAnswer}
+                          onSelectChoice={(choiceId) =>
+                            handleAnswerChange({
+                              choiceId,
+                              textAnswer: currentAnswer.textAnswer,
+                            })
+                          }
+                          onTextAnswerChange={(text) =>
+                            handleAnswerChange({
+                              textAnswer: text,
+                              choiceId: currentAnswer.choiceId,
+                            })
+                          }
                           isFlagged={isFlagged}
                           hidePassage
-                          isMarkupEnabled={isMarkupEnabled}
                           showOnlyQuestionText
+                          isMarkupEnabled={isMarkupEnabled}
                           attemptId={attemptId}
                           onHighlightsChange={(highlights) => {
                             if (highlights.length > 0) {
@@ -2948,9 +3728,9 @@ export default function TestTakingPage() {
                           }}
                         />
                       </div>
-
+                      {/* Mobil: variantlar sahifada – ABC ON da bosish line qo‘yadi/oladi */}
                       {hasChoiceOptions(question) && (
-                        <div className="space-y-2 sm:space-y-3 md:space-y-4">
+                        <div className="space-y-2 sm:space-y-3 mb-4">
                           {(question.choices ?? []).map((choice, index) => {
                             const isSelected =
                               currentAnswer.choiceId === choice.id;
@@ -2961,7 +3741,6 @@ export default function TestTakingPage() {
                             const choiceImageUrl = getChoiceImageUrl(
                               choice as Record<string, unknown>,
                             );
-
                             return (
                               <div
                                 key={choice.id || index}
@@ -2969,45 +3748,56 @@ export default function TestTakingPage() {
                               >
                                 <button
                                   type="button"
-                                  onClick={() =>
-                                    handleAnswerChange({
-                                      choiceId: choice.id,
-                                      textAnswer: currentAnswer.textAnswer,
-                                    })
-                                  }
-                                  className={`flex-1 min-w-0 p-2 sm:p-3 md:p-4 text-left text-xs sm:text-sm md:text-base flex items-center gap-2 md:gap-3 rounded-l-md cursor-pointer ${isEliminated ? "bg-white" : "hover:bg-gray-200"}`}
+                                  onClick={() => {
+                                    if (isEliminationMode) {
+                                      setEliminatedChoices((prev) => {
+                                        const next = new Set(prev);
+                                        if (next.has(choice.id))
+                                          next.delete(choice.id);
+                                        else next.add(choice.id);
+                                        return next;
+                                      });
+                                    } else {
+                                      handleAnswerChange({
+                                        choiceId: choice.id,
+                                        textAnswer: currentAnswer.textAnswer,
+                                      });
+                                    }
+                                  }}
+                                  className={`flex-1 min-w-0 p-2 sm:p-3 text-left text-xs sm:text-sm flex items-center gap-2 sm:gap-3 ${isEliminated ? "bg-gray-100 opacity-60" : "hover:bg-gray-200"} cursor-pointer rounded-l-md`}
                                 >
                                   <div
-                                    className={`flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full font-bold border text-[10px] sm:text-xs ${
-                                      isEliminationMode
-                                        ? "border-gray-400 bg-white text-gray-700"
-                                        : isSelected
-                                          ? "border-black bg-black text-white"
-                                          : "border-black text-black"
+                                    className={`flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full font-bold border border-black text-[10px] sm:text-xs ${
+                                      isSelected
+                                        ? "bg-black text-white"
+                                        : "text-black"
                                     }`}
                                   >
                                     <span className="text-xs">{letter}</span>
                                   </div>
                                   <div
-                                    className={`flex-1 min-w-0 ${
-                                      isEliminated ? "text-gray-700" : ""
-                                    }`}
+                                    className={`flex-1 min-w-0 ${isEliminated ? "line-through text-gray-500" : ""}`}
                                   >
                                     {getChoiceText(choice) ? (
                                       <div className="block text-gray-900">
-                                        <MarkdownRenderer content={getChoiceText(choice)} className="text-inherit" />
+                                        <MarkdownRenderer
+                                          content={getChoiceText(choice)}
+                                          className="text-inherit"
+                                        />
                                       </div>
                                     ) : (
-                                      <span className="block">Choice {letter}</span>
+                                      <span className="block">
+                                        Choice {letter}
+                                      </span>
                                     )}
                                     {choiceImageUrl && (
-                                      <span className="block mt-3 bg-gray-100 rounded border border-gray-200 overflow-hidden p-1">
+                                      <span className="block mt-2 bg-white rounded border border-gray-200 overflow-hidden p-1">
                                         <Image
                                           src={choiceImageUrl}
                                           alt={`Variant ${letter}`}
                                           width={160}
                                           height={48}
-                                          className="rounded object-contain max-h-12 w-full bg-gray-100 min-h-[24px]"
+                                          className="rounded object-contain max-h-12 w-full bg-white min-h-[24px]"
                                           loading="lazy"
                                         />
                                       </span>
@@ -3015,382 +3805,120 @@ export default function TestTakingPage() {
                                   </div>
                                 </button>
                                 {isEliminationMode && (
-                                  <div className="flex-shrink-0 flex items-center gap-1.5 pl-1 pr-2 py-2 border-l border-gray-200 bg-gray-50/50 rounded-r-md">
+                                  <div className="flex-shrink-0 flex items-center gap-1 pl-1 pr-2 py-2 border-l border-gray-200 bg-gray-50/50 rounded-r-md">
                                     {isEliminated && (
-                                      <button type="button" className="text-[11px] sm:text-xs font-medium text-gray-600 hover:underline whitespace-nowrap" onClick={() => setEliminatedChoices((prev) => { const next = new Set(prev); next.delete(choice.id); return next; })}>Undo</button>
+                                      <button
+                                        type="button"
+                                        className="text-[11px] font-medium text-gray-600 hover:underline whitespace-nowrap"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setEliminatedChoices((prev) => {
+                                            const next = new Set(prev);
+                                            next.delete(choice.id);
+                                            return next;
+                                          });
+                                        }}
+                                      >
+                                        Undo
+                                      </button>
                                     )}
-                                    <button type="button" className={`flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full border font-bold text-[10px] sm:text-xs cursor-pointer shrink-0 ${isEliminated ? "border-gray-400 bg-gray-200 text-gray-500" : "border-gray-300 bg-gray-100 text-gray-700 hover:bg-gray-200"}`} onClick={() => setEliminatedChoices((prev) => { const next = new Set(prev); if (next.has(choice.id)) next.delete(choice.id); else next.add(choice.id); return next; })} aria-label={isEliminated ? `Undo strike-through ${letter}` : `Strike through ${letter}`}>
+                                    <button
+                                      type="button"
+                                      className={`flex items-center justify-center w-6 h-6 rounded-full border font-bold text-[10px] cursor-pointer shrink-0 ${
+                                        isEliminated
+                                          ? "border-gray-400 bg-gray-200 text-gray-500"
+                                          : "border-gray-300 bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                      }`}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEliminatedChoices((prev) => {
+                                          const next = new Set(prev);
+                                          if (next.has(choice.id))
+                                            next.delete(choice.id);
+                                          else next.add(choice.id);
+                                          return next;
+                                        });
+                                      }}
+                                      aria-label={
+                                        isEliminated
+                                          ? `Undo ${letter}`
+                                          : `Strike ${letter}`
+                                      }
+                                    >
                                       {letter}
                                     </button>
                                   </div>
                                 )}
                                 {isEliminated && (
-                                  <div className="pointer-events-none absolute left-10 right-14 sm:right-16 top-1/2 h-[1.5px] bg-gray-400/80 rounded-full -translate-y-1/2" aria-hidden />
+                                  <div
+                                    className="pointer-events-none absolute left-10 right-14 top-1/2 h-[1.5px] bg-gray-400/80 rounded-full -translate-y-1/2"
+                                    aria-hidden
+                                  />
                                 )}
                               </div>
                             );
                           })}
                         </div>
                       )}
-
-                      {isOpenAnswerQuestion(question) && (
-                        <div className="mt-3 pt-2 space-y-2">
-                          <input
-                            type="text"
-                            value={currentAnswer.textAnswer || ""}
-                            onChange={(e) =>
-                              handleAnswerChange({
-                                textAnswer: e.target.value,
-                                choiceId: currentAnswer.choiceId,
-                              })
+                      {getQuestionImageUrl(question) && (
+                        <div className="mt-4 sm:mt-5 mb-3 sm:mb-4 p-2 sm:p-3 bg-gray-100 rounded-lg flex justify-center items-center overflow-hidden">
+                          <Image
+                            src={getQuestionImageUrl(question)!}
+                            alt="Question figure"
+                            width={1200}
+                            height={900}
+                            unoptimized={shouldUnoptimizeImage(
+                              getQuestionImageUrl(question)!,
+                            )}
+                            className="max-h-[min(50vh,500px)] w-auto max-w-full h-auto rounded-lg object-contain bg-gray-100"
+                            sizes="100vw"
+                            loading="lazy"
+                          />
+                        </div>
+                      )}
+                      {(question.sharedPassage?.content ||
+                        question.passage) && (
+                        <div className="mt-2 sm:mt-3 p-3 sm:p-4 mb-3 sm:mb-4 bg-white rounded-lg">
+                          <HighlightablePassage
+                            passageText={
+                              question.sharedPassage?.content ||
+                              question.passage ||
+                              ""
                             }
-                            placeholder="Enter your answer (e.g. 5.566, -5.566, 2/3, -2/3)"
-                            pattern="[0-9.\\-/]+"
-                            className="max-w-[180px] sm:max-w-[220px] md:max-w-[240px] w-full px-2 sm:px-3 py-1.5 sm:py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm md:text-base"
+                            isMarkupEnabled={isMarkupEnabled}
+                            attemptId={attemptId}
+                            questionId={question.id}
+                            onHighlightsChange={(highlights) => {
+                              if (highlights.length > 0) {
+                                const key = getHighlightsStorageKey();
+                                try {
+                                  const raw =
+                                    typeof window !== "undefined"
+                                      ? localStorage.getItem(key)
+                                      : null;
+                                  const all = raw
+                                    ? (JSON.parse(raw) as Record<
+                                        string,
+                                        unknown
+                                      >)
+                                    : {};
+                                  all[`${question.id}_passage`] = highlights;
+                                  if (typeof window !== "undefined")
+                                    localStorage.setItem(
+                                      key,
+                                      JSON.stringify(all),
+                                    );
+                                } catch (e) {
+                                  console.error(e);
+                                }
+                              }
+                            }}
                           />
                         </div>
                       )}
                     </div>
                   </div>
-                </div>
                 )}
-              </div>
-                </div>
-                )}
-
-              {/* Mobil (<920px): bitta ustun, passage+image tepada, keyin savol – JS orqali */}
-              {!isDesktopLayout && (
-              <div className="flex flex-1 min-h-[40vh] min-w-0 w-full overflow-y-auto overflow-x-hidden overscroll-contain">
-                <div className="w-full min-w-0 flex-1 px-3 min-[480px]:px-4 pb-4 sm:pb-6">
-                  {/* 1) MATH grid-in: directions tepada */}
-                  {testState.currentSection.type === "MATH" &&
-                    isOpenAnswerQuestion(question) && (
-                      <div className="pt-5 p-3 sm:p-4 mb-3 sm:mb-5 bg-gray-50/80 rounded-lg text-xs sm:text-sm leading-relaxed">
-                        <h2 className="text-sm sm:text-base md:text-lg font-bold text-black mb-2 sm:mb-3">
-                          Student-Produced Response Directions
-                        </h2>
-                        <ul className="list-disc pl-4 sm:pl-5 space-y-1 sm:space-y-1.5 mb-2 sm:mb-3 text-gray-800 text-xs sm:text-sm">
-                          <li>
-                            If you find more than one correct answer, enter only
-                            one answer.
-                          </li>
-                          <li>
-                            You can enter up to 5 characters for a positive
-                            answer and up to 6 (including the negative sign) for
-                            a negative answer.
-                          </li>
-                          <li>
-                            If your answer is a fraction that doesn&apos;t fit,
-                            enter the decimal equivalent.
-                          </li>
-                          <li>
-                            If your answer is a decimal that doesn&apos;t fit,
-                            enter it by truncating or rounding at the fourth
-                            digit.
-                          </li>
-                          <li>
-                            If your answer is a mixed number (e.g. 3½), enter it
-                            as an improper fraction (7/2) or decimal (3.5).
-                          </li>
-                          <li>
-                            Don&apos;t enter symbols such as %, comma, or $.
-                          </li>
-                        </ul>
-                        <p className="font-semibold text-black mb-1 sm:mb-1.5 text-xs sm:text-sm">
-                          Examples
-                        </p>
-                        <div className="overflow-x-auto border border-gray-300 rounded text-xs sm:text-sm">
-                          <table className="w-full border-collapse">
-                            <thead>
-                              <tr className="bg-gray-100 border-b border-gray-300">
-                                <th className="text-left p-1 sm:p-1.5 font-semibold border-r border-gray-300">
-                                  Answer
-                                </th>
-                                <th className="text-left p-1 sm:p-1.5 font-semibold border-r border-gray-300">
-                                  Acceptable
-                                </th>
-                                <th className="text-left p-1 sm:p-1.5 font-semibold">
-                                  Unacceptable
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              <tr className="border-b border-gray-200">
-                                <td className="p-1 sm:p-1.5 border-r">3.5</td>
-                                <td className="p-1 sm:p-1.5 border-r">
-                                  3.5, 3.50, 7/2
-                                </td>
-                                <td className="p-1 sm:p-1.5">3 1/2</td>
-                              </tr>
-                              <tr className="border-b border-gray-200">
-                                <td className="p-1 sm:p-1.5 border-r">2/3</td>
-                                <td className="p-1 sm:p-1.5 border-r">
-                                  2/3, .6666, .6667, 0.666, 0.667
-                                </td>
-                                <td className="p-1 sm:p-1.5">
-                                  0.66, .66, 0.67, .67
-                                </td>
-                              </tr>
-                              <tr>
-                                <td className="p-1 sm:p-1.5 border-r">-1/3</td>
-                                <td className="p-1 sm:p-1.5 border-r">
-                                  -1/3, -.3333, -0.333
-                                </td>
-                                <td className="p-1 sm:p-1.5">-.33, -0.33</td>
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    )}
-                  <div className="question-index-container flex items-center justify-between bg-gray-200 rounded-lg mb-4 sm:mb-6 py-1 px-2 sm:px-3">
-                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                      <p className="question-index font-semibold bg-black text-white text-xs sm:text-sm px-2 sm:px-3 py-1 rounded-l rounded-r-none">
-                        {testState.currentQuestionIndex + 1}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={handleToggleFlag}
-                        className="flex items-center text-xs sm:text-sm text-gray-600 hover:text-black"
-                      >
-                        <Flag
-                          className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-500 ${
-                            isFlagged ? "fill-orange-500 text-orange-500" : ""
-                          }`}
-                        />
-                        <span className="ml-0.5 sm:ml-1">Mark for Review</span>
-                      </button>
-                    </div>
-                    {hasChoiceOptions(question) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsEliminationMode((prev) => !prev);
-                          if (!isEliminationMode) {
-                            setEliminatedChoices(new Set());
-                          }
-                        }}
-                        className={`flex-shrink-0 flex items-center text-[11px] sm:text-xs text-gray-700 hover:text-black h-7 sm:h-8 px-2 rounded-full border border-gray-300 bg-white ${
-                          isEliminationMode ? "bg-blue-100" : ""
-                        }`}
-                      >
-                        <span className="text-[11px] font-medium text-gray-700">
-                          ABC
-                        </span>
-                        {isEliminationMode && (
-                          <svg
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                            className="w-3.5 h-3.5 text-gray-500 ml-1"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="1"
-                              d="M18 6L6 18"
-                            />
-                          </svg>
-                        )}
-                      </button>
-                    )}
-                  </div>
-                  <div className="prose prose-sm sm:prose max-w-none mt-0 mb-3 sm:mb-5 text-xs sm:text-sm">
-                    <QuestionDisplay
-                      key={question.id}
-                      question={question}
-                      selectedChoiceId={currentAnswer.choiceId}
-                      textAnswer={currentAnswer.textAnswer}
-                      onSelectChoice={(choiceId) =>
-                        handleAnswerChange({
-                          choiceId,
-                          textAnswer: currentAnswer.textAnswer,
-                        })
-                      }
-                      onTextAnswerChange={(text) =>
-                        handleAnswerChange({
-                          textAnswer: text,
-                          choiceId: currentAnswer.choiceId,
-                        })
-                      }
-                      isFlagged={isFlagged}
-                      hidePassage
-                      showOnlyQuestionText
-                      isMarkupEnabled={isMarkupEnabled}
-                      attemptId={attemptId}
-                      onHighlightsChange={(highlights) => {
-                        if (highlights.length > 0) {
-                          saveHighlightsToStorage(question.id, highlights);
-                        } else {
-                          const allHighlights = getAllHighlightsFromStorage();
-                          allHighlights.delete(question.id);
-                          if (typeof window !== "undefined") {
-                            try {
-                              const highlightsObj: Record<string, any> = {};
-                              allHighlights.forEach((value, key) => {
-                                highlightsObj[key] = value;
-                              });
-                              localStorage.setItem(
-                                getHighlightsStorageKey(),
-                                JSON.stringify(highlightsObj),
-                              );
-                            } catch (err) {
-                              console.error(
-                                "Failed to save highlights from localStorage:",
-                                err,
-                              );
-                            }
-                          }
-                        }
-                      }}
-                    />
-                  </div>
-                  {/* Mobil: variantlar sahifada – ABC ON da bosish line qo‘yadi/oladi */}
-                  {hasChoiceOptions(question) && (
-                    <div className="space-y-2 sm:space-y-3 mb-4">
-                      {(question.choices ?? []).map((choice, index) => {
-                        const isSelected = currentAnswer.choiceId === choice.id;
-                        const letter = String.fromCharCode(65 + index);
-                        const isEliminated = eliminatedChoices.has(choice.id);
-                        const choiceImageUrl = getChoiceImageUrl(choice as Record<string, unknown>);
-                        return (
-                          <div
-                            key={choice.id || index}
-                            className={`relative w-full flex items-stretch rounded-lg border-2 overflow-hidden ${isSelected ? "border-black" : isEliminated ? "border-gray-300" : "border-gray-200"}`}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (isEliminationMode) {
-                                  setEliminatedChoices((prev) => {
-                                    const next = new Set(prev);
-                                    if (next.has(choice.id)) next.delete(choice.id);
-                                    else next.add(choice.id);
-                                    return next;
-                                  });
-                                } else {
-                                  handleAnswerChange({
-                                    choiceId: choice.id,
-                                    textAnswer: currentAnswer.textAnswer,
-                                  });
-                                }
-                              }}
-                              className={`flex-1 min-w-0 p-2 sm:p-3 text-left text-xs sm:text-sm flex items-center gap-2 sm:gap-3 ${isEliminated ? "bg-gray-100 opacity-60" : "hover:bg-gray-200"} cursor-pointer rounded-l-md`}
-                            >
-                              <div
-                                className={`flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full font-bold border border-black text-[10px] sm:text-xs ${
-                                  isSelected ? "bg-black text-white" : "text-black"
-                                }`}
-                              >
-                                <span className="text-xs">{letter}</span>
-                              </div>
-                              <div className={`flex-1 min-w-0 ${isEliminated ? "line-through text-gray-500" : ""}`}>
-                                {getChoiceText(choice) ? (
-                                  <div className="block text-gray-900">
-                                    <MarkdownRenderer content={getChoiceText(choice)} className="text-inherit" />
-                                  </div>
-                                ) : (
-                                  <span className="block">Choice {letter}</span>
-                                )}
-                                {choiceImageUrl && (
-                                  <span className="block mt-2 bg-white rounded border border-gray-200 overflow-hidden p-1">
-                                    <Image
-                                      src={choiceImageUrl}
-                                      alt={`Variant ${letter}`}
-                                      width={160}
-                                      height={48}
-                                      className="rounded object-contain max-h-12 w-full bg-white min-h-[24px]"
-                                      loading="lazy"
-                                    />
-                                  </span>
-                                )}
-                              </div>
-                            </button>
-                            {isEliminationMode && (
-                              <div className="flex-shrink-0 flex items-center gap-1 pl-1 pr-2 py-2 border-l border-gray-200 bg-gray-50/50 rounded-r-md">
-                                {isEliminated && (
-                                  <button
-                                    type="button"
-                                    className="text-[11px] font-medium text-gray-600 hover:underline whitespace-nowrap"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setEliminatedChoices((prev) => {
-                                        const next = new Set(prev);
-                                        next.delete(choice.id);
-                                        return next;
-                                      });
-                                    }}
-                                  >
-                                    Undo
-                                  </button>
-                                )}
-                                <button
-                                  type="button"
-                                  className={`flex items-center justify-center w-6 h-6 rounded-full border font-bold text-[10px] cursor-pointer shrink-0 ${
-                                    isEliminated ? "border-gray-400 bg-gray-200 text-gray-500" : "border-gray-300 bg-gray-100 text-gray-700 hover:bg-gray-200"
-                                  }`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEliminatedChoices((prev) => {
-                                      const next = new Set(prev);
-                                      if (next.has(choice.id)) next.delete(choice.id);
-                                      else next.add(choice.id);
-                                      return next;
-                                    });
-                                  }}
-                                  aria-label={isEliminated ? `Undo ${letter}` : `Strike ${letter}`}
-                                >
-                                  {letter}
-                                </button>
-                              </div>
-                            )}
-                            {isEliminated && (
-                              <div className="pointer-events-none absolute left-10 right-14 top-1/2 h-[1.5px] bg-gray-400/80 rounded-full -translate-y-1/2" aria-hidden />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  {getQuestionImageUrl(question) && (
-                    <div className="mt-4 sm:mt-5 mb-3 sm:mb-4 p-2 sm:p-3 bg-gray-100 rounded-lg flex justify-center items-center overflow-hidden">
-                      <Image
-                        src={getQuestionImageUrl(question)!}
-                        alt="Question figure"
-                        width={1200}
-                        height={900}
-                        unoptimized={shouldUnoptimizeImage(getQuestionImageUrl(question)!)}
-                        className="max-h-[min(50vh,500px)] w-auto max-w-full h-auto rounded-lg object-contain bg-gray-100"
-                        sizes="100vw"
-                        loading="lazy"
-                      />
-                    </div>
-                  )}
-                  {(question.sharedPassage?.content || question.passage) && (
-                    <div className="mt-2 sm:mt-3 p-3 sm:p-4 mb-3 sm:mb-4 bg-white rounded-lg">
-                      <HighlightablePassage
-                        passageText={question.sharedPassage?.content || question.passage || ""}
-                        isMarkupEnabled={isMarkupEnabled}
-                        attemptId={attemptId}
-                        questionId={question.id}
-                        onHighlightsChange={(highlights) => {
-                          if (highlights.length > 0) {
-                            const key = getHighlightsStorageKey();
-                            try {
-                              const raw = typeof window !== "undefined" ? localStorage.getItem(key) : null;
-                              const all = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
-                              all[`${question.id}_passage`] = highlights;
-                              if (typeof window !== "undefined") localStorage.setItem(key, JSON.stringify(all));
-                            } catch (e) { console.error(e); }
-                          }
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-              )}
-
               </div>
             </div>
 
@@ -3477,8 +4005,42 @@ export default function TestTakingPage() {
         <QuestionNavigator
           totalQuestions={totalQs}
           currentIndex={testState.currentQuestionIndex}
-          answeredSet={answeredQuestions}
-          flaggedSet={flaggedQuestions}
+          answeredSet={(() => {
+            // Real-time: localStorage hali yangilanmasdan turib ham
+            // joriy tanlangan javob (currentAnswer) bo‘yicha answered ko'rsatamiz.
+            const next = new Set<number>(answeredQuestions);
+            // Navigator ichidagi `currentIndex` aynan shu qiymat bo‘lishi kerak.
+            // (Ref'dagi qiymat stale bo‘lib qolishi mumkin.)
+            const idx = testState?.currentQuestionIndex ?? 0;
+
+            const refLive = currentAnswerRef.current;
+            const live = {
+              // choose ref if it's been populated
+              ...(refLive.choiceId !== undefined || refLive.textAnswer !== undefined
+                ? refLive
+                : currentAnswer),
+            };
+
+            // Answered real-time:
+            // - choiceId even if empty string => user selected something
+            // - textAnswer only if non-empty
+            const hasChoice =
+              live.choiceId !== undefined && live.choiceId !== null;
+            const hasText =
+              live.textAnswer != null &&
+              String(live.textAnswer).trim() !== "";
+            const hasAnswer = hasChoice || hasText;
+
+            const hasMeta =
+              flaggedQuestionsRef.current.has(idx) ||
+              eliminatedChoices.size > 0;
+
+            if (hasAnswer || hasMeta) next.add(idx);
+            else next.delete(idx);
+
+            return next;
+          })()}
+          flaggedSet={new Set(flaggedQuestionsRef.current)}
           onJump={handleJumpToQuestion}
           onClose={() => setShowNavigator(false)}
           sectionTitle={`Section ${
@@ -3494,12 +4056,16 @@ export default function TestTakingPage() {
 
       {/* Refresh confirmation modal */}
       <Dialog open={showRefreshModal} onOpenChange={setShowRefreshModal}>
-        <DialogContent className="sm:max-w-sm" onPointerDownOutside={(e) => e.preventDefault()}>
+        <DialogContent
+          className="sm:max-w-sm"
+          onPointerDownOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>Refresh the page?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-gray-600">
-            If you refresh, you will leave the test. You can continue without refreshing.
+            If you refresh, you will leave the test. You can continue without
+            refreshing.
           </p>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button

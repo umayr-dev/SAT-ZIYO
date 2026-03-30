@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { Card } from "@/src/ui/card";
 import { Button } from "@/src/ui/button";
 import { Loading } from "@/src/ui/loading";
@@ -11,7 +11,9 @@ import { Calculator, Coffee, ClipboardList, Pin } from "lucide-react";
 export default function PreTestInstructionsPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const testId = params.testId as string;
+  const freshStart = searchParams.get("fresh") === "1";
   const [test, setTest] = useState<Test | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
@@ -42,6 +44,25 @@ export default function PreTestInstructionsPage() {
   async function actuallyStartTest() {
     try {
       setStarting(true);
+      if (freshStart) {
+        // All Tests'dan "fresh=1" bilan kirilganda yangi urinishni 1-savoldan boshlaymiz.
+        // Mavjud in-progress attempt(lar)ni yakunlab, keyin startTest qilamiz.
+        const attempts = await practiceService.getMyAttempts(testId);
+        const inProgressAttempts = attempts.filter(
+          (a) => a.status === "IN_PROGRESS",
+        );
+        for (const attempt of inProgressAttempts) {
+          try {
+            await practiceService.abandonAttempt(attempt.id);
+          } catch (e) {
+            console.warn(
+              "[StartPage] Failed to abandon in-progress attempt:",
+              attempt.id,
+              e,
+            );
+          }
+        }
+      }
       const response = await practiceService.startTest(testId);
       router.push(`/dashboard/practice/test/${response.attemptId}`);
     } catch (err) {

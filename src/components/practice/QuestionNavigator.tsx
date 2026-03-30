@@ -66,8 +66,8 @@ export function QuestionNavigator({
         <div className="px-6 py-3 border-b border-gray-200 bg-gray-50">
           <div className="flex flex-wrap items-center gap-4 text-sm text-gray-700">
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded border-2 border-gray-400 flex items-center justify-center">
-                <MapPin className="w-3 h-3 text-gray-600" />
+              <div className="w-4 h-4 rounded border-2 border-yellow-500 bg-yellow-100 flex items-center justify-center">
+                <MapPin className="w-3 h-3 text-yellow-700" />
               </div>
               <span>Current</span>
             </div>
@@ -82,7 +82,7 @@ export function QuestionNavigator({
               <span>For Review</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-orange-500 border-2 border-orange-500"></div>
+              <div className="w-4 h-4 rounded bg-green-500 border-2 border-green-500"></div>
               <span>Answered</span>
             </div>
           </div>
@@ -103,14 +103,15 @@ export function QuestionNavigator({
                 "w-11 h-11 rounded border-2 text-sm font-medium flex items-center justify-center transition-all relative";
 
               if (isCurrent) {
-                buttonClass += " border-gray-500 bg-white text-gray-900";
+                // Current question should stay yellow regardless of answered state
+                buttonClass += " border-yellow-500 bg-yellow-100 text-yellow-900";
               } else if (isFlagged && isAnswered) {
                 // Answered + flagged: stronger style
-                buttonClass += " border-black bg-orange-500 text-white";
+                buttonClass += " border-green-700 bg-green-500 text-white";
               } else if (isFlagged && !isAnswered) {
                 buttonClass += " border-orange-400 bg-orange-50 text-gray-900 border-dashed";
               } else if (isAnswered) {
-                buttonClass += " border-orange-500 bg-orange-500 text-white";
+                buttonClass += " border-green-500 bg-green-500 text-white";
               } else {
                 buttonClass += " border-gray-300 bg-white text-gray-900 border-dashed";
               }
@@ -126,7 +127,7 @@ export function QuestionNavigator({
                   title={`Question ${i + 1}${isAnswered ? " (answered)" : ""}${isFlagged ? " (flagged)" : ""}`}
                 >
                   {isCurrent && (
-                    <MapPin className="absolute -top-1 -right-1 w-3 h-3 text-gray-700" />
+                    <MapPin className="absolute -top-1 -right-1 w-3 h-3 text-yellow-700" />
                   )}
                   {isFlagged && !isCurrent && (
                     <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full border border-black bg-orange-400 flex items-center justify-center">
