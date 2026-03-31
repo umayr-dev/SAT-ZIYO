@@ -2823,7 +2823,7 @@ export default function TestTakingPage() {
                                     if (isEliminationMode)
                                       setEliminatedChoices(new Set());
                                   }}
-                                  className={`flex items-center text-xs sm:text-sm text-gray-600 hover:text-black ml-2 sm:ml-3 h-7 sm:h-8 px-2 rounded-full border border-gray-300 bg-white ${
+                              className={`flex items-center text-xs sm:text-sm text-gray-600 hover:text-black ml-2 sm:ml-3 h-7 sm:h-8 px-2 rounded-md sm:rounded-lg border border-gray-300 bg-white ${
                                     isEliminationMode ? "bg-blue-100" : ""
                                   }`}
                                 >
@@ -3287,7 +3287,7 @@ export default function TestTakingPage() {
                                       if (isEliminationMode)
                                         setEliminatedChoices(new Set());
                                     }}
-                                    className={`flex items-center text-xs sm:text-sm text-gray-600 hover:text-black ml-2 sm:ml-3 h-7 sm:h-8 px-2 rounded-full border border-gray-300 bg-white ${
+                                    className={`flex items-center text-xs sm:text-sm text-gray-600 hover:text-black ml-2 sm:ml-3 h-7 sm:h-8 px-2 rounded-md sm:rounded-lg border border-gray-300 bg-white ${
                                       isEliminationMode ? "bg-blue-100" : ""
                                     }`}
                                   >
@@ -3652,7 +3652,7 @@ export default function TestTakingPage() {
                                 setEliminatedChoices(new Set());
                               }
                             }}
-                            className={`flex-shrink-0 flex items-center text-[11px] sm:text-xs text-gray-700 hover:text-black h-7 sm:h-8 px-2 rounded-full border border-gray-300 bg-white ${
+                            className={`flex-shrink-0 flex items-center text-[11px] sm:text-xs text-gray-700 hover:text-black h-7 sm:h-8 px-2 rounded-md sm:rounded-lg border border-gray-300 bg-white ${
                               isEliminationMode ? "bg-blue-100" : ""
                             }`}
                           >

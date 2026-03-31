@@ -44,7 +44,7 @@ export function QuestionNavigator({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={onClose}>
       <div 
-        className="bg-white rounded-t-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col"
+        className="bg-white rounded-t-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col mb-8 sm:mb-12"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -82,7 +82,7 @@ export function QuestionNavigator({
               <span>For Review</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-green-500 border-2 border-green-500"></div>
+              <div className="w-4 h-4 rounded bg-orange-500 border-2 border-orange-500"></div>
               <span>Answered</span>
             </div>
           </div>
@@ -103,16 +103,18 @@ export function QuestionNavigator({
                 "w-11 h-11 rounded border-2 text-sm font-medium flex items-center justify-center transition-all relative";
 
               if (isCurrent) {
-                // Current question should stay yellow regardless of answered state
+                // Current question stays yellow regardless of answered state
                 buttonClass += " border-yellow-500 bg-yellow-100 text-yellow-900";
               } else if (isFlagged && isAnswered) {
-                // Answered + flagged: stronger style
-                buttonClass += " border-green-700 bg-green-500 text-white";
+                // Answered + flagged: stronger orange style
+                buttonClass += " border-orange-700 bg-orange-500 text-white";
               } else if (isFlagged && !isAnswered) {
                 buttonClass += " border-orange-400 bg-orange-50 text-gray-900 border-dashed";
               } else if (isAnswered) {
-                buttonClass += " border-green-500 bg-green-500 text-white";
+                // Answered only – solid orange
+                buttonClass += " border-orange-500 bg-orange-500 text-white";
               } else {
+                // Not visited / unanswered
                 buttonClass += " border-gray-300 bg-white text-gray-900 border-dashed";
               }
 
