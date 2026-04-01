@@ -2823,28 +2823,14 @@ export default function TestTakingPage() {
                                     if (isEliminationMode)
                                       setEliminatedChoices(new Set());
                                   }}
-                              className={`flex items-center text-xs sm:text-sm text-gray-600 hover:text-black ml-2 sm:ml-3 h-7 sm:h-8 px-2 rounded-md sm:rounded-lg border border-gray-300 bg-white ${
-                                    isEliminationMode ? "bg-blue-100" : ""
-                                  }`}
+                                  className="flex items-center text-xs sm:text-sm text-gray-600 hover:text-black ml-2 sm:ml-3 h-7 sm:h-8"
                                 >
-                                  <span className="text-[12px] font-medium text-gray-600">
-                                    ABC
-                                  </span>
-                                  {isEliminationMode && (
-                                    <svg
-                                      fill="none"
-                                      stroke="currentColor"
-                                      viewBox="0 0 24 24"
-                                      className="w-4 h-4 text-gray-500 ml-1"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth="1"
-                                        d="M18 6L6 18"
-                                      />
-                                    </svg>
-                                  )}
+                                  <div className={`relative border rounded-sm w-9 h-9 px-1 flex items-center justify-center ${isEliminationMode ? "bg-blue-500 border-blue-500" : "bg-transparent border-gray-300"}`}>
+                                    <span className={`relative inline-flex items-center justify-center px-0.5 text-[13px] font-medium ${isEliminationMode ? "text-white" : "text-gray-600"}`}>
+                                      ABC
+                                      <span className={`pointer-events-none absolute left-[1px] right-[1px] top-[56%] -translate-y-1/2 -rotate-20 border-t ${isEliminationMode ? "border-white" : "border-gray-500"}`} />
+                                    </span>
+                                  </div>
                                 </button>
                               )}
                             </div>
@@ -3287,28 +3273,16 @@ export default function TestTakingPage() {
                                       if (isEliminationMode)
                                         setEliminatedChoices(new Set());
                                     }}
-                                    className={`flex items-center text-xs sm:text-sm text-gray-600 hover:text-black ml-2 sm:ml-3 h-7 sm:h-8 px-2 rounded-md sm:rounded-lg border border-gray-300 bg-white ${
-                                      isEliminationMode ? "bg-blue-100" : ""
+                                    className={`flex items-center text-xs sm:text-sm text-gray-600 hover:text-black ml-2 sm:ml-3 h-7 sm:h-8 px-2 rounded-md sm:rounded-lg border ${
+                                      isEliminationMode
+                                        ? "border-blue-500 bg-blue-500"
+                                        : "border-gray-300 bg-white"
                                     }`}
                                   >
-                                    <span className="text-[12px] font-medium text-gray-600">
+                                    <span className={`relative inline-flex items-center justify-center px-0.5 text-[12px] font-medium ${isEliminationMode ? "text-white" : "text-gray-600"}`}>
                                       ABC
+                                      <span className={`pointer-events-none absolute left-[1px] right-[1px] top-[56%] -translate-y-1/2 -rotate-20 border-t ${isEliminationMode ? "border-white" : "border-gray-500"}`} />
                                     </span>
-                                    {isEliminationMode && (
-                                      <svg
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                        className="w-4 h-4 text-gray-500 ml-1"
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth="1"
-                                          d="M18 6L6 18"
-                                        />
-                                      </svg>
-                                    )}
                                   </button>
                                 )}
                               </div>
@@ -3652,28 +3626,14 @@ export default function TestTakingPage() {
                                 setEliminatedChoices(new Set());
                               }
                             }}
-                            className={`flex-shrink-0 flex items-center text-[11px] sm:text-xs text-gray-700 hover:text-black h-7 sm:h-8 px-2 rounded-md sm:rounded-lg border border-gray-300 bg-white ${
-                              isEliminationMode ? "bg-blue-100" : ""
-                            }`}
+                            className="flex-shrink-0 flex items-center text-[11px] sm:text-xs text-gray-700 hover:text-black h-7 sm:h-8"
                           >
-                            <span className="text-[11px] font-medium text-gray-700">
-                              ABC
-                            </span>
-                            {isEliminationMode && (
-                              <svg
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                                className="w-3.5 h-3.5 text-gray-500 ml-1"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth="1"
-                                  d="M18 6L6 18"
-                                />
-                              </svg>
-                            )}
+                            <div className={`relative border rounded-sm w-9 h-9 px-1 flex items-center justify-center ${isEliminationMode ? "bg-blue-500 border-blue-500" : "bg-transparent border-gray-300"}`}>
+                              <span className={`relative inline-flex items-center justify-center px-0.5 text-[12px] font-medium ${isEliminationMode ? "text-white" : "text-gray-700"}`}>
+                                ABC
+                                <span className={`pointer-events-none absolute left-[1px] right-[1px] top-[56%] -translate-y-1/2 -rotate-20 border-t ${isEliminationMode ? "border-white" : "border-gray-500"}`} />
+                              </span>
+                            </div>
                           </button>
                         )}
                       </div>
@@ -3949,7 +3909,7 @@ export default function TestTakingPage() {
                 onClick={() => setShowNavigator((prev) => !prev)}
               >
                 <p className="text-white text-xs min-[420px]:text-sm truncate">
-                  {testState.currentQuestionIndex + 1}/{totalQs}
+                  Question {testState.currentQuestionIndex + 1} of {totalQs}
                 </p>
                 <button
                   className="p-0.5 min-[420px]:p-1 rounded shrink-0"
