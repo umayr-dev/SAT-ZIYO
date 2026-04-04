@@ -56,6 +56,14 @@ export function HighlightablePassage({
 }: HighlightablePassageProps) {
   const [highlights, setHighlights] = useState<Record<number, HighlightStyle[]>>({});
   const passageRef = useRef<HTMLParagraphElement | null>(null);
+  /** Birinchi bo‘sh tickda LS dan passage highlight o‘chib ketmasin */
+  const passageLsSyncReadyRef = useRef(false);
+  const highlightsRef = useRef(highlights);
+  highlightsRef.current = highlights;
+  const isMarkupEnabledRef = useRef(isMarkupEnabled);
+  isMarkupEnabledRef.current = isMarkupEnabled;
+  const onHighlightsChangeRef = useRef(onHighlightsChange);
+  onHighlightsChangeRef.current = onHighlightsChange;
   const [showFloatingToolbar, setShowFloatingToolbar] = useState(false);
   const [toolbarPosition, setToolbarPosition] = useState({ x: 0, y: 0 });
 
@@ -114,38 +122,54 @@ export function HighlightablePassage({
   );
 
   useEffect(() => {
-    setHighlights({});
-    if (!storageKey || typeof window === "undefined") return;
-    try {
-      const raw = window.localStorage.getItem(storageKey);
-      if (raw) {
-        const all = JSON.parse(raw) as Record<string, Array<{ startOffset: number; endOffset: number; color: string }>>;
-        const list = all[passageStorageKey] || [];
-        const charIndex: Record<number, HighlightStyle[]> = {};
-        const colorMap: Record<string, HighlightStyle> = {
-          YELLOW: "yellow",
-          GREEN: "green",
-          BLUE: "blue",
-          PINK: "pink",
-        };
-        list.forEach((h) => {
-          const style = colorMap[h.color] || "yellow";
-          for (let i = h.startOffset; i < h.endOffset; i++) charIndex[i] = [style];
-        });
-        setHighlights(charIndex);
-      }
-    } catch {
-      // ignore
+    passageLsSyncReadyRef.current = false;
+    if (!isMarkupEnabled) {
+      highlightsRef.current = {};
+      setHighlights({});
+      requestAnimationFrame(() => {
+        passageLsSyncReadyRef.current = true;
+      });
+      return;
     }
-  }, [storageKey, passageStorageKey, questionId]);
 
-  useEffect(() => {
-    if (!isMarkupEnabled) setHighlights({});
-  }, [isMarkupEnabled]);
+    let next: Record<number, HighlightStyle[]> = {};
+    if (storageKey && typeof window !== "undefined") {
+      try {
+        const raw = window.localStorage.getItem(storageKey);
+        if (raw) {
+          const all = JSON.parse(raw) as Record<
+            string,
+            Array<{ startOffset: number; endOffset: number; color: string }>
+          >;
+          const list = all[passageStorageKey] || [];
+          const colorMap: Record<string, HighlightStyle> = {
+            YELLOW: "yellow",
+            GREEN: "green",
+            BLUE: "blue",
+            PINK: "pink",
+            ORANGE: "yellow",
+          };
+          list.forEach((h) => {
+            const style = colorMap[h.color] || "yellow";
+            for (let i = h.startOffset; i < h.endOffset; i++) next[i] = [style];
+          });
+        }
+      } catch {
+        // ignore
+      }
+    }
+    highlightsRef.current = next;
+    setHighlights(next);
+    requestAnimationFrame(() => {
+      passageLsSyncReadyRef.current = true;
+    });
+  }, [storageKey, passageStorageKey, questionId, isMarkupEnabled]);
 
   useEffect(() => {
     if (!storageKey || typeof window === "undefined") return;
+    if (!isMarkupEnabled) return;
     const backend = convertToBackendFormat(highlights);
+    if (backend.length === 0 && !passageLsSyncReadyRef.current) return;
     if (attemptId && onHighlightsChange) onHighlightsChange(backend);
     try {
       const raw = window.localStorage.getItem(storageKey);
@@ -156,7 +180,37 @@ export function HighlightablePassage({
     } catch {
       // ignore
     }
-  }, [highlights, storageKey, passageStorageKey, attemptId, onHighlightsChange, convertToBackendFormat]);
+  }, [
+    highlights,
+    storageKey,
+    passageStorageKey,
+    attemptId,
+    onHighlightsChange,
+    convertToBackendFormat,
+    isMarkupEnabled,
+  ]);
+
+  useEffect(() => {
+    const key = storageKey;
+    const pKey = passageStorageKey;
+    return () => {
+      if (!key || typeof window === "undefined" || !attemptId) return;
+      if (!isMarkupEnabledRef.current) return;
+      const backend = convertToBackendFormat(highlightsRef.current);
+      if (backend.length === 0) return;
+      try {
+        const raw = window.localStorage.getItem(key);
+        const all = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+        all[pKey] = backend;
+        window.localStorage.setItem(key, JSON.stringify(all));
+      } catch {
+        // ignore
+      }
+      if (onHighlightsChangeRef.current) {
+        onHighlightsChangeRef.current(backend);
+      }
+    };
+  }, [questionId, storageKey, passageStorageKey, attemptId, convertToBackendFormat]);
 
   useEffect(() => {
     if (!showFloatingToolbar) return;
@@ -237,6 +291,7 @@ export function HighlightablePassage({
             else next[i] = newArr;
           } else next[i] = [...arr, style];
         }
+        highlightsRef.current = next;
         return next;
       });
       selection.removeAllRanges();

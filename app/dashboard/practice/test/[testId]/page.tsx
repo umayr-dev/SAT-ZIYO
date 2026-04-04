@@ -550,6 +550,7 @@ export default function TestTakingPage() {
   }>({});
   const testStateRef = useRef<StartTestResponse | null>(null);
   const flaggedQuestionsRef = useRef<Set<number>>(new Set());
+  const eliminatedChoicesRef = useRef<Set<string>>(new Set());
   const handleAnswerRef = useRef<() => void>(() => {});
 
   // 920px gacha desktop 2-ustun; 920px dan pastda mobil (1-ustun, passage+image tepada)
@@ -1093,6 +1094,7 @@ export default function TestTakingPage() {
     ? flaggedQuestions.has(testState.currentQuestionIndex)
     : false;
   testStateRef.current = testState;
+  eliminatedChoicesRef.current = eliminatedChoices;
 
   useEffect(() => {
     const ts = testStateRef.current;
@@ -1108,13 +1110,14 @@ export default function TestTakingPage() {
       choiceId: choiceIdNorm,
       textAnswer: live.textAnswer,
     });
-    const hasMeta = isFlaggedCurrent || eliminatedChoices.size > 0;
+    const elim = eliminatedChoicesRef.current;
+    const hasMeta = isFlaggedCurrent || elim.size > 0;
     const answerData = {
       questionId,
       choiceId: choiceIdNorm,
       textAnswer: live.textAnswer,
       markedForReview: isFlaggedCurrent,
-      eliminatedChoices: Array.from(eliminatedChoices),
+      eliminatedChoices: Array.from(elim),
     };
     if (hasAnswer || hasMeta) {
       saveAnswerToStorage(idx, answerData);
@@ -2127,14 +2130,15 @@ export default function TestTakingPage() {
         });
 
         const isFlaggedCurrent = flaggedQuestionsRef.current.has(idx);
-        const hasMeta = isFlaggedCurrent || eliminatedChoices.size > 0;
+        const elim = eliminatedChoicesRef.current;
+        const hasMeta = isFlaggedCurrent || elim.size > 0;
 
         const answerData = {
           questionId,
           choiceId: choiceIdNorm,
           textAnswer: answer.textAnswer,
           markedForReview: isFlaggedCurrent,
-          eliminatedChoices: Array.from(eliminatedChoices),
+          eliminatedChoices: Array.from(elim),
         };
 
         if (hasAnswer || hasMeta) {
@@ -2826,9 +2830,9 @@ export default function TestTakingPage() {
                                   className="flex items-center text-xs sm:text-sm text-gray-600 hover:text-black ml-2 sm:ml-3 h-7 sm:h-8"
                                 >
                                   <div className={`relative border rounded-sm w-9 h-9 px-1 flex items-center justify-center ${isEliminationMode ? "bg-blue-500 border-blue-500" : "bg-transparent border-gray-300"}`}>
-                                    <span className={`relative inline-flex items-center justify-center px-0.5 text-[13px] font-medium ${isEliminationMode ? "text-white" : "text-gray-600"}`}>
+                                    <span className={`relative inline-flex items-center justify-center px-0.5 text-[13px] font-medium ${isEliminationMode ? "text-white" : "text-black"}`}>
                                       ABC
-                                      <span className={`pointer-events-none absolute left-[1px] right-[1px] top-[56%] -translate-y-1/2 -rotate-20 border-t ${isEliminationMode ? "border-white" : "border-gray-500"}`} />
+                                      <span className={`pointer-events-none absolute left-[1px] right-[1px] top-[56%] -translate-y-1/2 -rotate-20 border-t ${isEliminationMode ? "border-white" : "border-gray-600"}`} />
                                     </span>
                                   </div>
                                 </button>
@@ -2917,7 +2921,7 @@ export default function TestTakingPage() {
                                     return (
                                       <div
                                         key={choice.id || index}
-                                        className={`relative w-full flex items-stretch rounded-lg border-2 overflow-hidden ${isSelected ? "border-black" : isEliminated ? "border-gray-300" : "border-gray-200"}`}
+                                        className={`relative w-full flex items-stretch rounded-lg border-2 overflow-hidden ${isSelected ? "border-black" : isEliminated ? "border-gray-300 bg-gray-100/70" : "border-gray-200"}`}
                                       >
                                         <button
                                           type="button"
@@ -2938,20 +2942,20 @@ export default function TestTakingPage() {
                                               });
                                             }
                                           }}
-                                          className={`flex-1 min-w-0 p-2 sm:p-3 md:p-4 text-left text-xs sm:text-sm md:text-base flex items-center gap-2 md:gap-3 ${isEliminated ? "bg-gray-100 opacity-60" : "hover:bg-gray-200"} cursor-pointer rounded-l-md`}
+                                          className={`flex-1 min-w-0 p-2 sm:p-3 md:p-4 text-left text-xs sm:text-sm md:text-base flex items-center gap-2 md:gap-3 cursor-pointer rounded-l-md ${isEliminated ? "bg-gray-200/90 text-gray-500 saturate-50" : "hover:bg-gray-200"}`}
                                         >
                                           <div
-                                            className={`flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full font-bold border border-black text-[10px] sm:text-xs ${isSelected ? "bg-black text-white" : "text-black"}`}
+                                            className={`flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full font-bold border text-[10px] sm:text-xs ${isSelected ? "border-black bg-black text-white" : isEliminated ? "border-gray-400 bg-gray-200 text-gray-400" : "border-black text-black"}`}
                                           >
                                             <span className="text-xs">
                                               {letter}
                                             </span>
                                           </div>
                                           <div
-                                            className={`flex-1 min-w-0 ${isEliminated ? "line-through text-gray-500" : ""}`}
+                                            className={`flex-1 min-w-0 ${isEliminated ? "line-through decoration-gray-400 text-gray-400 [&_.markdown-content]:opacity-55" : ""}`}
                                           >
                                             {getChoiceText(choice) ? (
-                                              <div className="block text-gray-900">
+                                              <div className="block text-gray-900 pointer-events-none select-none">
                                                 <MarkdownRenderer
                                                   content={getChoiceText(
                                                     choice,
@@ -3279,9 +3283,9 @@ export default function TestTakingPage() {
                                         : "border-gray-300 bg-white"
                                     }`}
                                   >
-                                    <span className={`relative inline-flex items-center justify-center px-0.5 text-[12px] font-medium ${isEliminationMode ? "text-white" : "text-gray-600"}`}>
+                                    <span className={`relative inline-flex items-center justify-center px-0.5 text-[12px] font-medium ${isEliminationMode ? "text-white" : "text-black"}`}>
                                       ABC
-                                      <span className={`pointer-events-none absolute left-[1px] right-[1px] top-[56%] -translate-y-1/2 -rotate-20 border-t ${isEliminationMode ? "border-white" : "border-gray-500"}`} />
+                                      <span className={`pointer-events-none absolute left-[1px] right-[1px] top-[56%] -translate-y-1/2 -rotate-20 border-t ${isEliminationMode ? "border-white" : "border-gray-600"}`} />
                                     </span>
                                   </button>
                                 )}
@@ -3355,18 +3359,28 @@ export default function TestTakingPage() {
                                       return (
                                         <div
                                           key={choice.id || index}
-                                          className={`relative w-full flex items-stretch rounded-lg border-2 overflow-hidden ${isSelected ? "border-black" : isEliminated ? "border-gray-300" : "border-gray-200"}`}
+                                          className={`relative w-full flex items-stretch rounded-lg border-2 overflow-hidden ${isSelected ? "border-black" : isEliminated ? "border-gray-300 bg-gray-100/70" : "border-gray-200"}`}
                                         >
                                           <button
                                             type="button"
-                                            onClick={() =>
-                                              handleAnswerChange({
-                                                choiceId: choice.id,
-                                                textAnswer:
-                                                  currentAnswer.textAnswer,
-                                              })
-                                            }
-                                            className={`flex-1 min-w-0 p-2 sm:p-3 md:p-4 text-left text-xs sm:text-sm md:text-base flex items-center gap-2 md:gap-3 rounded-l-md cursor-pointer ${isEliminated ? "bg-white" : "hover:bg-gray-200"}`}
+                                            onClick={() => {
+                                              if (isEliminationMode) {
+                                                setEliminatedChoices((prev) => {
+                                                  const next = new Set(prev);
+                                                  if (next.has(choice.id))
+                                                    next.delete(choice.id);
+                                                  else next.add(choice.id);
+                                                  return next;
+                                                });
+                                              } else {
+                                                handleAnswerChange({
+                                                  choiceId: choice.id,
+                                                  textAnswer:
+                                                    currentAnswer.textAnswer,
+                                                });
+                                              }
+                                            }}
+                                            className={`flex-1 min-w-0 p-2 sm:p-3 md:p-4 text-left text-xs sm:text-sm md:text-base flex items-center gap-2 md:gap-3 rounded-l-md cursor-pointer ${isEliminated ? "bg-gray-200/90 text-gray-500 saturate-50" : "hover:bg-gray-200"}`}
                                           >
                                             <div
                                               className={`flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full font-bold border text-[10px] sm:text-xs ${
@@ -3374,7 +3388,9 @@ export default function TestTakingPage() {
                                                   ? "border-gray-400 bg-white text-gray-700"
                                                   : isSelected
                                                     ? "border-black bg-black text-white"
-                                                    : "border-black text-black"
+                                                    : isEliminated
+                                                      ? "border-gray-400 bg-gray-200 text-gray-400"
+                                                      : "border-black text-black"
                                               }`}
                                             >
                                               <span className="text-xs">
@@ -3384,12 +3400,12 @@ export default function TestTakingPage() {
                                             <div
                                               className={`flex-1 min-w-0 ${
                                                 isEliminated
-                                                  ? "text-gray-700"
+                                                  ? "line-through decoration-gray-400 text-gray-400 [&_.markdown-content]:opacity-55"
                                                   : ""
                                               }`}
                                             >
                                               {getChoiceText(choice) ? (
-                                                <div className="block text-gray-900">
+                                                <div className="block text-gray-900 pointer-events-none select-none">
                                                   <MarkdownRenderer
                                                     content={getChoiceText(
                                                       choice,
@@ -3629,9 +3645,9 @@ export default function TestTakingPage() {
                             className="flex-shrink-0 flex items-center text-[11px] sm:text-xs text-gray-700 hover:text-black h-7 sm:h-8"
                           >
                             <div className={`relative border rounded-sm w-9 h-9 px-1 flex items-center justify-center ${isEliminationMode ? "bg-blue-500 border-blue-500" : "bg-transparent border-gray-300"}`}>
-                              <span className={`relative inline-flex items-center justify-center px-0.5 text-[12px] font-medium ${isEliminationMode ? "text-white" : "text-gray-700"}`}>
+                              <span className={`relative inline-flex items-center justify-center px-0.5 text-[12px] font-medium ${isEliminationMode ? "text-white" : "text-black"}`}>
                                 ABC
-                                <span className={`pointer-events-none absolute left-[1px] right-[1px] top-[56%] -translate-y-1/2 -rotate-20 border-t ${isEliminationMode ? "border-white" : "border-gray-500"}`} />
+                                <span className={`pointer-events-none absolute left-[1px] right-[1px] top-[56%] -translate-y-1/2 -rotate-20 border-t ${isEliminationMode ? "border-white" : "border-gray-600"}`} />
                               </span>
                             </div>
                           </button>
@@ -3704,7 +3720,7 @@ export default function TestTakingPage() {
                             return (
                               <div
                                 key={choice.id || index}
-                                className={`relative w-full flex items-stretch rounded-lg border-2 overflow-hidden ${isSelected ? "border-black" : isEliminated ? "border-gray-300" : "border-gray-200"}`}
+                                className={`relative w-full flex items-stretch rounded-lg border-2 overflow-hidden ${isSelected ? "border-black" : isEliminated ? "border-gray-300 bg-gray-100/70" : "border-gray-200"}`}
                               >
                                 <button
                                   type="button"
@@ -3724,22 +3740,24 @@ export default function TestTakingPage() {
                                       });
                                     }
                                   }}
-                                  className={`flex-1 min-w-0 p-2 sm:p-3 text-left text-xs sm:text-sm flex items-center gap-2 sm:gap-3 ${isEliminated ? "bg-gray-100 opacity-60" : "hover:bg-gray-200"} cursor-pointer rounded-l-md`}
+                                  className={`flex-1 min-w-0 p-2 sm:p-3 text-left text-xs sm:text-sm flex items-center gap-2 sm:gap-3 cursor-pointer rounded-l-md ${isEliminated ? "bg-gray-200/90 text-gray-500 saturate-50" : "hover:bg-gray-200"}`}
                                 >
                                   <div
-                                    className={`flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full font-bold border border-black text-[10px] sm:text-xs ${
+                                    className={`flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full font-bold border text-[10px] sm:text-xs ${
                                       isSelected
-                                        ? "bg-black text-white"
-                                        : "text-black"
+                                        ? "border-black bg-black text-white"
+                                        : isEliminated
+                                          ? "border-gray-400 bg-gray-200 text-gray-400"
+                                          : "border-black text-black"
                                     }`}
                                   >
                                     <span className="text-xs">{letter}</span>
                                   </div>
                                   <div
-                                    className={`flex-1 min-w-0 ${isEliminated ? "line-through text-gray-500" : ""}`}
+                                    className={`flex-1 min-w-0 ${isEliminated ? "line-through decoration-gray-400 text-gray-400 [&_.markdown-content]:opacity-55" : ""}`}
                                   >
                                     {getChoiceText(choice) ? (
-                                      <div className="block text-gray-900">
+                                      <div className="block text-gray-900 pointer-events-none select-none">
                                         <MarkdownRenderer
                                           content={getChoiceText(choice)}
                                           className="text-inherit"

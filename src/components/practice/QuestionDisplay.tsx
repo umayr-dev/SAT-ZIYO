@@ -71,6 +71,14 @@ export function QuestionDisplay({
     {},
   );
   const textRef = useRef<HTMLParagraphElement | null>(null);
+  /** Mount / savol almashguncha bo‘sh highlights bilan parentga [] yuborilmasin — LS dagi eski highlight o‘chib ketmasin */
+  const highlightParentSyncReadyRef = useRef(false);
+  const highlightsRef = useRef(highlights);
+  highlightsRef.current = highlights;
+  const isMarkupEnabledRef = useRef(isMarkupEnabled);
+  isMarkupEnabledRef.current = isMarkupEnabled;
+  const onHighlightsChangeRef = useRef(onHighlightsChange);
+  onHighlightsChangeRef.current = onHighlightsChange;
 
   // Use test page storage key if attemptId is provided, otherwise use question-specific key
   const storageKey = useMemo(
@@ -166,74 +174,94 @@ export function QuestionDisplay({
   );
 
   useEffect(() => {
-    // Clear highlights when question changes (question.id changes)
-    setHighlights({});
+    highlightParentSyncReadyRef.current = false;
 
-    // Load saved highlights for this specific question
-    if (attemptId) {
-      // Load from test page format (grouped by questionId)
-      try {
-        const raw = window.localStorage.getItem(storageKey);
-        if (raw) {
-          const allHighlights = JSON.parse(raw);
-          const questionHighlights = allHighlights[question.id] || [];
-          const charIndexHighlights: Record<number, HighlightStyle[]> = {};
-          questionHighlights.forEach(
-            (h: { startOffset: number; endOffset: number; color: string }) => {
+    if (!isMarkupEnabled) {
+      highlightsRef.current = {};
+      setHighlights({});
+      requestAnimationFrame(() => {
+        highlightParentSyncReadyRef.current = true;
+      });
+      return;
+    }
+
+    let nextHighlights: Record<number, HighlightStyle[]> = {};
+
+    if (typeof window !== "undefined") {
+      if (attemptId) {
+        try {
+          const raw = window.localStorage.getItem(storageKey);
+          if (raw) {
+            const allHighlights = JSON.parse(raw) as Record<
+              string,
+              Array<{
+                startOffset: number;
+                endOffset: number;
+                color: string;
+              }>
+            >;
+            const questionHighlights = allHighlights[question.id] || [];
+            questionHighlights.forEach((h) => {
               const colorMap: Record<string, HighlightStyle> = {
                 YELLOW: "yellow",
                 GREEN: "green",
                 BLUE: "blue",
                 PINK: "pink",
+                ORANGE: "yellow",
               };
               const style = colorMap[h.color] || "yellow";
               for (let i = h.startOffset; i < h.endOffset; i++) {
-                charIndexHighlights[i] = [style];
+                nextHighlights[i] = [style];
               }
-            },
-          );
-          setHighlights(charIndexHighlights);
+            });
+          }
+        } catch {
+          // ignore
         }
-      } catch {
-        // ignore
-      }
-    } else {
-      try {
-        const raw = window.localStorage.getItem(storageKey);
-        if (raw) {
-          const parsed = JSON.parse(raw) as Record<
-            string,
-            HighlightStyle | HighlightStyle[]
-          >;
-          const normalized: Record<number, HighlightStyle[]> = {};
-          Object.entries(parsed || {}).forEach(([k, v]) => {
-            const idx = Number(k);
-            if (Array.isArray(v)) normalized[idx] = v;
-            else normalized[idx] = [v];
-          });
-          setHighlights(normalized);
+      } else {
+        try {
+          const raw = window.localStorage.getItem(storageKey);
+          if (raw) {
+            const parsed = JSON.parse(raw) as Record<
+              string,
+              HighlightStyle | HighlightStyle[]
+            >;
+            Object.entries(parsed || {}).forEach(([k, v]) => {
+              const idx = Number(k);
+              if (Array.isArray(v)) nextHighlights[idx] = v;
+              else nextHighlights[idx] = [v];
+            });
+          }
+        } catch {
+          // ignore
         }
-      } catch {
-        // ignore
       }
     }
-  }, [storageKey, question.id, attemptId]);
 
-  // Clear highlights when markup is disabled
-  useEffect(() => {
-    if (!isMarkupEnabled) {
-      setHighlights({});
-    }
-  }, [isMarkupEnabled]);
+    highlightsRef.current = nextHighlights;
+    setHighlights(nextHighlights);
+    requestAnimationFrame(() => {
+      highlightParentSyncReadyRef.current = true;
+    });
+  }, [storageKey, question.id, attemptId, isMarkupEnabled]);
 
   // Save highlights and notify parent when highlights change
   useEffect(() => {
     if (attemptId && onHighlightsChange) {
+      if (!isMarkupEnabled) {
+        return;
+      }
       // Convert to backend format and notify parent
       const backendFormat = convertHighlightsToBackendFormat(highlights);
+      if (
+        backendFormat.length === 0 &&
+        !highlightParentSyncReadyRef.current
+      ) {
+        return;
+      }
       onHighlightsChange(backendFormat);
     } else {
-      // Save in old format (question-specific key)
+      if (!isMarkupEnabled) return;
       try {
         window.localStorage.setItem(storageKey, JSON.stringify(highlights));
       } catch {
@@ -246,7 +274,35 @@ export function QuestionDisplay({
     attemptId,
     onHighlightsChange,
     convertHighlightsToBackendFormat,
+    isMarkupEnabled,
   ]);
+
+  // Navigatsiya: keyingi paintdan oldin ref yangilanmagan bo‘lsa ham oxirgi highlight saqlansin
+  useEffect(() => {
+    const qid = question.id;
+    const aid = attemptId;
+    const lsKey = aid ? `test_highlights_${aid}` : null;
+    return () => {
+      if (!aid || !isMarkupEnabledRef.current) return;
+      const backendFormat = convertHighlightsToBackendFormat(
+        highlightsRef.current,
+      );
+      if (backendFormat.length === 0) return;
+      if (onHighlightsChangeRef.current) {
+        onHighlightsChangeRef.current(backendFormat);
+      }
+      if (lsKey && typeof window !== "undefined") {
+        try {
+          const raw = window.localStorage.getItem(lsKey);
+          const all = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+          all[qid] = backendFormat;
+          window.localStorage.setItem(lsKey, JSON.stringify(all));
+        } catch {
+          // ignore
+        }
+      }
+    };
+  }, [question.id, attemptId, convertHighlightsToBackendFormat]);
 
   const handleCharClick = (
     index: number,
@@ -265,11 +321,13 @@ export function QuestionDisplay({
       } else {
         next[index] = [...arr, selectedStyle];
       }
+      highlightsRef.current = next;
       return next;
     });
   };
 
   const clearHighlights = () => {
+    highlightsRef.current = {};
     setHighlights({});
   };
 
@@ -474,6 +532,7 @@ export function QuestionDisplay({
           next[i] = [...arr, style];
         }
       }
+      highlightsRef.current = next;
       return next;
     });
 
