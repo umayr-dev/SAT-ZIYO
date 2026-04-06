@@ -74,6 +74,8 @@ export function QuestionDisplay({
   const textRef = useRef<HTMLDivElement | null>(null);
   /** Mount / savol almashguncha bo‘sh highlights bilan parentga [] yuborilmasin — LS dagi eski highlight o‘chib ketmasin */
   const highlightParentSyncReadyRef = useRef(false);
+  /** Shu mountda savol matnida highlight bo‘lgan — bo‘sh [] faqat o‘chirishni haqiqatan istaganda parentga */
+  const sessionHadQuestionTextBackendRef = useRef(false);
   const highlightsRef = useRef(highlights);
   highlightsRef.current = highlights;
   const onHighlightsChangeRef = useRef(onHighlightsChange);
@@ -174,6 +176,7 @@ export function QuestionDisplay({
 
   useEffect(() => {
     highlightParentSyncReadyRef.current = false;
+    sessionHadQuestionTextBackendRef.current = false;
 
     let nextHighlights: Record<number, HighlightStyle[]> = {};
 
@@ -229,6 +232,9 @@ export function QuestionDisplay({
       }
     }
 
+    if (Object.keys(nextHighlights).length > 0) {
+      sessionHadQuestionTextBackendRef.current = true;
+    }
     highlightsRef.current = nextHighlights;
     setHighlights(nextHighlights);
     requestAnimationFrame(() => {
@@ -247,7 +253,13 @@ export function QuestionDisplay({
       ) {
         return;
       }
-      onHighlightsChange(backendFormat);
+      if (backendFormat.length > 0) {
+        sessionHadQuestionTextBackendRef.current = true;
+        onHighlightsChange(backendFormat);
+      } else if (sessionHadQuestionTextBackendRef.current) {
+        sessionHadQuestionTextBackendRef.current = false;
+        onHighlightsChange(backendFormat);
+      }
     } else {
       try {
         window.localStorage.setItem(storageKey, JSON.stringify(highlights));
@@ -297,16 +309,9 @@ export function QuestionDisplay({
     if (!isMarkupEnabled) return;
 
     setHighlights((prev) => {
-      const next = { ...prev };
-      const arr = next[index] || [];
-      const idx = arr.indexOf(selectedStyle);
-      if (idx >= 0) {
-        const newArr = arr.filter((_, i) => i !== idx);
-        if (newArr.length === 0) delete next[index];
-        else next[index] = newArr;
-      } else {
-        next[index] = [...arr, selectedStyle];
-      }
+      const arr = prev[index] || [];
+      if (arr.includes(selectedStyle)) return prev;
+      const next = { ...prev, [index]: [...arr, selectedStyle] };
       highlightsRef.current = next;
       return next;
     });
@@ -380,27 +385,21 @@ export function QuestionDisplay({
     setShowFloatingToolbar(true);
   };
 
-  const applyStyleToSelection = (style: HighlightStyle) => {
-    if (!isMarkupEnabled) return;
-
+  const resolveSelectionCharRange = useCallback((): {
+    from: number;
+    to: number;
+  } | null => {
+    if (!isMarkupEnabled || !textRef.current) return null;
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed || selection.rangeCount === 0)
-      return;
-
+      return null;
     const range = selection.getRangeAt(0);
     const selectedText = selection.toString();
+    if (!selectedText) return null;
 
-    if (!selectedText || !textRef.current) {
-      setShowFloatingToolbar(false);
-      return;
-    }
-
-    // Get the full text content
     const fullText = question.questionText || "";
 
-    // Find character index by traversing DOM
     const getCharIndex = (node: Node, offset: number): number => {
-      // First try to find parent span with charIndex
       let current: Node | null = node;
       while (current && current !== textRef.current) {
         if (
@@ -408,7 +407,6 @@ export function QuestionDisplay({
           current.dataset.charIndex !== undefined
         ) {
           const baseIndex = Number(current.dataset.charIndex);
-          // If node is the span itself, return baseIndex + offset
           if (current === node || current.contains(node)) {
             return baseIndex + offset;
           }
@@ -416,9 +414,8 @@ export function QuestionDisplay({
         current = current.parentNode;
       }
 
-      // Fallback: count all characters before this node
       let charIndex = 0;
-      let walker = document.createTreeWalker(
+      const walker = document.createTreeWalker(
         textRef.current!,
         NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
         null,
@@ -439,12 +436,10 @@ export function QuestionDisplay({
         }
       }
 
-      // Final fallback: use text matching
       const startPos = fullText.indexOf(selectedText);
       return startPos !== -1 ? startPos : 0;
     };
 
-    // Try to get character indices from data attributes first
     const getCharSpan = (node: Node | null): HTMLSpanElement | null => {
       let current: Node | null = node;
       while (current && current !== textRef.current) {
@@ -467,55 +462,65 @@ export function QuestionDisplay({
     let endIndex: number;
 
     if (startSpan && endSpan) {
-      // Both are in character spans
       startIndex = Number(startSpan.dataset.charIndex);
       endIndex = Number(endSpan.dataset.charIndex);
     } else {
-      // Calculate from range offsets
       startIndex = getCharIndex(range.startContainer, range.startOffset);
       endIndex = getCharIndex(range.endContainer, range.endOffset);
 
-      // If calculation failed, use text matching as fallback
       if (Number.isNaN(startIndex) || Number.isNaN(endIndex)) {
         const startPos = fullText.indexOf(selectedText);
-        if (startPos !== -1) {
-          startIndex = startPos;
-          endIndex = startPos + selectedText.length - 1;
-        } else {
-          setShowFloatingToolbar(false);
-          return;
-        }
+        if (startPos === -1) return null;
+        startIndex = startPos;
+        endIndex = startPos + selectedText.length - 1;
       }
     }
 
-    if (Number.isNaN(startIndex) || Number.isNaN(endIndex)) {
-      setShowFloatingToolbar(false);
-      return;
-    }
-
+    if (Number.isNaN(startIndex) || Number.isNaN(endIndex)) return null;
     const from = Math.min(startIndex, endIndex);
     const to = Math.max(startIndex, endIndex);
+    return { from, to };
+  }, [isMarkupEnabled, question.questionText]);
 
+  const dismissSelectionToolbar = useCallback(() => {
+    window.getSelection()?.removeAllRanges();
+    setShowFloatingToolbar(false);
+  }, []);
+
+  const applyStyleToSelection = (style: HighlightStyle) => {
+    const bounds = resolveSelectionCharRange();
+    if (!bounds) {
+      dismissSelectionToolbar();
+      return;
+    }
+    const { from, to } = bounds;
     setHighlights((prev) => {
       const next = { ...prev };
       for (let i = from; i <= to; i++) {
         const arr = next[i] || [];
-        const idx = arr.indexOf(style);
-        if (idx >= 0) {
-          const newArr = arr.filter((_, j) => j !== idx);
-          if (newArr.length === 0) delete next[i];
-          else next[i] = newArr;
-        } else {
-          next[i] = [...arr, style];
-        }
+        if (arr.includes(style)) continue;
+        next[i] = [...arr, style];
       }
       highlightsRef.current = next;
       return next;
     });
+    dismissSelectionToolbar();
+  };
 
-    // Clear selection and hide toolbar
-    selection.removeAllRanges();
-    setShowFloatingToolbar(false);
+  const clearFormattingFromSelection = () => {
+    const bounds = resolveSelectionCharRange();
+    if (!bounds) {
+      dismissSelectionToolbar();
+      return;
+    }
+    const { from, to } = bounds;
+    setHighlights((prev) => {
+      const next = { ...prev };
+      for (let i = from; i <= to; i++) delete next[i];
+      highlightsRef.current = next;
+      return next;
+    });
+    dismissSelectionToolbar();
   };
 
   // Test (`attemptId`) da har doim bir xil pipeline — markup yoqilganda MarkdownRenderer ↔ mdast o‘tishi UI ni "sakratmasin"
@@ -596,6 +601,15 @@ export function QuestionDisplay({
             title="Dotted underline"
           >
             U.
+          </button>
+          <div className="w-px h-6 bg-gray-300 mx-1" />
+          <button
+            type="button"
+            onClick={() => clearFormattingFromSelection()}
+            className="px-2 py-1 border rounded text-[10px] text-gray-700 hover:bg-red-50 hover:border-red-200"
+            title="Clear highlights from selection"
+          >
+            Clear
           </button>
         </div>
       )}

@@ -53,6 +53,8 @@ export function HighlightablePassage({
   const passageRef = useRef<HTMLDivElement | null>(null);
   /** Birinchi bo‘sh tickda LS dan passage highlight o‘chib ketmasin */
   const passageLsSyncReadyRef = useRef(false);
+  /** Shu mountda passage’da belgi bo‘lgan (qo‘lda yoki LS dan) — bo‘sh [] bilan LS yozmaslik */
+  const sessionHadPassageBackendRef = useRef(false);
   const highlightsRef = useRef(highlights);
   highlightsRef.current = highlights;
   const onHighlightsChangeRef = useRef(onHighlightsChange);
@@ -116,6 +118,7 @@ export function HighlightablePassage({
 
   useEffect(() => {
     passageLsSyncReadyRef.current = false;
+    sessionHadPassageBackendRef.current = false;
 
     let next: Record<number, HighlightStyle[]> = {};
     if (storageKey && typeof window !== "undefined") {
@@ -143,6 +146,7 @@ export function HighlightablePassage({
         // ignore
       }
     }
+    if (Object.keys(next).length > 0) sessionHadPassageBackendRef.current = true;
     highlightsRef.current = next;
     setHighlights(next);
     requestAnimationFrame(() => {
@@ -154,12 +158,31 @@ export function HighlightablePassage({
     if (!storageKey || typeof window === "undefined") return;
     const backend = convertToBackendFormat(highlights);
     if (backend.length === 0 && !passageLsSyncReadyRef.current) return;
+
+    if (backend.length > 0) {
+      sessionHadPassageBackendRef.current = true;
+      if (attemptId && onHighlightsChange) onHighlightsChange(backend);
+      try {
+        const raw = window.localStorage.getItem(storageKey);
+        const all = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+        all[passageStorageKey] = backend;
+        window.localStorage.setItem(storageKey, JSON.stringify(all));
+      } catch {
+        // ignore
+      }
+      return;
+    }
+
+    // Bo'sh: savol almashishdagi "hayoliy" [] LS ni o‘zgartirmasin
+    if (!sessionHadPassageBackendRef.current) return;
+    sessionHadPassageBackendRef.current = false;
     if (attemptId && onHighlightsChange) onHighlightsChange(backend);
     try {
       const raw = window.localStorage.getItem(storageKey);
-      const all = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
-      if (backend.length > 0) all[passageStorageKey] = backend;
-      else delete all[passageStorageKey];
+      if (!raw) return;
+      const all = JSON.parse(raw) as Record<string, unknown>;
+      if (!Object.prototype.hasOwnProperty.call(all, passageStorageKey)) return;
+      delete all[passageStorageKey];
       window.localStorage.setItem(storageKey, JSON.stringify(all));
     } catch {
       // ignore
@@ -220,67 +243,91 @@ export function HighlightablePassage({
     setShowFloatingToolbar(true);
   }, [isMarkupEnabled]);
 
+  const resolveSelectionCharRange = useCallback((): {
+    from: number;
+    to: number;
+  } | null => {
+    if (!isMarkupEnabled || !passageRef.current) return null;
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed || selection.rangeCount === 0)
+      return null;
+    const range = selection.getRangeAt(0);
+    const selectedText = selection.toString();
+    if (!selectedText) return null;
+    const fullText = passageText || "";
+    const getCharSpan = (node: Node | null): HTMLSpanElement | null => {
+      let current: Node | null = node;
+      while (current && current !== passageRef.current) {
+        if (
+          current instanceof HTMLElement &&
+          current.dataset?.charIndex !== undefined
+        )
+          return current as HTMLSpanElement;
+        current = current.parentNode;
+      }
+      return null;
+    };
+    const startSpan = getCharSpan(range.startContainer);
+    const endSpan = getCharSpan(range.endContainer);
+    let startIndex: number;
+    let endIndex: number;
+    if (startSpan && endSpan) {
+      startIndex = Number(startSpan.dataset.charIndex);
+      endIndex = Number(endSpan.dataset.charIndex);
+    } else {
+      const startPos = fullText.indexOf(selectedText);
+      if (startPos === -1) return null;
+      startIndex = startPos;
+      endIndex = startPos + selectedText.length - 1;
+    }
+    const from = Math.min(startIndex, endIndex);
+    const to = Math.max(startIndex, endIndex);
+    return { from, to };
+  }, [isMarkupEnabled, passageText]);
+
+  const dismissSelectionToolbar = useCallback(() => {
+    window.getSelection()?.removeAllRanges();
+    setShowFloatingToolbar(false);
+  }, []);
+
   const applyStyleToSelection = useCallback(
     (style: HighlightStyle) => {
-      if (!isMarkupEnabled || !passageRef.current) return;
-      const selection = window.getSelection();
-      if (!selection || selection.isCollapsed || selection.rangeCount === 0) return;
-      const range = selection.getRangeAt(0);
-      const selectedText = selection.toString();
-      if (!selectedText) {
-        setShowFloatingToolbar(false);
+      const bounds = resolveSelectionCharRange();
+      if (!bounds) {
+        dismissSelectionToolbar();
         return;
       }
-      const fullText = passageText || "";
-      const getCharSpan = (node: Node | null): HTMLSpanElement | null => {
-        let current: Node | null = node;
-        while (current && current !== passageRef.current) {
-          if (
-            current instanceof HTMLElement &&
-            current.dataset?.charIndex !== undefined
-          )
-            return current as HTMLSpanElement;
-          current = current.parentNode;
-        }
-        return null;
-      };
-      const startSpan = getCharSpan(range.startContainer);
-      const endSpan = getCharSpan(range.endContainer);
-      let startIndex: number;
-      let endIndex: number;
-      if (startSpan && endSpan) {
-        startIndex = Number(startSpan.dataset.charIndex);
-        endIndex = Number(endSpan.dataset.charIndex);
-      } else {
-        const startPos = fullText.indexOf(selectedText);
-        if (startPos === -1) {
-          setShowFloatingToolbar(false);
-          return;
-        }
-        startIndex = startPos;
-        endIndex = startPos + selectedText.length - 1;
-      }
-      const from = Math.min(startIndex, endIndex);
-      const to = Math.max(startIndex, endIndex);
+      const { from, to } = bounds;
       setHighlights((prev) => {
         const next = { ...prev };
         for (let i = from; i <= to; i++) {
           const arr = next[i] || [];
-          const idx = arr.indexOf(style);
-          if (idx >= 0) {
-            const newArr = arr.filter((_, j) => j !== idx);
-            if (newArr.length === 0) delete next[i];
-            else next[i] = newArr;
-          } else next[i] = [...arr, style];
+          if (arr.includes(style)) continue;
+          next[i] = [...arr, style];
         }
         highlightsRef.current = next;
         return next;
       });
-      selection.removeAllRanges();
-      setShowFloatingToolbar(false);
+      dismissSelectionToolbar();
     },
-    [isMarkupEnabled, passageText],
+    [resolveSelectionCharRange, dismissSelectionToolbar],
   );
+
+  const clearFormattingFromSelection = useCallback(() => {
+    const bounds = resolveSelectionCharRange();
+    if (!bounds) {
+      dismissSelectionToolbar();
+      return;
+    }
+    const { from, to } = bounds;
+    setHighlights((prev) => {
+      const next = { ...prev };
+      for (let i = from; i <= to; i++) delete next[i];
+      highlightsRef.current = next;
+      return next;
+    });
+    dismissSelectionToolbar();
+  }, [resolveSelectionCharRange, dismissSelectionToolbar]);
 
   const showCharHighlightView =
     Boolean(attemptId) ||
@@ -310,6 +357,8 @@ export function HighlightablePassage({
           <button type="button" onClick={() => applyStyleToSelection("italic")} className="px-2 py-1 border rounded text-[10px] italic hover:bg-gray-100" title="Italic">I</button>
           <button type="button" onClick={() => applyStyleToSelection("underline")} className="px-2 py-1 border rounded text-[10px] underline hover:bg-gray-100" title="Underline">U</button>
           <button type="button" onClick={() => applyStyleToSelection("dotted")} className="px-2 py-1 border rounded text-[10px] underline decoration-dotted hover:bg-gray-100" title="Dotted">U.</button>
+          <div className="w-px h-6 bg-gray-300 mx-1" />
+          <button type="button" onClick={() => clearFormattingFromSelection()} className="px-2 py-1 border rounded text-[10px] text-gray-700 hover:bg-red-50 hover:border-red-200" title="Clear highlights from selection">Clear</button>
         </div>
       )}
       {showCharHighlightView ? (

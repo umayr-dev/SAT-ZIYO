@@ -803,6 +803,46 @@ export default function TestTakingPage() {
     [getHighlightsStorageKey],
   );
 
+  /** Bo'sh [] faqat avval bu kalit uchun saqlangan highlight bo'lsa o'chiriladi — savol almashganda "hayoliy" [] boshqa savol yozuvlarini buzmasin */
+  const persistQuestionTextHighlights = useCallback(
+    (
+      questionId: string,
+      highlights: Array<{
+        startOffset: number;
+        endOffset: number;
+        color: "YELLOW" | "GREEN" | "BLUE" | "PINK" | "ORANGE";
+        note?: string | null;
+      }>,
+    ) => {
+      if (highlights.length > 0) {
+        saveHighlightsToStorage(questionId, highlights);
+        return;
+      }
+      if (typeof window === "undefined") return;
+      try {
+        const id = String(questionId);
+        const all = getAllHighlightsFromStorage();
+        if (!all.has(id)) return;
+        all.delete(id);
+        const highlightsObj: Record<string, unknown> = {};
+        all.forEach((value, key) => {
+          highlightsObj[key] = value;
+        });
+        localStorage.setItem(
+          getHighlightsStorageKey(),
+          JSON.stringify(highlightsObj),
+        );
+      } catch (err) {
+        console.error("Failed to clear question highlights in localStorage:", err);
+      }
+    },
+    [
+      saveHighlightsToStorage,
+      getAllHighlightsFromStorage,
+      getHighlightsStorageKey,
+    ],
+  );
+
   // Submit all highlights to backend (batch)
   const submitAllHighlights = useCallback(async () => {
     const allHighlights = getAllHighlightsFromStorage();
@@ -1837,7 +1877,6 @@ export default function TestTakingPage() {
       setSubmitting(true);
 
       handleAnswer();
-      setIsMarkupEnabled(false);
 
       // Use /next endpoint for reliable sequential navigation (avoids goto index mismatch bugs)
       const nextState = await practiceService.nextQuestion(attemptId);
@@ -1870,7 +1909,6 @@ export default function TestTakingPage() {
       setSubmitting(true);
 
       handleAnswer();
-      setIsMarkupEnabled(false);
 
       // Use /previous endpoint for reliable sequential navigation
       const prevState = await practiceService.previousQuestion(attemptId);
@@ -1913,7 +1951,6 @@ export default function TestTakingPage() {
         setSubmitting(true);
 
         handleAnswer();
-        setIsMarkupEnabled(false);
 
         const state = await runGoto(index);
         // Faqat shu jump uchun so‘ralgan index bo‘lsa state yangilaymiz (kechikkan/boshqa savol javobini e’tiborsiz qilamiz)
@@ -2867,30 +2904,12 @@ export default function TestTakingPage() {
                                 showOnlyQuestionText
                                 isMarkupEnabled={isMarkupEnabled}
                                 attemptId={attemptId}
-                                onHighlightsChange={(highlights) => {
-                                  if (highlights.length > 0)
-                                    saveHighlightsToStorage(
-                                      question.id,
-                                      highlights,
-                                    );
-                                  else {
-                                    const all = getAllHighlightsFromStorage();
-                                    all.delete(String(question.id));
-                                    if (typeof window !== "undefined")
-                                      try {
-                                        const o = {};
-                                        all.forEach((v, k) => {
-                                          (o as any)[k] = v;
-                                        });
-                                        localStorage.setItem(
-                                          getHighlightsStorageKey(),
-                                          JSON.stringify(o),
-                                        );
-                                      } catch (e) {
-                                        console.error(e);
-                                      }
-                                  }
-                                }}
+                                onHighlightsChange={(highlights) =>
+                                  persistQuestionTextHighlights(
+                                    question.id,
+                                    highlights,
+                                  )
+                                }
                               />
                             </div>
                             {getQuestionImageUrl(question) && (
@@ -3312,40 +3331,12 @@ export default function TestTakingPage() {
                                   isMarkupEnabled={isMarkupEnabled}
                                   showOnlyQuestionText
                                   attemptId={attemptId}
-                                  onHighlightsChange={(highlights) => {
-                                    if (highlights.length > 0) {
-                                      saveHighlightsToStorage(
-                                        question.id,
-                                        highlights,
-                                      );
-                                    } else {
-                                      const allHighlights =
-                                        getAllHighlightsFromStorage();
-                                      allHighlights.delete(String(question.id));
-                                      if (typeof window !== "undefined") {
-                                        try {
-                                          const highlightsObj: Record<
-                                            string,
-                                            any
-                                          > = {};
-                                          allHighlights.forEach(
-                                            (value, key) => {
-                                              highlightsObj[key] = value;
-                                            },
-                                          );
-                                          localStorage.setItem(
-                                            getHighlightsStorageKey(),
-                                            JSON.stringify(highlightsObj),
-                                          );
-                                        } catch (err) {
-                                          console.error(
-                                            "Failed to save highlights from localStorage:",
-                                            err,
-                                          );
-                                        }
-                                      }
-                                    }
-                                  }}
+                                  onHighlightsChange={(highlights) =>
+                                    persistQuestionTextHighlights(
+                                      question.id,
+                                      highlights,
+                                    )
+                                  }
                                 />
                               </div>
 
@@ -3690,32 +3681,12 @@ export default function TestTakingPage() {
                           showOnlyQuestionText
                           isMarkupEnabled={isMarkupEnabled}
                           attemptId={attemptId}
-                          onHighlightsChange={(highlights) => {
-                            if (highlights.length > 0) {
-                              saveHighlightsToStorage(question.id, highlights);
-                            } else {
-                              const allHighlights =
-                                getAllHighlightsFromStorage();
-                              allHighlights.delete(String(question.id));
-                              if (typeof window !== "undefined") {
-                                try {
-                                  const highlightsObj: Record<string, any> = {};
-                                  allHighlights.forEach((value, key) => {
-                                    highlightsObj[key] = value;
-                                  });
-                                  localStorage.setItem(
-                                    getHighlightsStorageKey(),
-                                    JSON.stringify(highlightsObj),
-                                  );
-                                } catch (err) {
-                                  console.error(
-                                    "Failed to save highlights from localStorage:",
-                                    err,
-                                  );
-                                }
-                              }
-                            }
-                          }}
+                          onHighlightsChange={(highlights) =>
+                            persistQuestionTextHighlights(
+                              question.id,
+                              highlights,
+                            )
+                          }
                         />
                       </div>
                       {/* Mobil: variantlar sahifada – ABC ON da bosish line qo‘yadi/oladi */}
