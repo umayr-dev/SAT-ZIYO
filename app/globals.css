@@ -100,10 +100,11 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Test page styles - matching provided design */
+/* Test page styles – min-height: 0 flex zanjirida ikki ustun scroll uchun zarur;
+   height: 100% esa ota balandligi noaniq bo‘lganda kontent bilan cho‘zilib, bitta umumiy scroll berardi */
 .content-pane {
+  min-height: 0;
   overflow-y: auto;
-  height: 100%;
 }
 
 .divider {

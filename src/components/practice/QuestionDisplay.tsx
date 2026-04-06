@@ -16,6 +16,7 @@ import {
   getChoiceImageUrl,
 } from "@/src/services/practice.service";
 import { MarkdownRenderer } from "@/src/components/markdown/MarkdownRenderer";
+import { MarkdownWithCharHighlights } from "@/src/components/practice/markdownWithCharHighlights";
 
 type HighlightStyle =
   | "yellow"
@@ -70,13 +71,11 @@ export function QuestionDisplay({
   const [highlights, setHighlights] = useState<Record<number, HighlightStyle[]>>(
     {},
   );
-  const textRef = useRef<HTMLParagraphElement | null>(null);
+  const textRef = useRef<HTMLDivElement | null>(null);
   /** Mount / savol almashguncha bo‘sh highlights bilan parentga [] yuborilmasin — LS dagi eski highlight o‘chib ketmasin */
   const highlightParentSyncReadyRef = useRef(false);
   const highlightsRef = useRef(highlights);
   highlightsRef.current = highlights;
-  const isMarkupEnabledRef = useRef(isMarkupEnabled);
-  isMarkupEnabledRef.current = isMarkupEnabled;
   const onHighlightsChangeRef = useRef(onHighlightsChange);
   onHighlightsChangeRef.current = onHighlightsChange;
 
@@ -176,15 +175,6 @@ export function QuestionDisplay({
   useEffect(() => {
     highlightParentSyncReadyRef.current = false;
 
-    if (!isMarkupEnabled) {
-      highlightsRef.current = {};
-      setHighlights({});
-      requestAnimationFrame(() => {
-        highlightParentSyncReadyRef.current = true;
-      });
-      return;
-    }
-
     let nextHighlights: Record<number, HighlightStyle[]> = {};
 
     if (typeof window !== "undefined") {
@@ -200,7 +190,8 @@ export function QuestionDisplay({
                 color: string;
               }>
             >;
-            const questionHighlights = allHighlights[question.id] || [];
+            const qKey = String(question.id);
+            const questionHighlights = allHighlights[qKey] || [];
             questionHighlights.forEach((h) => {
               const colorMap: Record<string, HighlightStyle> = {
                 YELLOW: "yellow",
@@ -243,14 +234,11 @@ export function QuestionDisplay({
     requestAnimationFrame(() => {
       highlightParentSyncReadyRef.current = true;
     });
-  }, [storageKey, question.id, attemptId, isMarkupEnabled]);
+  }, [storageKey, question.id, attemptId]);
 
   // Save highlights and notify parent when highlights change
   useEffect(() => {
     if (attemptId && onHighlightsChange) {
-      if (!isMarkupEnabled) {
-        return;
-      }
       // Convert to backend format and notify parent
       const backendFormat = convertHighlightsToBackendFormat(highlights);
       if (
@@ -261,7 +249,6 @@ export function QuestionDisplay({
       }
       onHighlightsChange(backendFormat);
     } else {
-      if (!isMarkupEnabled) return;
       try {
         window.localStorage.setItem(storageKey, JSON.stringify(highlights));
       } catch {
@@ -274,16 +261,15 @@ export function QuestionDisplay({
     attemptId,
     onHighlightsChange,
     convertHighlightsToBackendFormat,
-    isMarkupEnabled,
   ]);
 
   // Navigatsiya: keyingi paintdan oldin ref yangilanmagan bo‘lsa ham oxirgi highlight saqlansin
   useEffect(() => {
-    const qid = question.id;
+    const qid = String(question.id);
     const aid = attemptId;
     const lsKey = aid ? `test_highlights_${aid}` : null;
     return () => {
-      if (!aid || !isMarkupEnabledRef.current) return;
+      if (!aid) return;
       const backendFormat = convertHighlightsToBackendFormat(
         highlightsRef.current,
       );
@@ -330,15 +316,6 @@ export function QuestionDisplay({
     highlightsRef.current = {};
     setHighlights({});
   };
-
-  // Convert question text to array of characters with their indices
-  const characters = useMemo(() => {
-    const text = question.questionText || "";
-    return text.split("").map((char, index) => ({
-      char,
-      index,
-    }));
-  }, [question.questionText]);
 
   const styleClasses: Record<HighlightStyle, string> = {
     yellow: "bg-yellow-200",
@@ -541,6 +518,12 @@ export function QuestionDisplay({
     setShowFloatingToolbar(false);
   };
 
+  // Test (`attemptId`) da har doim bir xil pipeline — markup yoqilganda MarkdownRenderer ↔ mdast o‘tishi UI ni "sakratmasin"
+  const showCharHighlightView =
+    Boolean(attemptId) ||
+    isMarkupEnabled ||
+    Object.keys(highlights).length > 0;
+
   return (
     <div className="relative">
       {/* Floating Markup Toolbar (appears on text selection) */}
@@ -617,40 +600,25 @@ export function QuestionDisplay({
         </div>
       )}
 
-      {/* Question Text */}
+      {/* Savol matni: remark + mdast — admin bold/italic/list jadval/math; highlight indekslari manba matn bilan mos */}
       <div className="space-y-2">
-        {/* When markup is enabled, keep character-level rendering for highlighting.
-            When markup is disabled, render math-friendly content using KaTeX. */}
-        {isMarkupEnabled ? (
-          <p
-            ref={textRef}
-            onMouseUp={handleMouseUp}
-            className="text-sm sm:text-base text-gray-900 leading-relaxed select-text"
-          >
-            {question.questionText ? (
-              characters.map(({ char, index }) => {
-                const styles = highlights[index] || [];
-                const combinedClass = styles
-                  .map((s) => styleClasses[s])
-                  .filter(Boolean)
-                  .join(" ");
-                return (
-                  <span
-                    key={index}
-                    data-char-index={index}
-                    onClick={() => handleCharClick(index, isMarkupEnabled)}
-                    className={`${isMarkupEnabled ? "cursor-pointer" : ""} ${combinedClass}`}
-                  >
-                    {char}
-                  </span>
-                );
-              })
-            ) : (
-              <span className="text-gray-500 italic">
-                No question text available
-              </span>
-            )}
-          </p>
+        {showCharHighlightView ? (
+          question.questionText ? (
+            <MarkdownWithCharHighlights
+              markdown={question.questionText}
+              highlights={highlights}
+              isMarkupEnabled={isMarkupEnabled}
+              onCharClick={(index) => handleCharClick(index, isMarkupEnabled)}
+              containerRef={textRef}
+              onMouseUp={isMarkupEnabled ? handleMouseUp : undefined}
+              className={isMarkupEnabled ? "select-text" : "select-none"}
+              styleClasses={styleClasses}
+            />
+          ) : (
+            <span className="text-gray-500 italic">
+              No question text available
+            </span>
+          )
         ) : (
           <div className="text-sm sm:text-base text-gray-900 leading-relaxed">
             {question.questionText ? (

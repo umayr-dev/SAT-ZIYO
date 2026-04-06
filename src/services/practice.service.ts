@@ -86,39 +86,58 @@ export interface Question {
 }
 
 /** Backend boshqa string yuborishi mumkin (GRID_IN, Student_Produced). Ochiq javob (yozma) kerak bo‘lsa true. */
-export function isOpenAnswerQuestion(q: { questionType?: string; choices?: unknown[] }): boolean {
+export function isOpenAnswerQuestion(q: {
+  questionType?: string;
+  choices?: unknown[];
+}): boolean {
   const t = (q.questionType ?? "").toUpperCase().replace(/[-_\s]/g, "_");
-  if (t === "STUDENT_PRODUCED" || t === "GRID_IN" || t === "GRIDIN") return true;
-  if (t === "MULTIPLE_CHOICE" && (!q.choices || !Array.isArray(q.choices) || q.choices.length === 0))
+  if (t === "STUDENT_PRODUCED" || t === "GRID_IN" || t === "GRIDIN")
+    return true;
+  if (
+    t === "MULTIPLE_CHOICE" &&
+    (!q.choices || !Array.isArray(q.choices) || q.choices.length === 0)
+  )
     return true;
   return false;
 }
 
 /** Variantlar (A/B/C/D) ko‘rsatilsinmi */
-export function hasChoiceOptions(q: { questionType?: string; choices?: unknown[] }): boolean {
+export function hasChoiceOptions(q: {
+  questionType?: string;
+  choices?: unknown[];
+}): boolean {
   const t = (q.questionType ?? "").toUpperCase().replace(/[-_\s]/g, "_");
-  return t === "MULTIPLE_CHOICE" && Array.isArray(q.choices) && q.choices.length > 0;
+  return (
+    t === "MULTIPLE_CHOICE" && Array.isArray(q.choices) && q.choices.length > 0
+  );
 }
 
 /** MD/backend: savol rasmi – imageUrl yoki image_url (snake_case) */
-export function getQuestionImageUrl(
-  q: { imageUrl?: string | null; image_url?: string | null }
-): string | undefined {
-  const url = (q as { imageUrl?: string; image_url?: string }).imageUrl
-    ?? (q as { image_url?: string }).image_url;
+export function getQuestionImageUrl(q: {
+  imageUrl?: string | null;
+  image_url?: string | null;
+}): string | undefined {
+  const url =
+    (q as { imageUrl?: string; image_url?: string }).imageUrl ??
+    (q as { image_url?: string }).image_url;
   return typeof url === "string" && url.trim() ? url.trim() : undefined;
 }
 
 /** MD/backend: variant matni – choiceText yoki choice_text */
-export function getChoiceText(
-  c: { choiceText?: string | null; choice_text?: string | null }
-): string {
-  const text = (c as { choiceText?: string }).choiceText ?? (c as { choice_text?: string }).choice_text;
+export function getChoiceText(c: {
+  choiceText?: string | null;
+  choice_text?: string | null;
+}): string {
+  const text =
+    (c as { choiceText?: string }).choiceText ??
+    (c as { choice_text?: string }).choice_text;
   return typeof text === "string" ? text.trim() : "";
 }
 
 /** MD/backend: variant rasmi – imageUrl, image_url, image, choiceImageUrl, choice_image_url (barcha mumkin fieldlar) */
-export function getChoiceImageUrl(c: Record<string, unknown>): string | undefined {
+export function getChoiceImageUrl(
+  c: Record<string, unknown>,
+): string | undefined {
   const keys = [
     "imageUrl",
     "image_url",
@@ -134,7 +153,11 @@ export function getChoiceImageUrl(c: Record<string, unknown>): string | undefine
   }
   // Har qanday key bo‘yicha string URL (http/https/data:) – backend boshqa nom bilan yuborsa
   for (const [k, v] of Object.entries(c)) {
-    if (typeof v === "string" && v.trim() && (v.startsWith("http") || v.startsWith("data:")))
+    if (
+      typeof v === "string" &&
+      v.trim() &&
+      (v.startsWith("http") || v.startsWith("data:"))
+    )
       return v.trim();
   }
   return undefined;
@@ -301,9 +324,7 @@ function normalizeQuestionResult(q: Record<string, unknown>): QuestionResult {
       const row = c as Record<string, unknown>;
       return {
         id: resultId(row.id ?? row.choiceId) ?? "",
-        choiceText: String(
-          row.choiceText ?? row.choice_text ?? row.text ?? "",
-        ),
+        choiceText: String(row.choiceText ?? row.choice_text ?? row.text ?? ""),
         isCorrect: Boolean(row.isCorrect ?? row.is_correct ?? false),
         imageUrl: (row.imageUrl ?? row.image_url ?? null) as string | null,
         orderIndex:
@@ -624,13 +645,10 @@ class PracticeService {
    * Sends answers via POST /submit, then fetches final score from GET /results.
    */
   async submitTest(attemptId: string): Promise<TestResults> {
-    await apiClient(
-      `/api/practice/attempts/${attemptId}/submit`,
-      {
-        method: "POST",
-        requireAuth: true,
-      },
-    );
+    await apiClient(`/api/practice/attempts/${attemptId}/submit`, {
+      method: "POST",
+      requireAuth: true,
+    });
     return this.getResults(attemptId);
   }
 

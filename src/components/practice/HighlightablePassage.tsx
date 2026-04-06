@@ -1,13 +1,8 @@
 "use client";
 
-import React, {
-  useEffect,
-  useState,
-  useRef,
-  useCallback,
-  useMemo,
-} from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { MarkdownRenderer } from "@/src/components/markdown/MarkdownRenderer";
+import { MarkdownWithCharHighlights } from "@/src/components/practice/markdownWithCharHighlights";
 
 type HighlightStyle =
   | "yellow"
@@ -55,20 +50,18 @@ export function HighlightablePassage({
   onHighlightsChange,
 }: HighlightablePassageProps) {
   const [highlights, setHighlights] = useState<Record<number, HighlightStyle[]>>({});
-  const passageRef = useRef<HTMLParagraphElement | null>(null);
+  const passageRef = useRef<HTMLDivElement | null>(null);
   /** Birinchi bo‘sh tickda LS dan passage highlight o‘chib ketmasin */
   const passageLsSyncReadyRef = useRef(false);
   const highlightsRef = useRef(highlights);
   highlightsRef.current = highlights;
-  const isMarkupEnabledRef = useRef(isMarkupEnabled);
-  isMarkupEnabledRef.current = isMarkupEnabled;
   const onHighlightsChangeRef = useRef(onHighlightsChange);
   onHighlightsChangeRef.current = onHighlightsChange;
   const [showFloatingToolbar, setShowFloatingToolbar] = useState(false);
   const [toolbarPosition, setToolbarPosition] = useState({ x: 0, y: 0 });
 
   const storageKey = attemptId ? `test_highlights_${attemptId}` : null;
-  const passageStorageKey = `${questionId}_passage`;
+  const passageStorageKey = `${String(questionId)}_passage`;
 
   const convertToBackendFormat = useCallback(
     (h: Record<number, HighlightStyle[]>) => {
@@ -123,14 +116,6 @@ export function HighlightablePassage({
 
   useEffect(() => {
     passageLsSyncReadyRef.current = false;
-    if (!isMarkupEnabled) {
-      highlightsRef.current = {};
-      setHighlights({});
-      requestAnimationFrame(() => {
-        passageLsSyncReadyRef.current = true;
-      });
-      return;
-    }
 
     let next: Record<number, HighlightStyle[]> = {};
     if (storageKey && typeof window !== "undefined") {
@@ -163,11 +148,10 @@ export function HighlightablePassage({
     requestAnimationFrame(() => {
       passageLsSyncReadyRef.current = true;
     });
-  }, [storageKey, passageStorageKey, questionId, isMarkupEnabled]);
+  }, [storageKey, passageStorageKey, questionId]);
 
   useEffect(() => {
     if (!storageKey || typeof window === "undefined") return;
-    if (!isMarkupEnabled) return;
     const backend = convertToBackendFormat(highlights);
     if (backend.length === 0 && !passageLsSyncReadyRef.current) return;
     if (attemptId && onHighlightsChange) onHighlightsChange(backend);
@@ -187,7 +171,6 @@ export function HighlightablePassage({
     attemptId,
     onHighlightsChange,
     convertToBackendFormat,
-    isMarkupEnabled,
   ]);
 
   useEffect(() => {
@@ -195,7 +178,6 @@ export function HighlightablePassage({
     const pKey = passageStorageKey;
     return () => {
       if (!key || typeof window === "undefined" || !attemptId) return;
-      if (!isMarkupEnabledRef.current) return;
       const backend = convertToBackendFormat(highlightsRef.current);
       if (backend.length === 0) return;
       try {
@@ -300,10 +282,10 @@ export function HighlightablePassage({
     [isMarkupEnabled, passageText],
   );
 
-  const characters = useMemo(
-    () => (passageText || "").split("").map((char, i) => ({ char, index: i })),
-    [passageText],
-  );
+  const showCharHighlightView =
+    Boolean(attemptId) ||
+    isMarkupEnabled ||
+    Object.keys(highlights).length > 0;
 
   if (!passageText) return null;
 
@@ -330,26 +312,16 @@ export function HighlightablePassage({
           <button type="button" onClick={() => applyStyleToSelection("dotted")} className="px-2 py-1 border rounded text-[10px] underline decoration-dotted hover:bg-gray-100" title="Dotted">U.</button>
         </div>
       )}
-      {isMarkupEnabled ? (
-        <p
-          ref={passageRef}
-          onMouseUp={handleMouseUp}
-          className="text-xs sm:text-sm md:text-base leading-relaxed select-text whitespace-pre-wrap"
-        >
-          {characters.map(({ char, index }) => {
-            const styles = highlights[index] || [];
-            const combinedClass = styles.map((s) => styleClasses[s]).filter(Boolean).join(" ");
-            return (
-              <span
-                key={index}
-                data-char-index={index}
-                className={isMarkupEnabled ? `cursor-pointer ${combinedClass}` : combinedClass}
-              >
-                {char}
-              </span>
-            );
-          })}
-        </p>
+      {showCharHighlightView ? (
+        <MarkdownWithCharHighlights
+          markdown={passageText}
+          highlights={highlights}
+          isMarkupEnabled={isMarkupEnabled}
+          containerRef={passageRef}
+          onMouseUp={isMarkupEnabled ? handleMouseUp : undefined}
+          className={`text-xs sm:text-sm md:text-base whitespace-pre-wrap ${isMarkupEnabled ? "select-text" : "select-none"}`}
+          styleClasses={styleClasses}
+        />
       ) : (
         <div className="text-xs sm:text-sm md:text-base leading-relaxed">
           <MarkdownRenderer content={passageText} />

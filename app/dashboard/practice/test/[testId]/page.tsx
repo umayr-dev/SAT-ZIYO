@@ -790,10 +790,11 @@ export default function TestTakingPage() {
     ) => {
       if (typeof window === "undefined") return;
       try {
+        const id = String(questionId);
         const key = getHighlightsStorageKey();
         const stored = localStorage.getItem(key);
         const allHighlights = stored ? JSON.parse(stored) : {};
-        allHighlights[questionId] = highlights;
+        allHighlights[id] = highlights;
         localStorage.setItem(key, JSON.stringify(allHighlights));
       } catch (err) {
         console.error("Failed to save highlights to localStorage:", err);
@@ -2620,7 +2621,7 @@ export default function TestTakingPage() {
 
             {/* Content row: MATH 1-ustun = markaz (60%), MATH 2-ustun = full width */}
             <div
-              className={`flex-1 min-h-[50vh] flex min-w-0 overflow-hidden transition-[justify-content] duration-300 ease-out ${testState.currentSection.type === "MATH" && !(showCalculator || showReferenceSheet) && hasChoiceOptions(question) ? "lg:justify-center" : ""}`}
+              className={`flex-1 min-h-[50vh] min-[920px]:min-h-0 flex min-w-0 overflow-hidden transition-[justify-content] duration-300 ease-out ${testState.currentSection.type === "MATH" && !(showCalculator || showReferenceSheet) && hasChoiceOptions(question) ? "lg:justify-center" : ""}`}
             >
               {testState.currentSection.type === "MATH" && (
                 <div
@@ -2686,7 +2687,7 @@ export default function TestTakingPage() {
               )}
               {/* Right column: MATH 1-ustun = 60%, MATH 2-ustun = 100%, ENGLISH = 100% */}
               <div
-                className={`min-h-[45vh] flex flex-col relative overflow-hidden px-3 sm:px-4 lg:px-5 z-0 min-w-0 w-full flex-1 transition-[flex,max-width,width] duration-300 ease-out ${
+                className={`min-h-[45vh] min-[920px]:min-h-0 flex flex-col relative overflow-hidden px-3 sm:px-4 lg:px-5 z-0 min-w-0 w-full flex-1 transition-[flex,max-width,width] duration-300 ease-out ${
                   testState.currentSection.type === "MATH" &&
                   (showCalculator || showReferenceSheet)
                     ? "lg:flex-[0_0_50%] lg:w-auto"
@@ -2698,11 +2699,10 @@ export default function TestTakingPage() {
               >
                 {/* Desktop (≥920px): 2-ustun; JS orqali faqat katta ekranda */}
                 {isDesktopLayout && (
-                  <div className="flex flex-1 min-h-0 min-w-0">
+                  <div className="flex min-h-0 max-h-full w-full min-w-0 flex-1 flex-col">
                     <div
-                      className="relative flex flex-col flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                      className="relative flex min-h-0 max-h-full w-full min-w-0 flex-1 flex-col overflow-hidden overflow-x-hidden"
                       ref={layoutContainerRef}
-                      style={{ WebkitOverflowScrolling: "touch" }}
                     >
                       {/* Math: faqat ko‘p tanlov (A/B/C/D) = bitta ustun; grid-in yoki ochiq savol = ikki ustun */}
                       {testState.currentSection.type === "MATH" &&
@@ -2829,10 +2829,16 @@ export default function TestTakingPage() {
                                   }}
                                   className="flex items-center text-xs sm:text-sm text-gray-600 hover:text-black ml-2 sm:ml-3 h-7 sm:h-8"
                                 >
-                                  <div className={`relative border rounded-sm w-9 h-9 px-1 flex items-center justify-center ${isEliminationMode ? "bg-blue-500 border-blue-500" : "bg-transparent border-gray-300"}`}>
-                                    <span className={`relative inline-flex items-center justify-center px-0.5 text-[13px] font-medium ${isEliminationMode ? "text-white" : "text-black"}`}>
+                                  <div
+                                    className={`relative border rounded-sm w-9 h-9 px-1 flex items-center justify-center ${isEliminationMode ? "bg-blue-500 border-blue-500" : "bg-transparent border-gray-300"}`}
+                                  >
+                                    <span
+                                      className={`relative inline-flex items-center justify-center px-0.5 text-[13px] font-medium ${isEliminationMode ? "text-white" : "text-black"}`}
+                                    >
                                       ABC
-                                      <span className={`pointer-events-none absolute left-[1px] right-[1px] top-[56%] -translate-y-1/2 -rotate-20 border-t ${isEliminationMode ? "border-white" : "border-gray-600"}`} />
+                                      <span
+                                        className={`pointer-events-none absolute left-[1px] right-[1px] top-[56%] -translate-y-1/2 -rotate-20 border-t ${isEliminationMode ? "border-white" : "border-gray-600"}`}
+                                      />
                                     </span>
                                   </div>
                                 </button>
@@ -2869,7 +2875,7 @@ export default function TestTakingPage() {
                                     );
                                   else {
                                     const all = getAllHighlightsFromStorage();
-                                    all.delete(question.id);
+                                    all.delete(String(question.id));
                                     if (typeof window !== "undefined")
                                       try {
                                         const o = {};
@@ -3057,13 +3063,10 @@ export default function TestTakingPage() {
                           </div>
                         </div>
                       ) : (
-                        <div
-                          className="flex flex-1 gap-0 items-stretch"
-                          style={{ minHeight: "min-content" }}
-                        >
+                        <div className="flex min-h-0 max-h-full flex-1 gap-0 items-stretch overflow-hidden">
                           {/* Left Column – passage (R&W) yoki Math grid-in directions */}
                           <div
-                            className="content-pane flex-shrink-0 pr-1 md:pr-2 min-w-0"
+                            className="content-pane max-h-full flex-shrink-0 pr-1 md:pr-2 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
                             style={{
                               width: `calc(${splitPosition}% - 4px)`,
                               minWidth: 200,
@@ -3184,6 +3187,7 @@ export default function TestTakingPage() {
                                 question.passage ? (
                                 <div className="p-3 sm:p-4 md:p-5 bg-white rounded-lg">
                                   <HighlightablePassage
+                                    key={question.id}
                                     passageText={
                                       question.sharedPassage?.content ||
                                       question.passage ||
@@ -3237,9 +3241,9 @@ export default function TestTakingPage() {
                             aria-label="Resize columns"
                           />
 
-                          {/* Right Column – scroll yo‘q, kontent to‘liq ko‘rinadi */}
+                          {/* Right Column – alohida vertikal scroll */}
                           <div
-                            className="content-pane flex-1 min-w-0 pl-1 md:pl-2"
+                            className="content-pane max-h-full flex-1 min-w-0 min-h-0 pl-1 md:pl-2 overflow-y-auto overflow-x-hidden overscroll-y-contain scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
                             style={{
                               width: `calc(${100 - splitPosition}% - 4px)`,
                               minWidth: 260,
@@ -3283,9 +3287,13 @@ export default function TestTakingPage() {
                                         : "border-gray-300 bg-white"
                                     }`}
                                   >
-                                    <span className={`relative inline-flex items-center justify-center px-0.5 text-[12px] font-medium ${isEliminationMode ? "text-white" : "text-black"}`}>
+                                    <span
+                                      className={`relative inline-flex items-center justify-center px-0.5 text-[12px] font-medium ${isEliminationMode ? "text-white" : "text-black"}`}
+                                    >
                                       ABC
-                                      <span className={`pointer-events-none absolute left-[1px] right-[1px] top-[56%] -translate-y-1/2 -rotate-20 border-t ${isEliminationMode ? "border-white" : "border-gray-600"}`} />
+                                      <span
+                                        className={`pointer-events-none absolute left-[1px] right-[1px] top-[56%] -translate-y-1/2 -rotate-20 border-t ${isEliminationMode ? "border-white" : "border-gray-600"}`}
+                                      />
                                     </span>
                                   </button>
                                 )}
@@ -3313,7 +3321,7 @@ export default function TestTakingPage() {
                                     } else {
                                       const allHighlights =
                                         getAllHighlightsFromStorage();
-                                      allHighlights.delete(question.id);
+                                      allHighlights.delete(String(question.id));
                                       if (typeof window !== "undefined") {
                                         try {
                                           const highlightsObj: Record<
@@ -3644,10 +3652,16 @@ export default function TestTakingPage() {
                             }}
                             className="flex-shrink-0 flex items-center text-[11px] sm:text-xs text-gray-700 hover:text-black h-7 sm:h-8"
                           >
-                            <div className={`relative border rounded-sm w-9 h-9 px-1 flex items-center justify-center ${isEliminationMode ? "bg-blue-500 border-blue-500" : "bg-transparent border-gray-300"}`}>
-                              <span className={`relative inline-flex items-center justify-center px-0.5 text-[12px] font-medium ${isEliminationMode ? "text-white" : "text-black"}`}>
+                            <div
+                              className={`relative border rounded-sm w-9 h-9 px-1 flex items-center justify-center ${isEliminationMode ? "bg-blue-500 border-blue-500" : "bg-transparent border-gray-300"}`}
+                            >
+                              <span
+                                className={`relative inline-flex items-center justify-center px-0.5 text-[12px] font-medium ${isEliminationMode ? "text-white" : "text-black"}`}
+                              >
                                 ABC
-                                <span className={`pointer-events-none absolute left-[1px] right-[1px] top-[56%] -translate-y-1/2 -rotate-20 border-t ${isEliminationMode ? "border-white" : "border-gray-600"}`} />
+                                <span
+                                  className={`pointer-events-none absolute left-[1px] right-[1px] top-[56%] -translate-y-1/2 -rotate-20 border-t ${isEliminationMode ? "border-white" : "border-gray-600"}`}
+                                />
                               </span>
                             </div>
                           </button>
@@ -3682,7 +3696,7 @@ export default function TestTakingPage() {
                             } else {
                               const allHighlights =
                                 getAllHighlightsFromStorage();
-                              allHighlights.delete(question.id);
+                              allHighlights.delete(String(question.id));
                               if (typeof window !== "undefined") {
                                 try {
                                   const highlightsObj: Record<string, any> = {};
@@ -3858,6 +3872,7 @@ export default function TestTakingPage() {
                         question.passage) && (
                         <div className="mt-2 sm:mt-3 p-3 sm:p-4 mb-3 sm:mb-4 bg-white rounded-lg">
                           <HighlightablePassage
+                            key={question.id}
                             passageText={
                               question.sharedPassage?.content ||
                               question.passage ||
@@ -3994,7 +4009,8 @@ export default function TestTakingPage() {
             const refLive = currentAnswerRef.current;
             const live = {
               // choose ref if it's been populated
-              ...(refLive.choiceId !== undefined || refLive.textAnswer !== undefined
+              ...(refLive.choiceId !== undefined ||
+              refLive.textAnswer !== undefined
                 ? refLive
                 : currentAnswer),
             };
@@ -4005,8 +4021,7 @@ export default function TestTakingPage() {
             const hasChoice =
               live.choiceId !== undefined && live.choiceId !== null;
             const hasText =
-              live.textAnswer != null &&
-              String(live.textAnswer).trim() !== "";
+              live.textAnswer != null && String(live.textAnswer).trim() !== "";
             const hasAnswer = hasChoice || hasText;
 
             const hasMeta =
