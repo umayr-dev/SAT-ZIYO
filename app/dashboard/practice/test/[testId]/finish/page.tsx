@@ -22,6 +22,7 @@ import {
   getQuestionImageUrl,
 } from "@/src/services/practice.service";
 import { ApiClientError } from "@/src/lib/api-client";
+import { submitAnswersInBatches } from "@/src/utils/submit-answers-batch";
 import { MarkdownRenderer } from "@/src/components/markdown/MarkdownRenderer";
 import { CommentsSection } from "@/src/components/comments/CommentsSection";
 import { TestAnalytics } from "@/src/components/practice/TestAnalytics";
@@ -97,48 +98,15 @@ export default function FinishTestPage() {
 
   // Submit all pending answers from localStorage (all modules) to server
   const submitAllPendingAnswers = useCallback(async () => {
-    const allAnswers = getAllAnswersForSubmit();
+    const allAnswers = getAllAnswersForSubmit().filter((a) => !!a.questionId);
 
     if (allAnswers.length === 0) {
-      console.log("[Finish Page] No answers to submit");
       return;
     }
 
-    console.log(`[Finish Page] Submitting ${allAnswers.length} answers to server...`);
-
-    const BATCH_SIZE = 10;
-    for (let i = 0; i < allAnswers.length; i += BATCH_SIZE) {
-      const batch = allAnswers.slice(i, i + BATCH_SIZE);
-      try {
-        await practiceService.submitAnswersBatch(attemptId, batch.map((a) => ({
-          questionId: a.questionId,
-          choiceId: a.choiceId,
-          textAnswer: a.textAnswer,
-          markedForReview: a.markedForReview,
-          eliminatedChoices: a.eliminatedChoices,
-        })));
-      } catch (err) {
-        for (const answer of batch) {
-          try {
-            await practiceService.submitAnswer(
-              attemptId,
-              answer.questionId,
-              answer.choiceId,
-              answer.textAnswer,
-              answer.markedForReview,
-              answer.eliminatedChoices
-            );
-          } catch {
-            // continue
-          }
-        }
-      }
-      if (i + BATCH_SIZE < allAnswers.length) {
-        await new Promise((r) => setTimeout(r, 200));
-      }
-    }
-
-    console.log("[Finish Page] All answers submitted successfully");
+    await submitAnswersInBatches(attemptId, allAnswers, {
+      throwIfAllFailed: true,
+    });
 
     try {
       localStorage.removeItem(getStorageKey());

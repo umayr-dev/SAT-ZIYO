@@ -1,6 +1,7 @@
 "use client";
 
 import React, { Fragment, useMemo, type ReactNode } from "react";
+import { SourceOffsetAllocator } from "@/src/utils/markup-selection";
 import { remark } from "remark";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -95,19 +96,12 @@ function renderLiteralChars(
   highlights: Record<number, CharHighlightStyle[]>,
   styleClasses: Record<CharHighlightStyle, string>,
   isMarkupEnabled: boolean,
-  onCharClick?: (index: number) => void,
+  onCharClick: ((index: number) => void) | undefined,
+  allocator: SourceOffsetAllocator,
 ): ReactNode {
-  const pos = node.position;
   const value = node.value;
   if (!value) return null;
-  if (!pos) {
-    return (
-      <span key={keyBase} className="whitespace-pre-wrap">
-        {value}
-      </span>
-    );
-  }
-  const start = pos.start.offset ?? 0;
+  const start = allocator.startFor(value, node.position?.start.offset);
   return (
     <Fragment key={keyBase}>
       {renderCharSpans(
@@ -129,10 +123,19 @@ function renderPhrasingList(
   highlights: Record<number, CharHighlightStyle[]>,
   styleClasses: Record<CharHighlightStyle, string>,
   isMarkupEnabled: boolean,
-  onCharClick?: (index: number) => void,
+  onCharClick: ((index: number) => void) | undefined,
+  allocator: SourceOffsetAllocator,
 ): ReactNode[] {
   return nodes.map((n, i) =>
-    renderPhrasing(n, `${keyPrefix}-p-${i}`, highlights, styleClasses, isMarkupEnabled, onCharClick),
+    renderPhrasing(
+      n,
+      `${keyPrefix}-p-${i}`,
+      highlights,
+      styleClasses,
+      isMarkupEnabled,
+      onCharClick,
+      allocator,
+    ),
   );
 }
 
@@ -142,7 +145,8 @@ function renderPhrasing(
   highlights: Record<number, CharHighlightStyle[]>,
   styleClasses: Record<CharHighlightStyle, string>,
   isMarkupEnabled: boolean,
-  onCharClick?: (index: number) => void,
+  onCharClick: ((index: number) => void) | undefined,
+  allocator: SourceOffsetAllocator,
 ): ReactNode {
   switch (node.type) {
     case "text":
@@ -150,7 +154,7 @@ function renderPhrasing(
         <Fragment key={keyPrefix}>
           {renderCharSpans(
             node.value,
-            node.position?.start.offset ?? 0,
+            allocator.startFor(node.value, node.position?.start.offset),
             keyPrefix,
             highlights,
             styleClasses,
@@ -172,6 +176,7 @@ function renderPhrasing(
             styleClasses,
             isMarkupEnabled,
             onCharClick,
+            allocator,
           )}
         </code>
       );
@@ -185,6 +190,7 @@ function renderPhrasing(
             styleClasses,
             isMarkupEnabled,
             onCharClick,
+            allocator,
           )}
         </strong>
       );
@@ -198,6 +204,7 @@ function renderPhrasing(
             styleClasses,
             isMarkupEnabled,
             onCharClick,
+            allocator,
           )}
         </em>
       );
@@ -211,6 +218,7 @@ function renderPhrasing(
             styleClasses,
             isMarkupEnabled,
             onCharClick,
+            allocator,
           )}
         </del>
       );
@@ -230,6 +238,7 @@ function renderPhrasing(
             styleClasses,
             isMarkupEnabled,
             onCharClick,
+            allocator,
           )}
         </a>
       );
@@ -288,7 +297,8 @@ function renderBlock(
   highlights: Record<number, CharHighlightStyle[]>,
   styleClasses: Record<CharHighlightStyle, string>,
   isMarkupEnabled: boolean,
-  onCharClick?: (index: number) => void,
+  onCharClick: ((index: number) => void) | undefined,
+  allocator: SourceOffsetAllocator,
 ): ReactNode {
   switch (node.type) {
     case "paragraph":
@@ -301,6 +311,7 @@ function renderBlock(
             styleClasses,
             isMarkupEnabled,
             onCharClick,
+            allocator,
           )}
         </p>
       );
@@ -318,6 +329,7 @@ function renderBlock(
             styleClasses,
             isMarkupEnabled,
             onCharClick,
+            allocator,
           )}
         </Tag>
       );
@@ -336,6 +348,7 @@ function renderBlock(
               styleClasses,
               isMarkupEnabled,
               onCharClick,
+              allocator,
             ),
           )}
         </blockquote>
@@ -359,6 +372,7 @@ function renderBlock(
               styleClasses,
               isMarkupEnabled,
               onCharClick,
+              allocator,
             ),
           )}
         </ListTag>
@@ -382,6 +396,7 @@ function renderBlock(
               styleClasses,
               isMarkupEnabled,
               onCharClick,
+              allocator,
             ),
           )}
         </li>
@@ -401,6 +416,7 @@ function renderBlock(
               styleClasses,
               isMarkupEnabled,
               onCharClick,
+              allocator,
             )}
           </code>
         </pre>
@@ -445,6 +461,7 @@ function renderBlock(
                             styleClasses,
                             isMarkupEnabled,
                             onCharClick,
+                            allocator,
                           ),
                         )}
                       </Tag>
@@ -481,6 +498,7 @@ function renderBlock(
                 styleClasses,
                 isMarkupEnabled,
                 onCharClick,
+                allocator,
               ),
             )}
           </div>
@@ -517,6 +535,22 @@ export function MarkdownWithCharHighlights({
   styleClasses = defaultStyleClasses,
 }: MarkdownWithCharHighlightsProps) {
   const root = useMemo(() => parseMd(markdown), [markdown]);
+
+  const renderedBlocks = useMemo(() => {
+    if (!root) return null;
+    const allocator = new SourceOffsetAllocator();
+    return root.children.map((child, i) =>
+      renderBlock(
+        child,
+        `md-${i}`,
+        highlights,
+        styleClasses,
+        isMarkupEnabled,
+        onCharClick,
+        allocator,
+      ),
+    );
+  }, [root, highlights, styleClasses, isMarkupEnabled, onCharClick]);
 
   const baseClass = `markdown-content text-sm sm:text-base text-gray-900 leading-relaxed [&_strong]:font-semibold [&_em]:italic ${className}`;
   const spanBase =
@@ -555,16 +589,7 @@ export function MarkdownWithCharHighlights({
 
   return (
     <div ref={containerRef} onMouseUp={onMouseUp} className={baseClass}>
-      {root.children.map((child, i) =>
-        renderBlock(
-          child,
-          `md-${i}`,
-          highlights,
-          styleClasses,
-          isMarkupEnabled,
-          onCharClick,
-        ),
-      )}
+      {renderedBlocks}
     </div>
   );
 }

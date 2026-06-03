@@ -47,7 +47,7 @@ export async function POST(
     }
 
     // Limit batch size to prevent abuse
-    const MAX_BATCH_SIZE = 20;
+    const MAX_BATCH_SIZE = 30;
     if (answers.length > MAX_BATCH_SIZE) {
       return NextResponse.json(
         { message: `Batch size exceeds maximum of ${MAX_BATCH_SIZE}` },

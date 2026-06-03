@@ -17,6 +17,7 @@ import {
 } from "@/src/services/practice.service";
 import { MarkdownRenderer } from "@/src/components/markdown/MarkdownRenderer";
 import { MarkdownWithCharHighlights } from "@/src/components/practice/markdownWithCharHighlights";
+import { resolveMarkupSelectionRange } from "@/src/utils/markup-selection";
 
 type HighlightStyle =
   | "yellow"
@@ -394,93 +395,9 @@ export function QuestionDisplay({
     if (!selection || selection.isCollapsed || selection.rangeCount === 0)
       return null;
     const range = selection.getRangeAt(0);
-    const selectedText = selection.toString();
-    if (!selectedText) return null;
-
-    const fullText = question.questionText || "";
-
-    const getCharIndex = (node: Node, offset: number): number => {
-      let current: Node | null = node;
-      while (current && current !== textRef.current) {
-        if (
-          current instanceof HTMLElement &&
-          current.dataset.charIndex !== undefined
-        ) {
-          const baseIndex = Number(current.dataset.charIndex);
-          if (current === node || current.contains(node)) {
-            return baseIndex + offset;
-          }
-        }
-        current = current.parentNode;
-      }
-
-      let charIndex = 0;
-      const walker = document.createTreeWalker(
-        textRef.current!,
-        NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
-        null,
-      );
-
-      let currentNode: Node | null;
-      while ((currentNode = walker.nextNode())) {
-        if (currentNode === node) {
-          return charIndex + offset;
-        }
-        if (
-          currentNode instanceof HTMLElement &&
-          currentNode.dataset.charIndex !== undefined
-        ) {
-          charIndex = Number(currentNode.dataset.charIndex) + 1;
-        } else if (currentNode.nodeType === Node.TEXT_NODE) {
-          charIndex += currentNode.textContent?.length || 0;
-        }
-      }
-
-      const startPos = fullText.indexOf(selectedText);
-      return startPos !== -1 ? startPos : 0;
-    };
-
-    const getCharSpan = (node: Node | null): HTMLSpanElement | null => {
-      let current: Node | null = node;
-      while (current && current !== textRef.current) {
-        if (
-          current instanceof HTMLElement &&
-          current.dataset &&
-          current.dataset.charIndex !== undefined
-        ) {
-          return current as HTMLSpanElement;
-        }
-        current = current.parentNode;
-      }
-      return null;
-    };
-
-    const startSpan = getCharSpan(range.startContainer);
-    const endSpan = getCharSpan(range.endContainer);
-
-    let startIndex: number;
-    let endIndex: number;
-
-    if (startSpan && endSpan) {
-      startIndex = Number(startSpan.dataset.charIndex);
-      endIndex = Number(endSpan.dataset.charIndex);
-    } else {
-      startIndex = getCharIndex(range.startContainer, range.startOffset);
-      endIndex = getCharIndex(range.endContainer, range.endOffset);
-
-      if (Number.isNaN(startIndex) || Number.isNaN(endIndex)) {
-        const startPos = fullText.indexOf(selectedText);
-        if (startPos === -1) return null;
-        startIndex = startPos;
-        endIndex = startPos + selectedText.length - 1;
-      }
-    }
-
-    if (Number.isNaN(startIndex) || Number.isNaN(endIndex)) return null;
-    const from = Math.min(startIndex, endIndex);
-    const to = Math.max(startIndex, endIndex);
-    return { from, to };
-  }, [isMarkupEnabled, question.questionText]);
+    if (!selection.toString().trim()) return null;
+    return resolveMarkupSelectionRange(textRef.current, range);
+  }, [isMarkupEnabled]);
 
   const dismissSelectionToolbar = useCallback(() => {
     window.getSelection()?.removeAllRanges();

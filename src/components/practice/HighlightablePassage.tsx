@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { MarkdownRenderer } from "@/src/components/markdown/MarkdownRenderer";
 import { MarkdownWithCharHighlights } from "@/src/components/practice/markdownWithCharHighlights";
+import { resolveMarkupSelectionRange } from "@/src/utils/markup-selection";
 
 type HighlightStyle =
   | "yellow"
@@ -252,38 +253,9 @@ export function HighlightablePassage({
     if (!selection || selection.isCollapsed || selection.rangeCount === 0)
       return null;
     const range = selection.getRangeAt(0);
-    const selectedText = selection.toString();
-    if (!selectedText) return null;
-    const fullText = passageText || "";
-    const getCharSpan = (node: Node | null): HTMLSpanElement | null => {
-      let current: Node | null = node;
-      while (current && current !== passageRef.current) {
-        if (
-          current instanceof HTMLElement &&
-          current.dataset?.charIndex !== undefined
-        )
-          return current as HTMLSpanElement;
-        current = current.parentNode;
-      }
-      return null;
-    };
-    const startSpan = getCharSpan(range.startContainer);
-    const endSpan = getCharSpan(range.endContainer);
-    let startIndex: number;
-    let endIndex: number;
-    if (startSpan && endSpan) {
-      startIndex = Number(startSpan.dataset.charIndex);
-      endIndex = Number(endSpan.dataset.charIndex);
-    } else {
-      const startPos = fullText.indexOf(selectedText);
-      if (startPos === -1) return null;
-      startIndex = startPos;
-      endIndex = startPos + selectedText.length - 1;
-    }
-    const from = Math.min(startIndex, endIndex);
-    const to = Math.max(startIndex, endIndex);
-    return { from, to };
-  }, [isMarkupEnabled, passageText]);
+    if (!selection.toString().trim()) return null;
+    return resolveMarkupSelectionRange(passageRef.current, range);
+  }, [isMarkupEnabled]);
 
   const dismissSelectionToolbar = useCallback(() => {
     window.getSelection()?.removeAllRanges();

@@ -5,6 +5,13 @@ import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { Card } from "@/src/ui/card";
 import { Button } from "@/src/ui/button";
 import { practiceService } from "@/src/services/practice.service";
+import { submitAnswersInBatches } from "@/src/utils/submit-answers-batch";
+import {
+  isBreakStep,
+  isContinueTestStep,
+  isFinishTestStep,
+  nextStepFromFinishModule,
+} from "@/src/utils/practice-module-flow";
 import { Flag } from "lucide-react";
 
 interface LocalAnswer {
@@ -125,7 +132,7 @@ export default function ModuleReviewPage() {
       }
 
       if (answersArray.length > 0) {
-        await practiceService.submitAnswersBatch(
+        await submitAnswersInBatches(
           attemptId,
           answersArray.map((a) => ({
             questionId: a.questionId,
@@ -133,31 +140,32 @@ export default function ModuleReviewPage() {
             textAnswer: a.textAnswer,
             markedForReview: a.markedForReview,
             eliminatedChoices: a.eliminatedChoices,
-          }))
+          })),
+          { throwIfAllFailed: true },
         );
       }
 
       const result = await practiceService.finishModule(attemptId);
+      const step = nextStepFromFinishModule(result);
 
-      // Eski loadStateCache modul 1 holatini ushlab qolmasin — test sahifasi yangi modulni yuklasin
       if (typeof window !== "undefined") {
         sessionStorage.setItem(`test_force_refresh_state_${attemptId}`, "1");
+        sessionStorage.setItem(`test_module_transition_retries_${attemptId}`, "0");
       }
 
-      switch (result.nextStep) {
-        case "BREAK":
-          router.push(`/dashboard/practice/test/${attemptId}/break`);
-          break;
-        case "MODULE_2":
-        case "NEW_SECTION":
-          router.push(`/dashboard/practice/test/${attemptId}`);
-          break;
-        case "SUBMIT_TEST":
-        case "COMPLETE":
-        default:
-          router.push(`/dashboard/practice/test/${attemptId}/finish`);
-          break;
+      if (isBreakStep(step)) {
+        router.push(`/dashboard/practice/test/${attemptId}/break`);
+        return;
       }
+      if (isContinueTestStep(step)) {
+        router.push(`/dashboard/practice/test/${attemptId}`);
+        return;
+      }
+      if (isFinishTestStep(step)) {
+        router.push(`/dashboard/practice/test/${attemptId}/finish`);
+        return;
+      }
+      router.push(`/dashboard/practice/test/${attemptId}`);
     } catch (err) {
       console.error("[ModuleReview] Continue failed:", err);
       setError(

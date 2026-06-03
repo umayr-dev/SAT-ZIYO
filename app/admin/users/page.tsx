@@ -11,8 +11,6 @@ import {
   Edit,
   ChevronDown,
   ChevronUp,
-  ChevronLeft,
-  ChevronRight,
   Filter,
   X,
 } from "lucide-react";
@@ -25,6 +23,7 @@ import {
   DialogTitle,
 } from "@/src/ui/dialog";
 import { Label } from "@/src/ui/label";
+import { TablePagination } from "@/src/components/admin/TablePagination";
 
 interface User {
   id: string;
@@ -668,62 +667,15 @@ export default function UsersPage() {
             </Card>
           )}
 
-          {/* Pagination */}
-          {totalPages > 0 && (
+          {totalPages > 1 && (
             <Card className="p-4">
-              <div className="flex items-center justify-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const newPage = Math.max(1, currentPage - 1);
-                    setPageAndUrl(newPage);
-                  }}
-                  disabled={currentPage === 1 || loading}
-                  className="flex items-center gap-1"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  Previous
-                </Button>
-
-                {/* Page Numbers */}
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                    (page) => (
-                      <Button
-                        key={page}
-                        variant={currentPage === page ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => {
-                          setPageAndUrl(page);
-                        }}
-                        className={`min-w-[40px] ${
-                          currentPage === page
-                            ? "bg-orange-500 hover:bg-orange-600 text-white border-orange-500"
-                            : ""
-                        }`}
-                        disabled={loading}
-                      >
-                        {page}
-                      </Button>
-                    ),
-                  )}
-                </div>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const newPage = Math.min(totalPages, currentPage + 1);
-                    setPageAndUrl(newPage);
-                  }}
-                  disabled={currentPage === totalPages || loading}
-                  className="flex items-center gap-1"
-                >
-                  Next
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              </div>
+              <TablePagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setPageAndUrl}
+                loading={loading}
+                activeTone="orange"
+              />
             </Card>
           )}
         </>
