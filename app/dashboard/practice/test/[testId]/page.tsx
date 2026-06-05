@@ -53,6 +53,15 @@ import { useCurrentUser } from "@/src/hooks/use-auth";
 import { debounce } from "@/src/utils/request-queue";
 import { submitAnswersInBatches } from "@/src/utils/submit-answers-batch";
 import {
+  buildModulePrefix,
+  clearPracticeAnswersStorage,
+  getAllPracticeAnswersForSubmit,
+  getModuleAnswersForSubmit,
+  removePracticeAnswer,
+  savePracticeAnswer,
+} from "@/src/utils/practice-answers-storage";
+import { syncAnswerToServerIfChanged } from "@/src/utils/practice-answer-sync";
+import {
   isBreakStep,
   isContinueTestStep,
   isFinishTestStep,
@@ -340,6 +349,8 @@ export default function TestTakingPage() {
   const loadTestStateInFlightRef = useRef(false);
   /** Next/Prev/Jump davomida ikkinchi so‘rov ketmasin – 1 so‘rov, keyin 2 kelmasin */
   const navigationInFlightRef = useRef(false);
+  /** questionId → last payload synced to server (avoid duplicate requests on navigation). */
+  const serverSyncedAnswersRef = useRef<Map<string, string>>(new Map());
   /** Faqat so‘nggi so‘ralgan jump indexiga mos javobni state ga yozamiz – kechikkan/aralash javoblar e’tiborsiz */
   const latestRequestedJumpRef = useRef<number | null>(null);
   /** Timer / visibility: oxirgi renderdagi state, handleAnswer stale bo‘lmasin */
@@ -405,15 +416,19 @@ export default function TestTakingPage() {
     [attemptId],
   );
 
-  // Current module prefix so each module's answers are isolated (no carry-over to next module)
+  // Current module prefix — always from testStateRef so saves match the active question during navigation.
   const getCurrentModulePrefix = useCallback(() => {
-    const s = testState?.currentSection?.orderIndex ?? 0;
-    const m = testState?.currentModule?.moduleNumber ?? 1;
-    return `s${s}_m${m}_`;
-  }, [
-    testState?.currentSection?.orderIndex,
-    testState?.currentModule?.moduleNumber,
-  ]);
+    const ts = testStateRef.current;
+    const s = ts?.currentSection?.orderIndex ?? 0;
+    const m = ts?.currentModule?.moduleNumber ?? 1;
+    return buildModulePrefix(s, m);
+  }, []);
+
+  const getModulePrefixForState = useCallback(
+    (sectionOrderIndex: number, moduleNumber: number) =>
+      buildModulePrefix(sectionOrderIndex, moduleNumber),
+    [],
+  );
 
   // sessionStorage: savollarni backenddan olgach saqlash (tez o‘tish uchun). Section+module bo‘yicha ajratamiz – Module 2 da Module 1 savollari chiqmasin.
   const getQuestionsStorageKey = useCallback(
@@ -713,41 +728,25 @@ export default function TestTakingPage() {
         eliminatedChoices?: string[];
       },
     ) => {
-      if (typeof window === "undefined") return;
-
-      try {
-        const key = getStorageKey();
-        const prefix = getCurrentModulePrefix();
-        const stored = localStorage.getItem(key);
-        const answers: Record<string, unknown> = stored
-          ? JSON.parse(stored)
-          : {};
-        answers[prefix + questionIndex] = answer;
-        localStorage.setItem(key, JSON.stringify(answers));
-      } catch (err) {
-        console.error("Failed to save answer to localStorage:", err);
-      }
+      savePracticeAnswer(
+        attemptId,
+        getCurrentModulePrefix(),
+        questionIndex,
+        answer,
+      );
     },
-    [getStorageKey, getCurrentModulePrefix],
+    [attemptId, getCurrentModulePrefix],
   );
 
-  // Remove answer for one question from localStorage (so we don't submit empty)
   const removeAnswerFromStorage = useCallback(
     (questionIndex: number) => {
-      if (typeof window === "undefined") return;
-      try {
-        const key = getStorageKey();
-        const prefix = getCurrentModulePrefix();
-        const stored = localStorage.getItem(key);
-        if (!stored) return;
-        const answers = JSON.parse(stored) as Record<string, unknown>;
-        delete answers[prefix + questionIndex];
-        localStorage.setItem(key, JSON.stringify(answers));
-      } catch (err) {
-        console.error("Failed to remove answer from localStorage:", err);
-      }
+      removePracticeAnswer(
+        attemptId,
+        getCurrentModulePrefix(),
+        questionIndex,
+      );
     },
-    [getStorageKey, getCurrentModulePrefix],
+    [attemptId, getCurrentModulePrefix],
   );
 
   // Load answered set for current module only (so switching module shows 0 answered for new module)
@@ -1343,6 +1342,17 @@ export default function TestTakingPage() {
         if (typeof window !== "undefined") {
           sessionStorage.removeItem(retryKey);
         }
+        try {
+          const pending = getAllPracticeAnswersForSubmit(attemptId);
+          if (pending.length > 0) {
+            await submitAnswersInBatches(attemptId, pending, {
+              throwIfAllFailed: false,
+              toleratePersistedErrors: true,
+            });
+          }
+        } catch (syncErr) {
+          console.warn("[Test Page] requiresFinish answer sync:", syncErr);
+        }
         router.push(`/dashboard/practice/test/${attemptId}/finish`);
         return;
       }
@@ -1589,8 +1599,8 @@ export default function TestTakingPage() {
       questionId,
       choiceId: choiceIdNorm,
       textAnswer: live.textAnswer,
-      markedForReview: flaggedQuestions.has(currentIndex),
-      eliminatedChoices: Array.from(eliminatedChoices),
+      markedForReview: flaggedQuestionsRef.current.has(currentIndex),
+      eliminatedChoices: Array.from(eliminatedChoicesRef.current),
     };
 
     const hasMeta =
@@ -1624,23 +1634,68 @@ export default function TestTakingPage() {
       });
     }
     // NO SERVER REQUEST - answers will be submitted when test finishes
-  }, [
-    hasActualAnswer,
-    saveAnswerToStorage,
-    removeAnswerFromStorage,
-    flaggedQuestions,
-    eliminatedChoices,
-  ]);
+  }, [hasActualAnswer, saveAnswerToStorage, removeAnswerFromStorage]);
 
   useEffect(() => {
     handleAnswerRef.current = handleAnswer;
   }, [handleAnswer]);
 
-  // Tab yopilganda / sahifa yashirilganda oxirgi tanlovni darhol localStorage ga yozish (mobil / vaqt tugashi race)
+  const syncCurrentAnswerToServer = useCallback(async () => {
+    const ts = testStateRef.current;
+    if (!ts?.question) return;
+
+    const live = currentAnswerRef.current;
+    const choiceIdNorm =
+      live.choiceId != null && String(live.choiceId).trim() !== ""
+        ? String(live.choiceId)
+        : undefined;
+
+    if (
+      !hasActualAnswer({
+        choiceId: choiceIdNorm,
+        textAnswer: live.textAnswer,
+      })
+    ) {
+      return;
+    }
+
+    const currentIndex = ts.currentQuestionIndex;
+    await syncAnswerToServerIfChanged(
+      attemptId,
+      {
+        questionId: ts.question.id,
+        choiceId: choiceIdNorm,
+        textAnswer: live.textAnswer,
+        markedForReview: flaggedQuestionsRef.current.has(currentIndex),
+        eliminatedChoices: Array.from(eliminatedChoicesRef.current),
+      },
+      serverSyncedAnswersRef.current,
+    );
+  }, [attemptId, hasActualAnswer]);
+
+  const syncCurrentModuleAnswers = useCallback(async () => {
+    const ts = testStateRef.current;
+    if (!ts?.currentSection || !ts?.currentModule) return null;
+
+    const prefix = getModulePrefixForState(
+      ts.currentSection.orderIndex,
+      ts.currentModule.moduleNumber,
+    );
+    const answers = getModuleAnswersForSubmit(attemptId, prefix);
+    if (answers.length === 0) return null;
+
+    return submitAnswersInBatches(attemptId, answers, {
+      throwIfAllFailed: false,
+      toleratePersistedErrors: true,
+    });
+  }, [attemptId, getModulePrefixForState]);
+
+  // Tab yopilganda / sahifa yashirilganda oxirgi tanlovni localStorage + serverga yozish
   useEffect(() => {
     const flush = () => {
       if (document.visibilityState === "hidden") {
         handleAnswerRef.current();
+        void syncCurrentAnswerToServer();
       }
     };
     const onPageHide = () => handleAnswerRef.current();
@@ -1650,12 +1705,14 @@ export default function TestTakingPage() {
       document.removeEventListener("visibilitychange", flush);
       window.removeEventListener("pagehide", onPageHide);
     };
-  }, []);
+  }, [syncCurrentAnswerToServer]);
 
-  // Navigate to module review page (no server calls, only local state). Persist timer so it is not reset on return.
-  const handleGoToModuleReview = useCallback(() => {
+  // Navigate to module review page. Persist timer so it is not reset on return.
+  const handleGoToModuleReview = useCallback(async () => {
     if (!testState?.currentModule || totalQuestions === null) return;
     handleAnswer();
+    await syncCurrentAnswerToServer();
+    await syncCurrentModuleAnswers();
     if (typeof window !== "undefined" && remainingTimeSeconds != null) {
       const key = `test_timer_${attemptId}_s${testState.currentSection.orderIndex}_m${testState.currentModule.moduleNumber}`;
       sessionStorage.setItem(key, String(remainingTimeSeconds));
@@ -1671,6 +1728,8 @@ export default function TestTakingPage() {
     attemptId,
     handleAnswer,
     router,
+    syncCurrentAnswerToServer,
+    syncCurrentModuleAnswers,
     testState,
     totalQuestions,
     remainingTimeSeconds,
@@ -1687,7 +1746,7 @@ export default function TestTakingPage() {
       QUESTIONS_PER_MODULE[testState.currentSection?.type ?? "ENGLISH"] ??
       27;
     if (nextIndex >= cap) {
-      handleGoToModuleReview();
+      await handleGoToModuleReview();
       return;
     }
 
@@ -1701,6 +1760,7 @@ export default function TestTakingPage() {
       setSubmitting(true);
 
       handleAnswer();
+      await syncCurrentAnswerToServer();
 
       // Use /next endpoint for reliable sequential navigation (avoids goto index mismatch bugs)
       const nextState = await practiceService.nextQuestion(attemptId);
@@ -1733,6 +1793,7 @@ export default function TestTakingPage() {
       setSubmitting(true);
 
       handleAnswer();
+      await syncCurrentAnswerToServer();
 
       // Use /previous endpoint for reliable sequential navigation
       const prevState = await practiceService.previousQuestion(attemptId);
@@ -1775,6 +1836,7 @@ export default function TestTakingPage() {
         setSubmitting(true);
 
         handleAnswer();
+        await syncCurrentAnswerToServer();
 
         const state = await runGoto(index);
         // Faqat shu jump uchun so‘ralgan index bo‘lsa state yangilaymiz (kechikkan/boshqa savol javobini e’tiborsiz qilamiz)
@@ -1881,9 +1943,12 @@ export default function TestTakingPage() {
 
     const result = await submitAnswersInBatches(attemptId, allAnswers, {
       throwIfAllFailed: true,
+      toleratePersistedErrors: true,
     });
 
-    if (result.failed > 0) {
+    if (result.processed > 0 || result.skipped > 0) {
+      clearPracticeAnswersStorage(attemptId);
+    } else if (result.failed > 0) {
       console.warn(
         `[Test Page] ${result.failed}/${result.total} answer(s) failed to save`,
       );
@@ -1995,6 +2060,7 @@ export default function TestTakingPage() {
     try {
       setSubmitting(true);
       handleAnswer();
+      await syncCurrentAnswerToServer();
       await Promise.all([submitAllPendingAnswers(), submitAllHighlights()]);
 
       const result = await practiceService.finishModule(attemptId);
@@ -2053,6 +2119,7 @@ export default function TestTakingPage() {
     submitAllPendingAnswers,
     submitAllHighlights,
     handleAnswer,
+    syncCurrentAnswerToServer,
     continueToNextModuleAfterFinish,
   ]);
 

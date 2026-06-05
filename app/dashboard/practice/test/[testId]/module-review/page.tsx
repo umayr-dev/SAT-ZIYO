@@ -7,6 +7,10 @@ import { Button } from "@/src/ui/button";
 import { practiceService } from "@/src/services/practice.service";
 import { submitAnswersInBatches } from "@/src/utils/submit-answers-batch";
 import {
+  getModuleAnswersForSubmit,
+  removePracticeAnswersByPrefix,
+} from "@/src/utils/practice-answers-storage";
+import {
   isBreakStep,
   isContinueTestStep,
   isFinishTestStep,
@@ -22,6 +26,36 @@ interface LocalAnswer {
   eliminatedChoices?: string[];
 }
 
+async function syncModuleAnswers(
+  attemptId: string,
+  modulePrefix: string,
+): Promise<{
+  total: number;
+  processed: number;
+  failed: number;
+  skipped: number;
+}> {
+  const answers = getModuleAnswersForSubmit(attemptId, modulePrefix);
+  if (answers.length === 0) {
+    return { total: 0, processed: 0, failed: 0, skipped: 0 };
+  }
+
+  let result = await submitAnswersInBatches(attemptId, answers, {
+    throwIfAllFailed: false,
+    toleratePersistedErrors: true,
+  });
+
+  if (result.failed > 0 && result.processed === 0 && result.skipped === 0) {
+    result = await submitAnswersInBatches(attemptId, answers, {
+      batchSize: 1,
+      throwIfAllFailed: false,
+      toleratePersistedErrors: true,
+    });
+  }
+
+  return result;
+}
+
 export default function ModuleReviewPage() {
   const router = useRouter();
   const params = useParams();
@@ -35,7 +69,7 @@ export default function ModuleReviewPage() {
   const totalParam = searchParams.get("total");
   const totalQuestions = useMemo(
     () => (totalParam ? parseInt(totalParam, 10) || 0 : 0),
-    [totalParam]
+    [totalParam],
   );
 
   const [answeredSet, setAnsweredSet] = useState<Set<number>>(new Set());
@@ -46,10 +80,9 @@ export default function ModuleReviewPage() {
 
   const getStorageKey = useCallback(
     () => `test_answers_${attemptId}`,
-    [attemptId]
+    [attemptId],
   );
 
-  // Test sahifasi bilan bir xil: kalitlar s{sectionOrderIndex}_m{moduleNumber}_{index}; URL da section 1-based
   const modulePrefix = useMemo(() => {
     const sectionIndex =
       section != null ? Math.max(0, parseInt(String(section), 10) - 1) : 0;
@@ -57,9 +90,10 @@ export default function ModuleReviewPage() {
     return `s${sectionIndex}_m${m}_`;
   }, [section, moduleParam]);
 
-  useEffect(() => {
+  const refreshAnsweredFromStorage = useCallback(() => {
     if (!totalQuestions || typeof window === "undefined") {
-      setLoading(false);
+      setAnsweredSet(new Set());
+      setFlaggedSet(new Set());
       return;
     }
 
@@ -68,7 +102,6 @@ export default function ModuleReviewPage() {
       if (!stored) {
         setAnsweredSet(new Set());
         setFlaggedSet(new Set());
-        setLoading(false);
         return;
       }
       const answers = JSON.parse(stored) as Record<string, LocalAnswer>;
@@ -89,14 +122,17 @@ export default function ModuleReviewPage() {
     } catch (e) {
       console.error(
         "[ModuleReview] Failed to read answers from localStorage:",
-        e
+        e,
       );
       setAnsweredSet(new Set());
       setFlaggedSet(new Set());
-    } finally {
-      setLoading(false);
     }
   }, [getStorageKey, totalQuestions, modulePrefix]);
+
+  useEffect(() => {
+    refreshAnsweredFromStorage();
+    setLoading(false);
+  }, [refreshAnsweredFromStorage]);
 
   const answeredCount = answeredSet.size;
   const flaggedCount = flaggedSet.size;
@@ -115,34 +151,22 @@ export default function ModuleReviewPage() {
       setSubmitting(true);
       setError(null);
 
-      // Faqat joriy modul javoblarini yuborish (kalitlar s{section}_m{module}_{index})
-      let answersArray: LocalAnswer[] = [];
-      if (typeof window !== "undefined") {
-        try {
-          const stored = localStorage.getItem(getStorageKey());
-          if (stored) {
-            const answers = JSON.parse(stored) as Record<string, LocalAnswer>;
-            answersArray = Object.entries(answers)
-              .filter(([key]) => key.startsWith(modulePrefix))
-              .map(([, a]) => a);
-          }
-        } catch (e) {
-          console.error("[ModuleReview] Failed to parse answers:", e);
-        }
+      const syncResult = await syncModuleAnswers(attemptId, modulePrefix);
+
+      if (
+        syncResult.total > 0 &&
+        syncResult.failed > 0 &&
+        syncResult.processed === 0 &&
+        syncResult.skipped === 0
+      ) {
+        setError(
+          `Failed to save ${syncResult.failed} answer(s) to the server. Check your connection and try again.`,
+        );
+        return;
       }
 
-      if (answersArray.length > 0) {
-        await submitAnswersInBatches(
-          attemptId,
-          answersArray.map((a) => ({
-            questionId: a.questionId,
-            choiceId: a.choiceId,
-            textAnswer: a.textAnswer,
-            markedForReview: a.markedForReview,
-            eliminatedChoices: a.eliminatedChoices,
-          })),
-          { throwIfAllFailed: true },
-        );
+      if (syncResult.processed > 0 || syncResult.skipped > 0) {
+        removePracticeAnswersByPrefix(attemptId, modulePrefix);
       }
 
       const result = await practiceService.finishModule(attemptId);
@@ -150,7 +174,10 @@ export default function ModuleReviewPage() {
 
       if (typeof window !== "undefined") {
         sessionStorage.setItem(`test_force_refresh_state_${attemptId}`, "1");
-        sessionStorage.setItem(`test_module_transition_retries_${attemptId}`, "0");
+        sessionStorage.setItem(
+          `test_module_transition_retries_${attemptId}`,
+          "0",
+        );
       }
 
       if (isBreakStep(step)) {
@@ -171,7 +198,7 @@ export default function ModuleReviewPage() {
       setError(
         err instanceof Error
           ? err.message
-          : "Failed to continue to next module. Please try again."
+          : "Failed to continue to next module. Please try again.",
       );
     } finally {
       setSubmitting(false);
@@ -189,7 +216,6 @@ export default function ModuleReviewPage() {
   return (
     <div className="min-h-screen bg-white py-10">
       <div className="container mx-auto px-4 max-w-5xl">
-        {/* Header */}
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
             Module Complete! 🎉
@@ -205,7 +231,6 @@ export default function ModuleReviewPage() {
           </p>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <Card className="p-4 border border-orange-200 bg-orange-50">
             <p className="text-xs uppercase tracking-wide text-orange-700 font-semibold mb-1">
@@ -231,7 +256,6 @@ export default function ModuleReviewPage() {
           </Card>
         </div>
 
-        {/* Question grid */}
         <Card className="p-6 mb-8">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
             Question Navigator
@@ -279,10 +303,21 @@ export default function ModuleReviewPage() {
         </Card>
 
         {error && (
-          <p className="text-sm text-red-600 mb-4 text-center">{error}</p>
+          <div className="mb-4 text-center space-y-3">
+            <p className="text-sm text-red-600">{error}</p>
+            <Button
+              variant="outline"
+              onClick={() => {
+                refreshAnsweredFromStorage();
+                void handleContinue();
+              }}
+              disabled={submitting}
+            >
+              Try again
+            </Button>
+          </div>
         )}
 
-        {/* Continue button */}
         <div className="flex justify-center">
           <Button
             onClick={handleContinue}

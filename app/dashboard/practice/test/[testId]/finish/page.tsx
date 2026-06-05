@@ -23,6 +23,10 @@ import {
 } from "@/src/services/practice.service";
 import { ApiClientError } from "@/src/lib/api-client";
 import { submitAnswersInBatches } from "@/src/utils/submit-answers-batch";
+import {
+  clearPracticeAnswersStorage,
+  getAllPracticeAnswersForSubmit,
+} from "@/src/utils/practice-answers-storage";
 import { MarkdownRenderer } from "@/src/components/markdown/MarkdownRenderer";
 import { CommentsSection } from "@/src/components/comments/CommentsSection";
 import { TestAnalytics } from "@/src/components/practice/TestAnalytics";
@@ -61,59 +65,24 @@ export default function FinishTestPage() {
   // Get storage key for highlights
   const getHighlightsStorageKey = useCallback(() => `test_highlights_${attemptId}`, [attemptId]);
 
-  // Get all answers from all modules for submit (keys s{section}_m{module}_{index})
-  const getAllAnswersForSubmit = useCallback((): Array<{
-    questionId: string;
-    choiceId?: string;
-    textAnswer?: string;
-    markedForReview?: boolean;
-    eliminatedChoices?: string[];
-  }> => {
-    if (typeof window === "undefined") return [];
-    try {
-      const stored = localStorage.getItem(getStorageKey());
-      if (!stored) return [];
-      const answers = JSON.parse(stored) as Record<string, Record<string, unknown>>;
-      return Object.keys(answers)
-        .filter((k) => /^s\d+_m\d+_\d+$/.test(k))
-        .filter((k) => {
-          const entry = answers[k] as { choiceId?: string; textAnswer?: string };
-          return !!(
-            entry?.choiceId ||
-            (entry?.textAnswer != null && String(entry.textAnswer).trim() !== "")
-          );
-        })
-        .map((k) => answers[k] as {
-          questionId: string;
-          choiceId?: string;
-          textAnswer?: string;
-          markedForReview?: boolean;
-          eliminatedChoices?: string[];
-        });
-    } catch (err) {
-      console.error("Failed to get answers from localStorage:", err);
-      return [];
-    }
-  }, [getStorageKey]);
-
-  // Submit all pending answers from localStorage (all modules) to server
+  // Submit any remaining answers from localStorage (best-effort; modules may already be synced)
   const submitAllPendingAnswers = useCallback(async () => {
-    const allAnswers = getAllAnswersForSubmit().filter((a) => !!a.questionId);
-
+    const allAnswers = getAllPracticeAnswersForSubmit(attemptId);
     if (allAnswers.length === 0) {
-      return;
+      return { processed: 0, failed: 0, skipped: 0, total: 0 };
     }
 
-    await submitAnswersInBatches(attemptId, allAnswers, {
-      throwIfAllFailed: true,
+    const result = await submitAnswersInBatches(attemptId, allAnswers, {
+      throwIfAllFailed: false,
+      toleratePersistedErrors: true,
     });
 
-    try {
-      localStorage.removeItem(getStorageKey());
-    } catch (err) {
-      console.error("Failed to clear localStorage:", err);
+    if (result.processed > 0 || result.skipped > 0) {
+      clearPracticeAnswersStorage(attemptId);
     }
-  }, [attemptId, getAllAnswersForSubmit, getStorageKey]);
+
+    return result;
+  }, [attemptId]);
 
   // Submit all highlights from localStorage
   const submitAllHighlights = useCallback(async () => {
@@ -175,36 +144,45 @@ export default function FinishTestPage() {
     }
   }, [attemptId, getHighlightsStorageKey]);
 
+  const loadResultsAfterSubmit = useCallback(async () => {
+    try {
+      const testResults = await practiceService.submitTest(attemptId);
+      setResults(testResults);
+      clearPracticeAnswersStorage(attemptId);
+      return;
+    } catch (submitErr) {
+      const isNotInProgress =
+        submitErr instanceof ApiClientError &&
+        submitErr.status === 400 &&
+        /not in progress/i.test(submitErr.message ?? "");
+      if (isNotInProgress) {
+        const testResults = await practiceService.getResults(attemptId);
+        setResults(testResults);
+        clearPracticeAnswersStorage(attemptId);
+        return;
+      }
+      throw submitErr;
+    }
+  }, [attemptId]);
+
   const submitTest = useCallback(async () => {
     try {
       setSubmitting(true);
       setError("");
 
-      // First, submit all answers and highlights from localStorage
-      await Promise.all([
+      const [syncResult] = await Promise.all([
         submitAllPendingAnswers(),
         submitAllHighlights(),
       ]);
 
-      // Then submit the test for scoring
-      try {
-        const testResults = await practiceService.submitTest(attemptId);
-        setResults(testResults);
-      } catch (submitErr) {
-        // Backend may return "This attempt is not in progress" if already submitted (e.g. refresh, double submit, timer ended)
-        const isNotInProgress =
-          submitErr instanceof ApiClientError &&
-          submitErr.status === 400 &&
-          /not in progress/i.test(submitErr.message ?? "");
-        if (isNotInProgress) {
-          const testResults = await practiceService.getResults(attemptId);
-          setResults(testResults);
-        } else {
-          throw submitErr;
-        }
+      if (syncResult && syncResult.failed > 0 && syncResult.processed === 0 && syncResult.skipped === 0) {
+        console.warn(
+          `[Finish] ${syncResult.failed}/${syncResult.total} local answers failed to sync; attempting test submit anyway`,
+        );
       }
 
-      // Get testId from attempt
+      await loadResultsAfterSubmit();
+
       try {
         const attempts = await practiceService.getMyAttempts();
         const attempt = attempts.find((a) => a.id === attemptId);
@@ -220,7 +198,7 @@ export default function FinishTestPage() {
       setLoading(false);
       setSubmitting(false);
     }
-  }, [attemptId, submitAllPendingAnswers, submitAllHighlights]);
+  }, [attemptId, submitAllPendingAnswers, submitAllHighlights, loadResultsAfterSubmit]);
 
   useEffect(() => {
     submitTest();
@@ -304,13 +282,23 @@ export default function FinishTestPage() {
       <div className="container mx-auto px-4 py-8">
         <Card className="p-6">
           <p className="text-red-700">{error || "Failed to load results"}</p>
-          <Button
-            variant="outline"
-            onClick={() => router.push("/dashboard/practice")}
-            className="mt-4"
-          >
-            Back to Tests
-          </Button>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Button
+              onClick={() => {
+                setLoading(true);
+                setError("");
+                void submitTest();
+              }}
+            >
+              Try again
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => router.push("/dashboard/practice")}
+            >
+              Back to Tests
+            </Button>
+          </div>
         </Card>
       </div>
     );
