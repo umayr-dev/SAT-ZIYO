@@ -338,6 +338,12 @@ export default function TestTakingPage() {
   const timeUpHandledRef = useRef(false);
   const wasFullscreenRef = useRef(false);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  /** Fullscreen countdown 0 → save session (avoid abandon + double save). */
+  const saveSessionAndExitRef = useRef<() => Promise<void>>(() =>
+    Promise.resolve(),
+  );
+  const sessionSaveInFlightRef = useRef(false);
+  const remainingTimeSecondsRef = useRef<number | null>(null);
   const loadAnswersTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastAnswersLoadRef = useRef<number>(0);
   const ANSWERS_CACHE_DURATION = 15000; // 15 sec – kam so‘rov uchun
@@ -1016,26 +1022,20 @@ export default function TestTakingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attemptId]);
 
-  const handleCancelTest = useCallback(async () => {
-    try {
-      await practiceService.abandonAttempt(attemptId);
-    } catch (err) {
-      // Attempt already completed/abandoned – redirect without error
-      if (
-        err instanceof ApiClientError &&
-        err.status === 400 &&
-        /not in progress/i.test(err.message ?? "")
-      ) {
-        router.push("/dashboard/practice");
-        return;
-      }
-      console.error("Failed to abandon attempt:", err);
+  useEffect(() => {
+    remainingTimeSecondsRef.current = remainingTimeSeconds;
+  }, [remainingTimeSeconds]);
+
+  // Pause module timer while user must choose fullscreen (progress stays in state)
+  useEffect(() => {
+    if (!showFullscreenWarning || fullscreenModalReason !== "exited") return;
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
     }
-    router.push("/dashboard/practice");
-  }, [attemptId, router]);
+  }, [showFullscreenWarning, fullscreenModalReason]);
 
   const startCountdown = useCallback(() => {
-    // Clear existing countdown
     if (countdownIntervalRef.current) {
       clearInterval(countdownIntervalRef.current);
     }
@@ -1045,9 +1045,8 @@ export default function TestTakingPage() {
         if (prev <= 1) {
           clearInterval(interval);
           countdownIntervalRef.current = null;
-          // 10s tugasa va fullscreen HALA yo'q bo'lsa – testni cancel qilamiz
           if (!document.fullscreenElement) {
-            handleCancelTest();
+            void saveSessionAndExitRef.current();
           }
           return 0;
         }
@@ -1056,7 +1055,7 @@ export default function TestTakingPage() {
     }, 1000);
 
     countdownIntervalRef.current = interval;
-  }, [handleCancelTest]);
+  }, []);
 
   // Check fullscreen on mount
   useEffect(() => {
@@ -1369,21 +1368,56 @@ export default function TestTakingPage() {
         return;
       }
 
-      setTestState(state);
-      loadStateCache = { attemptId, state, ts: Date.now() };
-      setEliminatedChoices(new Set()); // Clear eliminations when loading new question
-      const qKey = `test_questions_${attemptId}_s${state.currentSection.orderIndex}_m${state.currentModule.moduleNumber}`;
-      saveQuestionToLocal(state.currentQuestionIndex, state.question, qKey);
+      let activeState = state;
 
-      // Load saved answer for current question from current module only (use state prefix, not testState)
-      const statePrefix = `s${state.currentSection.orderIndex}_m${state.currentModule.moduleNumber}_`;
+      if (typeof window !== "undefined") {
+        const sessionRaw = sessionStorage.getItem(`test_session_${attemptId}`);
+        if (sessionRaw) {
+          sessionStorage.removeItem(`test_session_${attemptId}`);
+          try {
+            const session = JSON.parse(sessionRaw) as {
+              sectionOrderIndex?: number;
+              moduleNumber?: number;
+              questionIndex?: number;
+            };
+            const sameModule =
+              session.sectionOrderIndex === state.currentSection.orderIndex &&
+              session.moduleNumber === state.currentModule.moduleNumber;
+            const targetIndex = session.questionIndex;
+            if (
+              sameModule &&
+              typeof targetIndex === "number" &&
+              targetIndex >= 0 &&
+              targetIndex !== state.currentQuestionIndex
+            ) {
+              activeState = await practiceService.jumpToQuestion(
+                attemptId,
+                targetIndex,
+              );
+            }
+          } catch (e) {
+            console.warn("[Test Page] Session restore jump failed:", e);
+          }
+        }
+      }
+
+      setTestState(activeState);
+      loadStateCache = { attemptId, state: activeState, ts: Date.now() };
+      setEliminatedChoices(new Set());
+      const qKey = `test_questions_${attemptId}_s${activeState.currentSection.orderIndex}_m${activeState.currentModule.moduleNumber}`;
+      if (activeState.question) {
+        saveQuestionToLocal(activeState.currentQuestionIndex, activeState.question, qKey);
+      }
+
+      const statePrefix = `s${activeState.currentSection.orderIndex}_m${activeState.currentModule.moduleNumber}_`;
       const key = getStorageKey();
       const raw =
         typeof window !== "undefined" ? localStorage.getItem(key) : null;
       const answersMap = raw
         ? (JSON.parse(raw) as Record<string, Record<string, unknown>>)
         : {};
-      const savedEntry = answersMap[statePrefix + state.currentQuestionIndex];
+      const savedEntry =
+        answersMap[statePrefix + activeState.currentQuestionIndex];
       const savedAnswer = savedEntry as
         | {
             choiceId?: string;
@@ -1407,7 +1441,8 @@ export default function TestTakingPage() {
         if (savedAnswer.markedForReview) {
           setFlaggedQuestions((prev) => {
             const next = new Set(prev);
-            next.add(state.currentQuestionIndex);
+            next.add(activeState.currentQuestionIndex);
+            flaggedQuestionsRef.current = next;
             return next;
           });
         }
@@ -1416,22 +1451,19 @@ export default function TestTakingPage() {
       }
 
       // Set totalQuestions from current module, capped to SAT standard (27/22) so navigation and goto stay correct
-      if (state?.currentModule?.totalQuestions) {
-        const sectionType = state.currentSection?.type ?? "ENGLISH";
+      if (activeState?.currentModule?.totalQuestions) {
+        const sectionType = activeState.currentSection?.type ?? "ENGLISH";
         const cap = QUESTIONS_PER_MODULE[sectionType] ?? 27;
-        const total = Math.min(state.currentModule.totalQuestions, cap);
+        const total = Math.min(activeState.currentModule.totalQuestions, cap);
         setTotalQuestions(total);
-
-        // Preloading disabled: it uses goto which advances server cursor and breaks /next//previous navigation
       } else {
         console.warn(
           "[Test Page] No totalQuestions in currentModule:",
-          state.currentModule,
+          activeState.currentModule,
         );
       }
 
-      // Initialize timer: restore from sessionStorage if returning from module review, else set from module duration
-      const timerKey = `test_timer_${attemptId}_s${state.currentSection.orderIndex}_m${state.currentModule.moduleNumber}`;
+      const timerKey = `test_timer_${attemptId}_s${activeState.currentSection.orderIndex}_m${activeState.currentModule.moduleNumber}`;
       const savedTime =
         typeof window !== "undefined" ? sessionStorage.getItem(timerKey) : null;
       const savedSeconds = savedTime != null ? Number(savedTime) : NaN;
@@ -1442,14 +1474,13 @@ export default function TestTakingPage() {
       ) {
         timeUpHandledRef.current = false;
         setRemainingTimeSeconds(savedSeconds);
-      } else if (state?.currentModule?.duration) {
+      } else if (activeState?.currentModule?.duration) {
         timeUpHandledRef.current = false;
-        const durationSeconds = state.currentModule.duration * 60;
+        const durationSeconds = activeState.currentModule.duration * 60;
         setRemainingTimeSeconds(durationSeconds);
       }
 
-      // Answered questions: only current module (prefix s{section}_m{module}_)
-      const statePrefixApi = `s${state.currentSection.orderIndex}_m${state.currentModule.moduleNumber}_`;
+      const statePrefixApi = `s${activeState.currentSection.orderIndex}_m${activeState.currentModule.moduleNumber}_`;
       try {
         const key = getStorageKey();
         const raw = localStorage.getItem(key);
@@ -1459,26 +1490,40 @@ export default function TestTakingPage() {
             Record<string, unknown>
           >;
           const answeredSet = new Set<number>();
+          const flaggedSet = new Set<number>();
           Object.keys(answers).forEach((k) => {
             if (!k.startsWith(statePrefixApi)) return;
             const entry = answers[k] as {
               choiceId?: string;
               textAnswer?: string;
+              markedForReview?: boolean;
             };
+            const idx = parseInt(k.slice(statePrefixApi.length), 10);
+            if (Number.isNaN(idx)) return;
             if (
               entry &&
               (!!entry.choiceId ||
                 (entry.textAnswer != null &&
                   String(entry.textAnswer).trim() !== ""))
             ) {
-              const idx = parseInt(k.slice(statePrefixApi.length), 10);
-              if (!Number.isNaN(idx)) answeredSet.add(idx);
+              answeredSet.add(idx);
+            }
+            if (entry?.markedForReview) {
+              flaggedSet.add(idx);
             }
           });
           setAnsweredQuestions(answeredSet);
-        } else setAnsweredQuestions(new Set());
+          setFlaggedQuestions(flaggedSet);
+          flaggedQuestionsRef.current = flaggedSet;
+        } else {
+          setAnsweredQuestions(new Set());
+          setFlaggedQuestions(new Set());
+          flaggedQuestionsRef.current = new Set();
+        }
       } catch {
         setAnsweredQuestions(new Set());
+        setFlaggedQuestions(new Set());
+        flaggedQuestionsRef.current = new Set();
       }
     } catch (err) {
       console.error("[Test Page] Failed to load test state:", err);
@@ -1934,26 +1979,34 @@ export default function TestTakingPage() {
   }
 
   // Submit all pending answers from localStorage (all modules) to server
-  const submitAllPendingAnswers = useCallback(async () => {
-    const allAnswers = getAllAnswersForSubmit();
+  const submitAllPendingAnswers = useCallback(
+    async (options?: { clearStorage?: boolean }) => {
+      const allAnswers = getAllAnswersForSubmit();
 
-    if (allAnswers.length === 0) {
-      return;
-    }
+      if (allAnswers.length === 0) {
+        return;
+      }
 
-    const result = await submitAnswersInBatches(attemptId, allAnswers, {
-      throwIfAllFailed: true,
-      toleratePersistedErrors: true,
-    });
+      const result = await submitAnswersInBatches(attemptId, allAnswers, {
+        throwIfAllFailed: options?.clearStorage === true,
+        toleratePersistedErrors: true,
+      });
 
-    if (result.processed > 0 || result.skipped > 0) {
-      clearPracticeAnswersStorage(attemptId);
-    } else if (result.failed > 0) {
-      console.warn(
-        `[Test Page] ${result.failed}/${result.total} answer(s) failed to save`,
-      );
-    }
-  }, [attemptId, getAllAnswersForSubmit]);
+      if (
+        options?.clearStorage === true &&
+        (result.processed > 0 || result.skipped > 0)
+      ) {
+        clearPracticeAnswersStorage(attemptId);
+      } else if (result.failed > 0) {
+        console.warn(
+          `[Test Page] ${result.failed}/${result.total} answer(s) failed to save`,
+        );
+      }
+
+      return result;
+    },
+    [attemptId, getAllAnswersForSubmit],
+  );
 
   function handleAnswerChange(answer: {
     choiceId?: string;
@@ -2123,39 +2176,70 @@ export default function TestTakingPage() {
     continueToNextModuleAfterFinish,
   ]);
 
-  // Handle save and exit
-  const handleSaveAndExit = useCallback(async () => {
-    try {
-      // Submit all pending answers and highlights before exiting
-      await Promise.all([submitAllPendingAnswers(), submitAllHighlights()]);
+  // Save session and leave (fullscreen timeout, Save & Exit menu) — attempt stays IN_PROGRESS
+  const saveTestSessionAndExit = useCallback(async () => {
+    if (sessionSaveInFlightRef.current) return;
+    sessionSaveInFlightRef.current = true;
 
-      // Persist remaining timer for current section/module so user can continue later
-      if (
-        typeof window !== "undefined" &&
-        testState?.currentSection &&
-        testState?.currentModule &&
-        remainingTimeSeconds != null
-      ) {
-        const timerKey = `test_timer_${attemptId}_s${testState.currentSection.orderIndex}_m${testState.currentModule.moduleNumber}`;
-        sessionStorage.setItem(timerKey, String(remainingTimeSeconds));
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+
+    try {
+      handleAnswerRef.current();
+
+      try {
+        await syncCurrentAnswerToServer();
+        await syncCurrentModuleAnswers();
+        await submitAllPendingAnswers({ clearStorage: false });
+        await submitAllHighlights();
+      } catch (syncErr) {
+        console.warn("[Test Page] Session save sync (partial):", syncErr);
       }
 
-      // Navigate to practice page
+      const ts = testStateRef.current;
+      const timeLeft = remainingTimeSecondsRef.current;
+
+      if (typeof window !== "undefined" && ts?.currentSection && ts?.currentModule) {
+        if (timeLeft != null) {
+          const timerKey = `test_timer_${attemptId}_s${ts.currentSection.orderIndex}_m${ts.currentModule.moduleNumber}`;
+          sessionStorage.setItem(timerKey, String(timeLeft));
+        }
+        sessionStorage.setItem(
+          `test_session_${attemptId}`,
+          JSON.stringify({
+            sectionOrderIndex: ts.currentSection.orderIndex,
+            moduleNumber: ts.currentModule.moduleNumber,
+            questionIndex: ts.currentQuestionIndex,
+            remainingTimeSeconds: timeLeft,
+            savedAt: Date.now(),
+          }),
+        );
+      }
+
       router.push("/dashboard/practice");
     } catch (err) {
-      console.error("Failed to save and exit:", err);
-      // Still navigate even if save fails
+      console.error("Failed to save test session:", err);
       router.push("/dashboard/practice");
     }
   }, [
     attemptId,
-    remainingTimeSeconds,
     router,
-    submitAllPendingAnswers,
     submitAllHighlights,
-    testState?.currentModule,
-    testState?.currentSection,
+    submitAllPendingAnswers,
+    syncCurrentAnswerToServer,
+    syncCurrentModuleAnswers,
   ]);
+
+  useEffect(() => {
+    saveSessionAndExitRef.current = saveTestSessionAndExit;
+  }, [saveTestSessionAndExit]);
+
+  // Handle save and exit (menu)
+  const handleSaveAndExit = useCallback(async () => {
+    await saveTestSessionAndExit();
+  }, [saveTestSessionAndExit]);
 
   // Timer countdown effect – 00:00 da bir marta handleTimeUp, keyin keyingi module/break/finish
   useEffect(() => {
@@ -2277,13 +2361,13 @@ export default function TestTakingPage() {
             {countdown > 0 && (
               <p className="text-xs text-gray-500">
                 {fullscreenModalReason === "exited"
-                  ? `${countdown} sec to choose — or test will save and finish.`
+                  ? `${countdown} sec to return to fullscreen — or your progress will be saved.`
                   : "Choose an option below."}
               </p>
             )}
             {countdown === 0 && (
               <p className="text-xs text-amber-600 font-medium">
-                Saving answers and finishing…
+                Saving your progress…
               </p>
             )}
             <div className="space-y-2">
