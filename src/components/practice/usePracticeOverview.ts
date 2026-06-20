@@ -42,7 +42,8 @@ export function usePracticeOverview() {
   return useQuery<PracticeOverview>({
     queryKey: ["practice-overview"],
     queryFn: fetchPracticeOverview,
-    staleTime: 60_000, // 1 minute cache
-    refetchOnWindowFocus: false,
+    staleTime: 30_000,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 }

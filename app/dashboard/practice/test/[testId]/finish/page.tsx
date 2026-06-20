@@ -27,6 +27,7 @@ import {
   clearPracticeAnswersStorage,
   getAllPracticeAnswersForSubmit,
 } from "@/src/utils/practice-answers-storage";
+import { clearPausedTest } from "@/src/utils/practice-paused-sessions";
 import { MarkdownRenderer } from "@/src/components/markdown/MarkdownRenderer";
 import { CommentsSection } from "@/src/components/comments/CommentsSection";
 import { TestAnalytics } from "@/src/components/practice/TestAnalytics";
@@ -182,6 +183,7 @@ export default function FinishTestPage() {
       }
 
       await loadResultsAfterSubmit();
+      clearPausedTest(attemptId);
 
       try {
         const attempts = await practiceService.getMyAttempts();

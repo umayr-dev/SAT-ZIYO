@@ -6,6 +6,7 @@ import { Card } from "@/src/ui/card";
 import { Button } from "@/src/ui/button";
 import { Loading } from "@/src/ui/loading";
 import { practiceService, Test } from "@/src/services/practice.service";
+import { clearPausedTest } from "@/src/utils/practice-paused-sessions";
 import { Calculator, Coffee, ClipboardList, Pin } from "lucide-react";
 
 export default function PreTestInstructionsPage() {
@@ -54,6 +55,7 @@ export default function PreTestInstructionsPage() {
         for (const attempt of inProgressAttempts) {
           try {
             await practiceService.abandonAttempt(attempt.id);
+            clearPausedTest(attempt.id);
           } catch (e) {
             console.warn(
               "[StartPage] Failed to abandon in-progress attempt:",

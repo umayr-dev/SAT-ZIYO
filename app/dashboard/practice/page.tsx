@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Card } from "@/src/ui/card";
@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { usePracticeOverview } from "@/src/components/practice/usePracticeOverview";
 import type { Attempt, Test } from "@/src/services/practice.service";
+import { normalizeAttempt } from "@/src/utils/practice-attempt-status";
+import { listPausedTests } from "@/src/utils/practice-paused-sessions";
 
 type Tab = "all" | "in_progress" | "completed";
 
@@ -53,22 +55,40 @@ export default function PracticePage() {
   const router = useRouter();
   const { data, isLoading, error } = usePracticeOverview();
 
-  const tests = useMemo(() => data?.tests ?? [], [data?.tests]);
-
-  // Ignore ABANDONED attempts everywhere
-  const attempts = useMemo(
-    () => (data?.attempts ?? []).filter((a) => a.status !== "ABANDONED"),
-    [data?.attempts],
-  );
-
   const [activeTab, setActiveTab] = useState<Tab>("all");
   /** Sinxron qulf: state yangilanishidan oldin ikkinchi bosishni bloklaydi */
   const continueLockRef = useRef(false);
   const [continuingAttemptId, setContinuingAttemptId] = useState<string | null>(
     null,
   );
+  const [localPaused, setLocalPaused] = useState(() =>
+    typeof window !== "undefined" ? listPausedTests() : [],
+  );
 
-  // ---- Helpers ----
+  useEffect(() => {
+    setLocalPaused(listPausedTests());
+  }, [data?.attempts]);
+
+  const attempts = useMemo(() => {
+    const normalized = (data?.attempts ?? [])
+      .map(normalizeAttempt)
+      .filter((a) => a.status !== "ABANDONED");
+
+    const apiIds = new Set(normalized.map((a) => a.id));
+    const fromLocal: Attempt[] = localPaused
+      .filter((p) => !apiIds.has(p.attemptId))
+      .map((p) => ({
+        id: p.attemptId,
+        testId: p.testId,
+        testTitle: p.testTitle,
+        status: "IN_PROGRESS" as const,
+        startedAt: new Date(p.savedAt).toISOString(),
+      }));
+
+    return [...normalized, ...fromLocal];
+  }, [data?.attempts, localPaused]);
+
+  const tests = useMemo(() => data?.tests ?? [], [data?.tests]);
 
   function getInProgressAttempt(testId: string): Attempt | undefined {
     return attempts.find(
@@ -310,7 +330,25 @@ export default function PracticePage() {
                           <span className="text-gray-500">Not taken</span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 pt-1">
+                      <div className="flex flex-col gap-2 pt-1">
+                        {inProgress && (
+                          <Button
+                            type="button"
+                            onClick={() => handleContinueAttempt(inProgress)}
+                            disabled={continuingAttemptId != null}
+                            className="w-full bg-brand-blue hover:bg-brand-blue/90 text-white rounded-xl py-2 text-sm font-semibold"
+                          >
+                            {isContinuing ? (
+                              <Loading size="sm" />
+                            ) : (
+                              <>
+                                <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                                Continue
+                              </>
+                            )}
+                          </Button>
+                        )}
+                        <div className="flex items-center gap-2">
                         <Button
                           onClick={() =>
                             router.push(
@@ -349,6 +387,7 @@ export default function PracticePage() {
                         >
                           <MessageCircle className="w-4 h-4" />
                         </Button>
+                        </div>
                       </div>
                     </div>
                   </Card>

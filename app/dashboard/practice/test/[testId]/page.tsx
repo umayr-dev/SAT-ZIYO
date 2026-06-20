@@ -60,6 +60,11 @@ import {
   removePracticeAnswer,
   savePracticeAnswer,
 } from "@/src/utils/practice-answers-storage";
+import {
+  getAttemptMeta,
+  registerPausedTest,
+  saveAttemptMeta,
+} from "@/src/utils/practice-paused-sessions";
 import { syncAnswerToServerIfChanged } from "@/src/utils/practice-answer-sync";
 import {
   isBreakStep,
@@ -1403,6 +1408,22 @@ export default function TestTakingPage() {
 
       setTestState(activeState);
       loadStateCache = { attemptId, state: activeState, ts: Date.now() };
+
+      void (async () => {
+        try {
+          const attempts = await practiceService.getMyAttempts();
+          const att = attempts.find((a) => a.id === attemptId);
+          if (att?.testId) {
+            saveAttemptMeta(attemptId, {
+              testId: att.testId,
+              testTitle: att.testTitle || activeState.testTitle || "Practice Test",
+            });
+          }
+        } catch {
+          // meta is optional; local paused registry uses best-effort fetch on exit
+        }
+      })();
+
       setEliminatedChoices(new Set());
       const qKey = `test_questions_${attemptId}_s${activeState.currentSection.orderIndex}_m${activeState.currentModule.moduleNumber}`;
       if (activeState.question) {
@@ -2200,6 +2221,25 @@ export default function TestTakingPage() {
 
       const ts = testStateRef.current;
       const timeLeft = remainingTimeSecondsRef.current;
+      const testTitle =
+        ts?.testTitle ?? getAttemptMeta(attemptId)?.testTitle ?? "Practice Test";
+
+      let testId = getAttemptMeta(attemptId)?.testId;
+      if (!testId) {
+        try {
+          const attempts = await practiceService.getMyAttempts();
+          const att = attempts.find((a) => a.id === attemptId);
+          if (att?.testId) {
+            testId = att.testId;
+            saveAttemptMeta(attemptId, {
+              testId: att.testId,
+              testTitle: att.testTitle || testTitle,
+            });
+          }
+        } catch {
+          // continue with local-only registry below if possible
+        }
+      }
 
       if (typeof window !== "undefined" && ts?.currentSection && ts?.currentModule) {
         if (timeLeft != null) {
@@ -2216,6 +2256,15 @@ export default function TestTakingPage() {
             savedAt: Date.now(),
           }),
         );
+      }
+
+      if (testId) {
+        registerPausedTest({
+          attemptId,
+          testId,
+          testTitle,
+          savedAt: Date.now(),
+        });
       }
 
       router.push("/dashboard/practice");
