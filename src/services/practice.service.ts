@@ -54,6 +54,8 @@ export interface StartTestResponse {
     moduleNumber: number;
     duration: number;
     totalQuestions: number;
+    remainingSeconds?: number;
+    timeExpired?: boolean;
   };
   currentQuestionIndex: number;
   question: Question;
@@ -184,11 +186,18 @@ export interface AnsweredQuestions {
 
 export interface FinishModuleResponse {
   message: string;
-  nextStep: "MODULE_2" | "BREAK" | "NEW_SECTION" | "SUBMIT_TEST" | "COMPLETE";
+  nextStep:
+    | "MODULE_2"
+    | "BREAK"
+    | "NEW_SECTION"
+    | "SUBMIT_TEST"
+    | "COMPLETE"
+    | "RELOAD";
   module1Score?: number;
   module2Difficulty?: "EASY" | "HARD";
   breakDuration?: number;
   breakEndsAt?: string;
+  alreadyFinalized?: boolean;
   section?: {
     id: string;
     type: "ENGLISH" | "MATH";
@@ -475,9 +484,15 @@ class PracticeService {
       markedForReview?: boolean;
       eliminatedChoices?: string[];
     }>,
-  ): Promise<{ success: boolean; processed: number; failed: number }> {
+  ): Promise<{
+    success: boolean;
+    processed: number;
+    failed: number;
+    savedQuestionIds?: string[];
+    failedQuestionIds?: string[];
+  }> {
     if (answers.length === 0) {
-      return { success: true, processed: 0, failed: 0 };
+      return { success: true, processed: 0, failed: 0, savedQuestionIds: [], failedQuestionIds: [] };
     }
 
     // Use batch endpoint if available, otherwise fallback to individual requests
@@ -486,6 +501,8 @@ class PracticeService {
         success: boolean;
         processed: number;
         failed: number;
+        savedQuestionIds?: string[];
+        failedQuestionIds?: string[];
       }>(`/api/practice/attempts/${attemptId}/answers/batch`, {
         method: "POST",
         body: JSON.stringify({ answers }),

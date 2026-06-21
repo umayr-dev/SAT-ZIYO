@@ -37,10 +37,9 @@ export async function POST(
 
     const body = await request.json().catch(() => ({}));
 
-    // Filter out fields that backend doesn't support yet
-    // Backend currently doesn't accept markedForReview and eliminatedChoices
-    const { markedForReview, eliminatedChoices, ...backendBody } = body;
-
+    // Forward the full body. The backend now persists markedForReview and
+    // eliminatedChoices on the single-answer path too, so we must NOT strip
+    // them (doing so silently lost flag/eliminate state on every navigation).
     const backendUrl = `${API_CONFIG.baseURL}/practice/attempts/${attemptId}/answer`;
 
     const response = await fetch(backendUrl, {
@@ -49,7 +48,7 @@ export async function POST(
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(backendBody),
+      body: JSON.stringify(body),
     });
 
     const data = await response.json().catch(() => ({}));

@@ -159,6 +159,42 @@ export function clearPracticeAnswersStorage(attemptId: string): void {
   }
 }
 
+/**
+ * Remove ONLY the answers the server confirmed it saved (by questionId). This
+ * is the safe prune: answers that failed to save stay in localStorage for the
+ * next flush/retry instead of being deleted by an aggregate "something saved"
+ * heuristic.
+ */
+export function removePracticeAnswersByQuestionIds(
+  attemptId: string,
+  questionIds: string[],
+): void {
+  if (typeof window === "undefined") return;
+  if (!questionIds || questionIds.length === 0) return;
+  try {
+    const saved = new Set(questionIds.map((id) => String(id)));
+    const key = getPracticeAnswersStorageKey(attemptId);
+    const stored = localStorage.getItem(key);
+    if (!stored) return;
+    const answers = JSON.parse(stored) as Record<string, AnswerPayload>;
+    let changed = false;
+    for (const [k, entry] of Object.entries(answers)) {
+      if (!/^s\d+_m\d+_\d+$/.test(k)) continue;
+      const enriched = enrichAnswerFromKey(attemptId, k, entry);
+      const qid = enriched?.questionId ?? entry?.questionId;
+      if (qid && saved.has(String(qid))) {
+        delete answers[k];
+        changed = true;
+      }
+    }
+    if (changed) {
+      localStorage.setItem(key, JSON.stringify(answers));
+    }
+  } catch (err) {
+    console.error("Failed to prune saved practice answers from localStorage:", err);
+  }
+}
+
 /** Remove synced module answers so finish page does not re-submit them. */
 export function removePracticeAnswersByPrefix(
   attemptId: string,

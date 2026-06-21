@@ -14,6 +14,8 @@ export type BatchSubmitResult = {
   processed: number;
   failed: number;
   skipped: number;
+  /** Question IDs the server CONFIRMED it saved — safe to prune locally. */
+  savedQuestionIds: string[];
 };
 
 const DEFAULT_BATCH_SIZE = 10;
@@ -81,6 +83,11 @@ function isRetryableError(err: unknown): boolean {
   return false;
 }
 
+type SubResult = Pick<
+  BatchSubmitResult,
+  "processed" | "failed" | "skipped" | "savedQuestionIds"
+>;
+
 async function submitSingleAnswer(
   attemptId: string,
   answer: AnswerPayload,
@@ -114,10 +121,11 @@ async function submitIndividuals(
   attemptId: string,
   answers: AnswerPayload[],
   toleratePersistedErrors: boolean,
-): Promise<Pick<BatchSubmitResult, "processed" | "failed" | "skipped">> {
+): Promise<SubResult> {
   let processed = 0;
   let failed = 0;
   let skipped = 0;
+  const savedQuestionIds: string[] = [];
 
   for (let i = 0; i < answers.length; i++) {
     const outcome = await submitSingleAnswer(
@@ -125,68 +133,65 @@ async function submitIndividuals(
       answers[i],
       toleratePersistedErrors,
     );
-    if (outcome === "processed") processed++;
-    else if (outcome === "skipped") skipped++;
-    else failed++;
+    if (outcome === "processed") {
+      processed++;
+      // Only a confirmed write is safe to prune locally.
+      savedQuestionIds.push(answers[i].questionId);
+    } else if (outcome === "skipped") {
+      skipped++;
+    } else {
+      failed++;
+    }
 
     if (i + 1 < answers.length) {
       await delay(80);
     }
   }
 
-  return { processed, failed, skipped };
-}
-
-async function submitBatchOnce(
-  attemptId: string,
-  batch: AnswerPayload[],
-): Promise<{ processed: number; failed: number }> {
-  const result = await practiceService.submitAnswersBatch(attemptId, batch);
-  const processed = result.processed ?? 0;
-  const failed = result.failed ?? 0;
-
-  if (failed > 0 && processed + failed < batch.length) {
-    return { processed, failed: batch.length - processed };
-  }
-
-  return { processed, failed };
+  return { processed, failed, skipped, savedQuestionIds };
 }
 
 async function submitBatchWithFallback(
   attemptId: string,
   batch: AnswerPayload[],
   toleratePersistedErrors: boolean,
-): Promise<Pick<BatchSubmitResult, "processed" | "failed" | "skipped">> {
+): Promise<SubResult> {
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
-      const result = await submitBatchOnce(attemptId, batch);
-      if (result.failed === 0) {
+      const result = await practiceService.submitAnswersBatch(attemptId, batch);
+      const saved = new Set((result.savedQuestionIds ?? []).map(String));
+
+      // If the server reported per-question outcomes, trust them exactly.
+      // Otherwise (legacy/no array) fall back to retrying everything individually.
+      if (result.savedQuestionIds) {
+        const failedItems = batch.filter((b) => !saved.has(String(b.questionId)));
+        if (failedItems.length === 0) {
+          return {
+            processed: saved.size,
+            failed: 0,
+            skipped: 0,
+            savedQuestionIds: [...saved],
+          };
+        }
+        // Retry only the specific questions the server did NOT save.
+        const indiv = await submitIndividuals(
+          attemptId,
+          failedItems,
+          toleratePersistedErrors,
+        );
         return {
-          processed: result.processed,
-          failed: 0,
-          skipped: 0,
+          processed: saved.size + indiv.processed,
+          failed: indiv.failed,
+          skipped: indiv.skipped,
+          savedQuestionIds: [...saved, ...indiv.savedQuestionIds],
         };
       }
 
-      const assumedOk = Math.max(0, result.processed);
-      const needRetry = batch.slice(assumedOk);
-      if (needRetry.length === 0) {
-        return { processed: result.processed, failed: result.failed, skipped: 0 };
-      }
-
-      const individual = await submitIndividuals(
-        attemptId,
-        needRetry,
-        toleratePersistedErrors,
-      );
-      return {
-        processed: assumedOk + individual.processed,
-        failed: individual.failed,
-        skipped: individual.skipped,
-      };
+      // No per-question info → submit individually to learn real outcomes.
+      return submitIndividuals(attemptId, batch, toleratePersistedErrors);
     } catch (err) {
       if (toleratePersistedErrors && isAnswerPersistedOrTerminalError(err)) {
-        return { processed: 0, failed: 0, skipped: batch.length };
+        return { processed: 0, failed: 0, skipped: batch.length, savedQuestionIds: [] };
       }
       if (!isRetryableError(err) || attempt === MAX_RETRIES - 1) {
         break;
@@ -219,12 +224,13 @@ export async function submitAnswersInBatches(
     .map(normalizeAnswer);
 
   if (validAnswers.length === 0) {
-    return { total: 0, processed: 0, failed: 0, skipped: 0 };
+    return { total: 0, processed: 0, failed: 0, skipped: 0, savedQuestionIds: [] };
   }
 
   let processed = 0;
   let failed = 0;
   let skipped = 0;
+  const savedQuestionIds: string[] = [];
 
   for (let i = 0; i < validAnswers.length; i += batchSize) {
     const batch = validAnswers.slice(i, i + batchSize);
@@ -236,6 +242,7 @@ export async function submitAnswersInBatches(
     processed += result.processed;
     failed += result.failed;
     skipped += result.skipped;
+    savedQuestionIds.push(...result.savedQuestionIds);
 
     if (i + batchSize < validAnswers.length) {
       await delay(200);
@@ -247,6 +254,7 @@ export async function submitAnswersInBatches(
     processed,
     failed,
     skipped,
+    savedQuestionIds,
   };
 
   const effectivelySaved = processed + skipped;

@@ -286,6 +286,10 @@ export default function TestTakingPage() {
   const [remainingTimeSeconds, setRemainingTimeSeconds] = useState<
     number | null
   >(null);
+  // Absolute wall-clock deadline (ms epoch) for the current module. The timer
+  // is derived from this so it cannot drift in background tabs and restores
+  // correctly on refresh.
+  const [moduleDeadline, setModuleDeadline] = useState<number | null>(null);
   const [isEliminationMode, setIsEliminationMode] = useState(false);
   const [eliminatedChoices, setEliminatedChoices] = useState<Set<string>>(
     new Set(),
@@ -402,24 +406,9 @@ export default function TestTakingPage() {
     y: 0,
   });
 
-  // Persist timer on every tick so reload / hard refresh keeps exact remaining time
-  useEffect(() => {
-    if (
-      typeof window === "undefined" ||
-      remainingTimeSeconds == null ||
-      !testState?.currentSection ||
-      !testState?.currentModule
-    ) {
-      return;
-    }
-    const key = `test_timer_${attemptId}_s${testState.currentSection.orderIndex}_m${testState.currentModule.moduleNumber}`;
-    sessionStorage.setItem(key, String(remainingTimeSeconds));
-  }, [
-    attemptId,
-    remainingTimeSeconds,
-    testState?.currentSection,
-    testState?.currentModule,
-  ]);
+  // Timer is no longer persisted per-tick: on every load the server's
+  // authoritative remainingSeconds re-anchors the deadline, so a refresh
+  // restores the correct time without a client-side cached value to go stale.
 
   // localStorage key for answers (one key per attempt; inside we use s{section}_m{module}_{index})
   const getStorageKey = useCallback(
@@ -1031,14 +1020,19 @@ export default function TestTakingPage() {
     remainingTimeSecondsRef.current = remainingTimeSeconds;
   }, [remainingTimeSeconds]);
 
-  // Pause module timer while user must choose fullscreen (progress stays in state)
-  useEffect(() => {
-    if (!showFullscreenWarning || fullscreenModalReason !== "exited") return;
-    if (timerIntervalRef.current) {
-      clearInterval(timerIntervalRef.current);
-      timerIntervalRef.current = null;
-    }
-  }, [showFullscreenWarning, fullscreenModalReason]);
+  // Anchor the module timer to a wall-clock deadline derived from the server's
+  // authoritative remaining time. Prevents background-tab drift and stale
+  // restores (the timer is recomputed from the deadline, never decremented).
+  const startModuleTimer = useCallback((seconds: number | null | undefined) => {
+    const secs = Math.max(0, Math.floor(Number(seconds) || 0));
+    timeUpHandledRef.current = false;
+    setRemainingTimeSeconds(secs);
+    setModuleDeadline(Date.now() + secs * 1000);
+  }, []);
+
+  // (The module timer is anchored to the server's wall-clock deadline and is no
+  // longer paused on fullscreen exit — the server's module deadline never
+  // pauses, so the client must stay consistent with it.)
 
   const startCountdown = useCallback(() => {
     if (countdownIntervalRef.current) {
@@ -1050,9 +1044,10 @@ export default function TestTakingPage() {
         if (prev <= 1) {
           clearInterval(interval);
           countdownIntervalRef.current = null;
-          if (!document.fullscreenElement) {
-            void saveSessionAndExitRef.current();
-          }
+          // Do NOT auto-exit the test. Incidental fullscreen loss (Esc, OS
+          // notification, alt-tab, mobile) must never terminate the session.
+          // The prompt stays visible so the user can re-enter fullscreen or
+          // continue; their progress and timer are untouched.
           return 0;
         }
         return prev - 1;
@@ -1166,38 +1161,16 @@ export default function TestTakingPage() {
   );
 
   // Keyingi savolni faqat cache'ga yuklash – runGoto modul ichidagi local index bilan
+  // Preloading is intentionally DISABLED. It used to call runGoto(nextIndex),
+  // but the backend /goto endpoint persists attempt.currentQuestionIndex as a
+  // side effect — so prefetching the next question silently moved the server
+  // cursor while the user was still on the current question, causing the
+  // "back/forward arrows jump/teleport" bugs. Fetch-on-navigate is correct.
   const preloadNextQuestions = useCallback(
-    (currentIndex: number, totalQuestions: number) => {
-      const nextIndex = currentIndex + 1;
-      if (nextIndex >= totalQuestions) return;
-      if (getQuestionFromLocal(nextIndex)) return;
-      if (preloadInFlightRef.current) return;
-      if (preloadTimeoutRef.current !== null) {
-        window.clearTimeout(preloadTimeoutRef.current);
-      }
-      preloadTimeoutRef.current = window.setTimeout(() => {
-        preloadTimeoutRef.current = null;
-        if (preloadInFlightRef.current) return;
-        if (getQuestionFromLocal(nextIndex)) return;
-        preloadInFlightRef.current = true;
-        runGoto(nextIndex)
-          .then((nextState) => {
-            if (
-              nextState?.question &&
-              nextState.currentQuestionIndex === nextIndex
-            )
-              saveQuestionToLocal(
-                nextState.currentQuestionIndex,
-                nextState.question,
-              );
-          })
-          .catch(() => {})
-          .finally(() => {
-            preloadInFlightRef.current = false;
-          });
-      }, 3500);
+    (_currentIndex: number, _totalQuestions: number) => {
+      /* no-op */
     },
-    [getQuestionFromLocal, saveQuestionToLocal, runGoto],
+    [],
   );
 
   async function loadTestState() {
@@ -1253,9 +1226,7 @@ export default function TestTakingPage() {
           setEliminatedChoices(new Set(savedAnswer.eliminatedChoices));
       } else setCurrentAnswer({});
       if (state?.currentModule?.totalQuestions) {
-        const sectionType = state.currentSection?.type ?? "ENGLISH";
-        const cap = QUESTIONS_PER_MODULE[sectionType] ?? 27;
-        setTotalQuestions(Math.min(state.currentModule.totalQuestions, cap));
+        setTotalQuestions(state.currentModule.totalQuestions);
       }
       const statePrefixCache = `s${state.currentSection.orderIndex}_m${state.currentModule.moduleNumber}_`;
       try {
@@ -1288,25 +1259,12 @@ export default function TestTakingPage() {
       } catch {
         setAnsweredQuestions(new Set());
       }
-      const cacheTimerKey = `test_timer_${attemptId}_s${state.currentSection.orderIndex}_m${state.currentModule.moduleNumber}`;
-      const cacheSavedTime =
-        typeof window !== "undefined"
-          ? sessionStorage.getItem(cacheTimerKey)
-          : null;
-      const cacheSavedSeconds =
-        cacheSavedTime != null ? Number(cacheSavedTime) : NaN;
-      if (
-        typeof window !== "undefined" &&
-        !Number.isNaN(cacheSavedSeconds) &&
-        cacheSavedSeconds > 0
-      ) {
-        setRemainingTimeSeconds(cacheSavedSeconds);
-      } else if (
-        state?.currentModule?.duration &&
-        remainingTimeSeconds === null
-      ) {
-        setRemainingTimeSeconds(state.currentModule.duration * 60);
-      }
+      // Anchor the timer to the server's authoritative remaining time (falls
+      // back to full duration for a freshly started module).
+      startModuleTimer(
+        state.currentModule.remainingSeconds ??
+          state.currentModule.duration * 60,
+      );
       setLoading(false);
       return;
     }
@@ -1471,12 +1429,11 @@ export default function TestTakingPage() {
         setCurrentAnswer({});
       }
 
-      // Set totalQuestions from current module, capped to SAT standard (27/22) so navigation and goto stay correct
+      // Use the module's REAL question count from the server (no client cap):
+      // a hardcoded 27/22 cap truncated longer modules and sent users to module
+      // review early, losing the trailing questions.
       if (activeState?.currentModule?.totalQuestions) {
-        const sectionType = activeState.currentSection?.type ?? "ENGLISH";
-        const cap = QUESTIONS_PER_MODULE[sectionType] ?? 27;
-        const total = Math.min(activeState.currentModule.totalQuestions, cap);
-        setTotalQuestions(total);
+        setTotalQuestions(activeState.currentModule.totalQuestions);
       } else {
         console.warn(
           "[Test Page] No totalQuestions in currentModule:",
@@ -1484,22 +1441,12 @@ export default function TestTakingPage() {
         );
       }
 
-      const timerKey = `test_timer_${attemptId}_s${activeState.currentSection.orderIndex}_m${activeState.currentModule.moduleNumber}`;
-      const savedTime =
-        typeof window !== "undefined" ? sessionStorage.getItem(timerKey) : null;
-      const savedSeconds = savedTime != null ? Number(savedTime) : NaN;
-      if (
-        typeof window !== "undefined" &&
-        !Number.isNaN(savedSeconds) &&
-        savedSeconds > 0
-      ) {
-        timeUpHandledRef.current = false;
-        setRemainingTimeSeconds(savedSeconds);
-      } else if (activeState?.currentModule?.duration) {
-        timeUpHandledRef.current = false;
-        const durationSeconds = activeState.currentModule.duration * 60;
-        setRemainingTimeSeconds(durationSeconds);
-      }
+      // Anchor the timer to the server's authoritative remaining time (falls
+      // back to full duration for a freshly started module).
+      startModuleTimer(
+        activeState.currentModule.remainingSeconds ??
+          activeState.currentModule.duration * 60,
+      );
 
       const statePrefixApi = `s${activeState.currentSection.orderIndex}_m${activeState.currentModule.moduleNumber}_`;
       try {
@@ -1598,12 +1545,7 @@ export default function TestTakingPage() {
           testState?.currentModule?.totalQuestions ??
           answers?.totalQuestions ??
           0;
-        const sectionType =
-          state?.currentSection?.type ??
-          testState?.currentSection?.type ??
-          "ENGLISH";
-        const cap = QUESTIONS_PER_MODULE[sectionType] ?? 27;
-        setTotalQuestions(Math.min(raw, cap));
+        setTotalQuestions(raw);
         return;
       }
 
@@ -1615,19 +1557,12 @@ export default function TestTakingPage() {
         testState?.currentModule?.totalQuestions ??
         answers?.totalQuestions ??
         0;
-      const sectionType =
-        state?.currentSection?.type ??
-        testState?.currentSection?.type ??
-        "ENGLISH";
-      const cap = QUESTIONS_PER_MODULE[sectionType] ?? 27;
-      setTotalQuestions(Math.min(raw, cap));
+      setTotalQuestions(raw);
     } catch (err) {
       console.error("Failed to load answered questions:", err);
       const state = currentState || testState;
       if (state?.currentModule?.totalQuestions) {
-        const sectionType = state.currentSection?.type ?? "ENGLISH";
-        const cap = QUESTIONS_PER_MODULE[sectionType] ?? 27;
-        setTotalQuestions(Math.min(state.currentModule.totalQuestions, cap));
+        setTotalQuestions(state.currentModule.totalQuestions);
       }
     }
   }
@@ -2129,7 +2064,10 @@ export default function TestTakingPage() {
   }, [attemptId, waitForLoadTestStateIdle]);
 
   const handleTimeUp = useCallback(async () => {
-    if (!testState || timeUpHandledRef.current) return;
+    // Use the ref (not the closed-over state) so a transiently-null testState
+    // during a module transition doesn't silently drop the time-up and leave
+    // the user stuck at 00:00.
+    if (!testStateRef.current || timeUpHandledRef.current) return;
     timeUpHandledRef.current = true;
     try {
       setSubmitting(true);
@@ -2187,7 +2125,6 @@ export default function TestTakingPage() {
       setSubmitting(false);
     }
   }, [
-    testState,
     attemptId,
     router,
     submitAllPendingAnswers,
@@ -2290,31 +2227,31 @@ export default function TestTakingPage() {
     await saveTestSessionAndExit();
   }, [saveTestSessionAndExit]);
 
-  // Timer countdown effect – 00:00 da bir marta handleTimeUp, keyin keyingi module/break/finish
+  // Timer countdown effect — derives the displayed time from the wall-clock
+  // deadline each tick, so it's immune to background-tab throttling and stays
+  // in sync with the server. Fires handleTimeUp exactly once at expiry.
   useEffect(() => {
-    if (remainingTimeSeconds === null || remainingTimeSeconds <= 0) {
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-        timerIntervalRef.current = null;
-      }
-      if (remainingTimeSeconds === 0 && !timeUpHandledRef.current) {
-        handleTimeUp();
-      }
-      return;
-    }
+    if (moduleDeadline === null) return;
 
-    timerIntervalRef.current = setInterval(() => {
-      setRemainingTimeSeconds((prev) => {
-        if (prev === null || prev <= 1) {
-          if (timerIntervalRef.current) {
-            clearInterval(timerIntervalRef.current);
-            timerIntervalRef.current = null;
-          }
-          return 0;
+    const tick = () => {
+      const remaining = Math.max(
+        0,
+        Math.ceil((moduleDeadline - Date.now()) / 1000),
+      );
+      setRemainingTimeSeconds(remaining);
+      if (remaining <= 0) {
+        if (timerIntervalRef.current) {
+          clearInterval(timerIntervalRef.current);
+          timerIntervalRef.current = null;
         }
-        return prev - 1;
-      });
-    }, 1000);
+        if (!timeUpHandledRef.current) {
+          handleTimeUp();
+        }
+      }
+    };
+
+    tick(); // immediate sync (also corrects on tab refocus / remount)
+    timerIntervalRef.current = setInterval(tick, 1000);
 
     return () => {
       if (timerIntervalRef.current) {
@@ -2322,7 +2259,7 @@ export default function TestTakingPage() {
         timerIntervalRef.current = null;
       }
     };
-  }, [remainingTimeSeconds, handleTimeUp]);
+  }, [moduleDeadline, handleTimeUp]);
 
   // Close more menu when clicking outside
   useEffect(() => {
@@ -2378,11 +2315,8 @@ export default function TestTakingPage() {
   }
 
   const question: Question = testState.question;
-  const sectionType = testState.currentSection?.type ?? "ENGLISH";
-  const cap = QUESTIONS_PER_MODULE[sectionType] ?? 27;
-  const rawTotal =
+  const totalQs =
     totalQuestions ?? testState.currentModule?.totalQuestions ?? 0;
-  const totalQs = Math.min(rawTotal, cap);
 
   const isLastQuestion =
     testState.currentQuestionIndex === Math.max(0, totalQs - 1);

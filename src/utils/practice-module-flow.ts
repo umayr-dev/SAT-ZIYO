@@ -21,6 +21,9 @@ export function isContinueTestStep(step: string): boolean {
     step === "NEXT_MODULE" ||
     step === "CONTINUE" ||
     step === "START_MODULE_2" ||
+    // RELOAD = backend lost a concurrent finishModule claim; just re-fetch the
+    // current state (the other call already advanced) instead of finishing.
+    step === "RELOAD" ||
     step.startsWith("MODULE_")
   );
 }

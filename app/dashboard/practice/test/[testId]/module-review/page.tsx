@@ -8,7 +8,7 @@ import { practiceService } from "@/src/services/practice.service";
 import { submitAnswersInBatches } from "@/src/utils/submit-answers-batch";
 import {
   getModuleAnswersForSubmit,
-  removePracticeAnswersByPrefix,
+  removePracticeAnswersByQuestionIds,
 } from "@/src/utils/practice-answers-storage";
 import {
   isBreakStep,
@@ -34,10 +34,11 @@ async function syncModuleAnswers(
   processed: number;
   failed: number;
   skipped: number;
+  savedQuestionIds: string[];
 }> {
   const answers = getModuleAnswersForSubmit(attemptId, modulePrefix);
   if (answers.length === 0) {
-    return { total: 0, processed: 0, failed: 0, skipped: 0 };
+    return { total: 0, processed: 0, failed: 0, skipped: 0, savedQuestionIds: [] };
   }
 
   let result = await submitAnswersInBatches(attemptId, answers, {
@@ -153,20 +154,19 @@ export default function ModuleReviewPage() {
 
       const syncResult = await syncModuleAnswers(attemptId, modulePrefix);
 
-      if (
-        syncResult.total > 0 &&
-        syncResult.failed > 0 &&
-        syncResult.processed === 0 &&
-        syncResult.skipped === 0
-      ) {
+      // Prune ONLY the answers the server confirmed it saved; unsaved ones stay
+      // in localStorage for retry.
+      if (syncResult.savedQuestionIds.length > 0) {
+        removePracticeAnswersByQuestionIds(attemptId, syncResult.savedQuestionIds);
+      }
+
+      // Never finish the module while any answer failed to save — finishing
+      // marks the module COMPLETED, after which those answers can never persist.
+      if (syncResult.failed > 0) {
         setError(
           `Failed to save ${syncResult.failed} answer(s) to the server. Check your connection and try again.`,
         );
         return;
-      }
-
-      if (syncResult.processed > 0 || syncResult.skipped > 0) {
-        removePracticeAnswersByPrefix(attemptId, modulePrefix);
       }
 
       const result = await practiceService.finishModule(attemptId);

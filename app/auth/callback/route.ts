@@ -13,6 +13,24 @@ import { API_CONFIG } from "@/src/config/api";
 const JWT_COOKIE_NAME = "token";
 const JWT_MAX_AGE = 30 * 24 * 60 * 60; // 30 days in seconds
 
+/**
+ * SECURITY: only allow same-origin relative redirect targets. Rejects
+ * protocol-relative ("//evil.com"), backslash ("/\\evil.com") and absolute
+ * URLs that would let an attacker bounce the user off-site after login.
+ */
+function safeRedirectPath(raw: string | null): string {
+  if (!raw) return "/dashboard";
+  let p: string;
+  try {
+    p = decodeURIComponent(raw);
+  } catch {
+    return "/dashboard";
+  }
+  if (!p.startsWith("/")) return "/dashboard";
+  if (p.startsWith("//") || p.startsWith("/\\")) return "/dashboard";
+  return p;
+}
+
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const token = requestUrl.searchParams.get("token");
@@ -47,9 +65,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Token is valid, store in cookie
-      const redirectUrl = redirectParam
-        ? decodeURIComponent(redirectParam)
-        : "/dashboard";
+      const redirectUrl = safeRedirectPath(redirectParam);
 
       const response = NextResponse.redirect(`${origin}${redirectUrl}`);
 

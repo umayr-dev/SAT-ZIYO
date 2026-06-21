@@ -77,9 +77,12 @@ export async function POST(
       if (response.ok) {
         const data = await response.json().catch(() => ({}));
         return NextResponse.json({
-          success: true,
-          processed: data.processed || answers.length,
+          success: data.success ?? true,
+          processed: data.processed || 0,
           failed: data.failed || 0,
+          // Forward per-question outcomes so the client prunes only saved answers.
+          savedQuestionIds: data.savedQuestionIds ?? [],
+          failedQuestionIds: data.failedQuestionIds ?? [],
         }, { status: 200 });
       } else if (response.status === 404) {
         // Batch endpoint not available, fallback to individual submissions

@@ -43,11 +43,14 @@ export async function syncAnswerToServerIfChanged(
       answer.markedForReview,
       answer.eliminatedChoices,
     );
+    // Only record the fingerprint on a CONFIRMED save, so a non-confirmed
+    // result re-syncs on the next navigation instead of being skipped forever.
     syncedFingerprints.set(answer.questionId, fingerprint);
     return true;
   } catch (err) {
+    // Terminal (attempt closed) — don't block navigation, but do NOT mark it
+    // synced; the localStorage copy remains and the module flush will retry.
     if (isAnswerPersistedOrTerminalError(err)) {
-      syncedFingerprints.set(answer.questionId, fingerprint);
       return true;
     }
     return false;
