@@ -171,10 +171,7 @@ export default function FinishTestPage() {
       setSubmitting(true);
       setError("");
 
-      const [syncResult] = await Promise.all([
-        submitAllPendingAnswers(),
-        submitAllHighlights(),
-      ]);
+      const syncResult = await submitAllPendingAnswers();
 
       if (syncResult && syncResult.failed > 0 && syncResult.processed === 0 && syncResult.skipped === 0) {
         console.warn(
@@ -185,18 +182,27 @@ export default function FinishTestPage() {
       await loadResultsAfterSubmit();
       clearPausedTest(attemptId);
 
-      try {
-        const attempts = await practiceService.getMyAttempts();
-        const attempt = attempts.find((a) => a.id === attemptId);
-        if (attempt) {
-          setTestId(attempt.testId);
+      // Natija darhol ko‘rinsin — highlights va testId ixtiyoriy, background da
+      setLoading(false);
+      setSubmitting(false);
+
+      void submitAllHighlights().catch((err) => {
+        console.warn("[Finish Page] Background highlight sync:", err);
+      });
+
+      void (async () => {
+        try {
+          const attempts = await practiceService.getMyAttempts();
+          const attempt = attempts.find((a) => a.id === attemptId);
+          if (attempt?.testId) {
+            setTestId(attempt.testId);
+          }
+        } catch (err) {
+          console.error("Failed to get testId from attempt:", err);
         }
-      } catch (err) {
-        console.error("Failed to get testId from attempt:", err);
-      }
+      })();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to submit test");
-    } finally {
       setLoading(false);
       setSubmitting(false);
     }

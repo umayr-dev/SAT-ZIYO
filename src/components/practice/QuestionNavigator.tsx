@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { X, MapPin, Flag } from "lucide-react";
 
 interface QuestionNavigatorProps {
@@ -17,7 +18,7 @@ interface QuestionNavigatorProps {
  * Question Navigator Component
  * Shows all questions with their status in a modal popup
  */
-export function QuestionNavigator({
+export const QuestionNavigator = memo(function QuestionNavigator({
   totalQuestions,
   currentIndex,
   answeredSet,
@@ -161,5 +162,5 @@ export function QuestionNavigator({
       </div>
     </div>
   );
-}
+});
 

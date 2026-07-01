@@ -52,18 +52,20 @@ export default function PreTestInstructionsPage() {
         const inProgressAttempts = attempts.filter(
           (a) => a.status === "IN_PROGRESS",
         );
-        for (const attempt of inProgressAttempts) {
-          try {
-            await practiceService.abandonAttempt(attempt.id);
-            clearPausedTest(attempt.id);
-          } catch (e) {
-            console.warn(
-              "[StartPage] Failed to abandon in-progress attempt:",
-              attempt.id,
-              e,
-            );
-          }
-        }
+        await Promise.all(
+          inProgressAttempts.map(async (attempt) => {
+            try {
+              await practiceService.abandonAttempt(attempt.id);
+              clearPausedTest(attempt.id);
+            } catch (e) {
+              console.warn(
+                "[StartPage] Failed to abandon in-progress attempt:",
+                attempt.id,
+                e,
+              );
+            }
+          }),
+        );
       }
       const response = await practiceService.startTest(testId);
       router.push(`/dashboard/practice/test/${response.attemptId}`);

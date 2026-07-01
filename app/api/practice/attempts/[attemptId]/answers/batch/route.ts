@@ -8,7 +8,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { API_CONFIG } from "@/src/config/api";
-
+import { toBackendAnswerPayload } from "@/src/utils/practice-backend-answer";
+import type { BackendAnswerPayload } from "@/src/utils/practice-backend-answer";
 function getTokenFromRequest(request: NextRequest): string | null {
   let token = request.cookies.get("token")?.value || null;
   if (!token) {
@@ -37,15 +38,16 @@ export async function POST(
     }
 
     const body = await request.json().catch(() => ({}));
-    const { answers } = body;
+    const { answers: rawAnswers } = body;
 
-    if (!Array.isArray(answers) || answers.length === 0) {
+    if (!Array.isArray(rawAnswers) || rawAnswers.length === 0) {
       return NextResponse.json(
         { message: "Invalid request: answers must be a non-empty array" },
         { status: 400 }
       );
     }
 
+    const answers = rawAnswers.map(toBackendAnswerPayload);
     // Limit batch size to prevent abuse
     const MAX_BATCH_SIZE = 30;
     if (answers.length > MAX_BATCH_SIZE) {
@@ -76,14 +78,20 @@ export async function POST(
 
       if (response.ok) {
         const data = await response.json().catch(() => ({}));
-        return NextResponse.json({
+        const payload: Record<string, unknown> = {
           success: data.success ?? true,
           processed: data.processed || 0,
           failed: data.failed || 0,
-          // Forward per-question outcomes so the client prunes only saved answers.
-          savedQuestionIds: data.savedQuestionIds ?? [],
-          failedQuestionIds: data.failedQuestionIds ?? [],
-        }, { status: 200 });
+        };
+        // Only forward ID lists when the backend actually returned them.
+        // Defaulting to [] made the client think nothing was saved and re-submit all answers.
+        if (Array.isArray(data.savedQuestionIds)) {
+          payload.savedQuestionIds = data.savedQuestionIds;
+        }
+        if (Array.isArray(data.failedQuestionIds)) {
+          payload.failedQuestionIds = data.failedQuestionIds;
+        }
+        return NextResponse.json(payload, { status: 200 });
       } else if (response.status === 404) {
         // Batch endpoint not available, fallback to individual submissions
         console.log("[Batch API] Batch endpoint not available, using individual submissions");
@@ -102,9 +110,7 @@ export async function POST(
       const batch = answers.slice(i, i + INDIVIDUAL_BATCH_SIZE);
       
       const batchResults = await Promise.allSettled(
-        batch.map(async (answer: any) => {
-          const { markedForReview, eliminatedChoices, ...backendBody } = answer;
-          
+        batch.map(async (answer: BackendAnswerPayload) => {
           const response = await fetch(
             `${API_CONFIG.baseURL}/practice/attempts/${attemptId}/answer`,
             {
@@ -113,10 +119,9 @@ export async function POST(
                 Authorization: `Bearer ${token}`,
                 "Content-Type": "application/json",
               },
-              body: JSON.stringify(backendBody),
+              body: JSON.stringify(answer),
             }
           );
-
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.message || `Backend returned ${response.status}`);

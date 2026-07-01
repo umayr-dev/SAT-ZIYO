@@ -71,7 +71,11 @@ export function isAnswerPersistedOrTerminalError(err: unknown): boolean {
       /submitted/.test(msg) ||
       /duplicate/.test(msg) ||
       /already answered/.test(msg) ||
-      /answer already/.test(msg)
+      /answer already/.test(msg) ||
+      /already saved/.test(msg) ||
+      /cannot change/.test(msg) ||
+      /cannot update/.test(msg) ||
+      /cannot modify/.test(msg)
     );
   }
   return false;
@@ -159,11 +163,28 @@ async function submitBatchWithFallback(
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
       const result = await practiceService.submitAnswersBatch(attemptId, batch);
-      const saved = new Set((result.savedQuestionIds ?? []).map(String));
+      const savedIds = result.savedQuestionIds;
+      const saved = new Set((savedIds ?? []).map(String));
+      const batchFailed = result.failed ?? 0;
+      const batchProcessed = result.processed ?? 0;
 
-      // If the server reported per-question outcomes, trust them exactly.
-      // Otherwise (legacy/no array) fall back to retrying everything individually.
-      if (result.savedQuestionIds) {
+      // Backend saved the batch but returned no per-question IDs (legacy / proxy default []).
+      // Trust processed count — do NOT re-submit individually (causes duplicate rejections).
+      if (
+        (!savedIds || savedIds.length === 0) &&
+        batchFailed === 0 &&
+        batchProcessed >= batch.length
+      ) {
+        return {
+          processed: batch.length,
+          failed: 0,
+          skipped: 0,
+          savedQuestionIds: batch.map((b) => String(b.questionId)),
+        };
+      }
+
+      // Server returned explicit per-question outcomes.
+      if (savedIds && savedIds.length > 0) {
         const failedItems = batch.filter((b) => !saved.has(String(b.questionId)));
         if (failedItems.length === 0) {
           return {
@@ -173,7 +194,6 @@ async function submitBatchWithFallback(
             savedQuestionIds: [...saved],
           };
         }
-        // Retry only the specific questions the server did NOT save.
         const indiv = await submitIndividuals(
           attemptId,
           failedItems,
@@ -187,7 +207,7 @@ async function submitBatchWithFallback(
         };
       }
 
-      // No per-question info → submit individually to learn real outcomes.
+      // Ambiguous batch response → submit individually to learn real outcomes.
       return submitIndividuals(attemptId, batch, toleratePersistedErrors);
     } catch (err) {
       if (toleratePersistedErrors && isAnswerPersistedOrTerminalError(err)) {

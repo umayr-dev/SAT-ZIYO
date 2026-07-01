@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Card } from "@/src/ui/card";
 import { Button } from "@/src/ui/button";
-import { Loading } from "@/src/ui/loading";
 import { practiceService, BreakStatusResponse } from "@/src/services/practice.service";
 import { Clock, Coffee } from "lucide-react";
 
@@ -20,8 +19,8 @@ export default function BreakPage() {
   const attemptId = params.testId as string;
 
   const [breakStatus, setBreakStatus] = useState<BreakStatusResponse | null>(null);
-  const [remainingSeconds, setRemainingSeconds] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [remainingSeconds, setRemainingSeconds] = useState(600);
+  const [statusLoading, setStatusLoading] = useState(true);
   const [continuing, setContinuing] = useState(false);
   const [error, setError] = useState("");
   const [continueError, setContinueError] = useState("");
@@ -29,19 +28,21 @@ export default function BreakPage() {
   // Load break status
   useEffect(() => {
     checkBreakStatus();
-  }, [attemptId]);
+    router.prefetch(`/dashboard/practice/test/${attemptId}`);
+  }, [attemptId, router]);
 
-  // Update timer locally
+  // Update timer locally — faqat bir marta keyingi modulga o‘tish
   useEffect(() => {
     if (breakStatus?.breakEndsAt) {
       const endTime = new Date(breakStatus.breakEndsAt).getTime();
+      let navigated = false;
       const updateTimer = () => {
         const now = Date.now();
         const remaining = Math.max(0, Math.floor((endTime - now) / 1000));
         setRemainingSeconds(remaining);
 
-        // When break timer finishes, always move user to the next module/section
-        if (remaining === 0) {
+        if (remaining === 0 && !navigated) {
+          navigated = true;
           setForceRefreshTestState(attemptId);
           router.push(`/dashboard/practice/test/${attemptId}`);
         }
@@ -65,7 +66,7 @@ export default function BreakPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to check break status");
     } finally {
-      setLoading(false);
+      setStatusLoading(false);
     }
   }
 
@@ -90,19 +91,11 @@ export default function BreakPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <Loading size="lg" />
-      </div>
-    );
-  }
-
-  if (error || !breakStatus) {
+  if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white p-4">
         <Card className="p-6 text-center">
-          <p className="text-red-700 mb-4">{error || "Break status not found"}</p>
+          <p className="text-red-700 mb-4">{error}</p>
           <Button
             variant="outline"
             onClick={() => router.push("/dashboard/practice")}
@@ -136,7 +129,7 @@ export default function BreakPage() {
           <div className="inline-flex items-center gap-3 px-6 py-3 bg-white rounded-full shadow-sm border border-gray-200">
             <Clock className="w-5 h-5 text-blue-600" />
             <span className="text-2xl font-mono font-semibold text-gray-900">
-              {formatted}
+              {statusLoading && !breakStatus ? "—:—" : formatted}
             </span>
           </div>
           <p className="mt-3 text-sm text-gray-500">

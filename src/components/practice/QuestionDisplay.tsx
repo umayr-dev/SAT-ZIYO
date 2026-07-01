@@ -54,7 +54,7 @@ interface QuestionDisplayProps {
  * Question Display Component
  * Renders question with choices or text input
  */
-export function QuestionDisplay({
+export const QuestionDisplay = React.memo(function QuestionDisplay({
   question,
   selectedChoiceId,
   textAnswer,
@@ -570,7 +570,8 @@ export function QuestionDisplay({
           {hasChoiceOptions(question) ? (
             <div className="space-y-2 sm:space-y-3 mt-3 sm:mt-4">
               {(question.choices ?? []).map((choice, index) => {
-                const isSelected = selectedChoiceId === choice.id;
+                const isSelected =
+                  String(selectedChoiceId ?? "") === String(choice.id ?? "");
                 const letter = String.fromCharCode(65 + index); // A, B, C, D
 
                 return (
@@ -651,4 +652,4 @@ export function QuestionDisplay({
       )}
     </div>
   );
-}
+});

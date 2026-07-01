@@ -133,7 +133,10 @@ export default function ModuleReviewPage() {
   useEffect(() => {
     refreshAnsweredFromStorage();
     setLoading(false);
-  }, [refreshAnsweredFromStorage]);
+    router.prefetch(`/dashboard/practice/test/${attemptId}`);
+    router.prefetch(`/dashboard/practice/test/${attemptId}/break`);
+    router.prefetch(`/dashboard/practice/test/${attemptId}/finish`);
+  }, [refreshAnsweredFromStorage, router, attemptId]);
 
   const answeredCount = answeredSet.size;
   const flaggedCount = flaggedSet.size;

@@ -153,23 +153,44 @@ export default function QuestionReviewPage() {
           </div>
 
           {/* Passage */}
-          {question.questionText && (
+          {(question.sharedPassage || question.passage) && (
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
               <h3 className="font-semibold text-gray-900 mb-2">PASSAGE</h3>
-              <MarkdownRenderer
-                content={question.questionText}
-                className="text-gray-700 whitespace-pre-wrap"
-              />
+              {question.sharedPassage ? (
+                <>
+                  {question.sharedPassage.title && (
+                    <p className="font-medium text-gray-800 mb-2">
+                      {question.sharedPassage.title}
+                    </p>
+                  )}
+                  <MarkdownRenderer
+                    content={question.sharedPassage.content ?? ""}
+                    className="text-gray-700 whitespace-pre-wrap"
+                  />
+                  {question.sharedPassage.source && (
+                    <p className="text-sm text-gray-500 mt-2 italic">
+                      — {question.sharedPassage.source}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <MarkdownRenderer
+                  content={question.passage ?? ""}
+                  className="text-gray-700 whitespace-pre-wrap"
+                />
+              )}
             </div>
           )}
 
           {/* Question Text */}
-          <div className="mb-6">
-            <MarkdownRenderer
-              content={question.questionText}
-              className="text-lg font-medium text-gray-900"
-            />
-          </div>
+          {question.questionText && (
+            <div className="mb-6">
+              <MarkdownRenderer
+                content={question.questionText}
+                className="text-lg font-medium text-gray-900"
+              />
+            </div>
+          )}
 
           {/* Multiple Choice Review */}
           {hasChoiceOptions(question) && (

@@ -32,6 +32,24 @@ function hasActualAnswer(entry: {
   );
 }
 
+/** Read one saved answer without mutating state (used during persist / restore). */
+export function readPracticeAnswerAtIndex(
+  attemptId: string,
+  modulePrefix: string,
+  questionIndex: number,
+): AnswerPayload | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = localStorage.getItem(getPracticeAnswersStorageKey(attemptId));
+    if (!stored) return null;
+    const answers = JSON.parse(stored) as Record<string, AnswerPayload>;
+    const entry = answers[`${modulePrefix}${questionIndex}`];
+    return entry?.questionId ? entry : null;
+  } catch {
+    return null;
+  }
+}
+
 export function savePracticeAnswer(
   attemptId: string,
   modulePrefix: string,

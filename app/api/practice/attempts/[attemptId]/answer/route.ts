@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { API_CONFIG } from "@/src/config/api";
+import { toBackendAnswerPayload } from "@/src/utils/practice-backend-answer";
 
 function getTokenFromRequest(request: NextRequest): string | null {
   let token = request.cookies.get("token")?.value || null;
@@ -37,9 +38,10 @@ export async function POST(
 
     const body = await request.json().catch(() => ({}));
 
-    // Forward the full body. The backend now persists markedForReview and
-    // eliminatedChoices on the single-answer path too, so we must NOT strip
-    // them (doing so silently lost flag/eliminate state on every navigation).
+    // Backend only accepts questionId / choiceId / textAnswer.
+    // Flag & elimination state stay in localStorage until the API supports them.
+    const backendBody = toBackendAnswerPayload(body);
+
     const backendUrl = `${API_CONFIG.baseURL}/practice/attempts/${attemptId}/answer`;
 
     const response = await fetch(backendUrl, {
@@ -48,7 +50,7 @@ export async function POST(
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify(backendBody),
     });
 
     const data = await response.json().catch(() => ({}));
