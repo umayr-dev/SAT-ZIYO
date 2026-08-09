@@ -4,6 +4,7 @@
  */
 
 import { apiClient, ApiClientError } from "@/src/lib/api-client";
+import { toBackendAnswerPayload } from "@/src/utils/practice-backend-answer";
 
 export interface Test {
   id: string;
@@ -445,18 +446,19 @@ class PracticeService {
     questionId: string,
     choiceId?: string,
     textAnswer?: string,
-    _markedForReview?: boolean,
-    _eliminatedChoices?: string[],
+    markedForReview?: boolean,
+    eliminatedChoices?: string[],
   ): Promise<AnswerResponse> {
-    // Backend only accepts questionId / choiceId / textAnswer.
-    // Flag & elimination stay in localStorage (or dedicated mark/eliminate APIs).
-    const body: Record<string, string> = { questionId: String(questionId) };
-    if (choiceId != null && String(choiceId).trim() !== "") {
-      body.choiceId = String(choiceId);
-    }
-    if (textAnswer !== undefined && textAnswer !== null) {
-      body.textAnswer = String(textAnswer);
-    }
+    // The backend persists flag/eliminate state on the single-answer path, so
+    // these must be forwarded — dropping them silently lost the student's
+    // flags and crossed-out choices on every navigation.
+    const body = toBackendAnswerPayload({
+      questionId,
+      choiceId,
+      textAnswer,
+      markedForReview,
+      eliminatedChoices,
+    });
 
     return apiClient<AnswerResponse>(
       `/api/practice/attempts/${attemptId}/answer`,

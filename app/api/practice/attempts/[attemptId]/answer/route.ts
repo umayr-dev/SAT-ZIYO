@@ -38,8 +38,9 @@ export async function POST(
 
     const body = await request.json().catch(() => ({}));
 
-    // Backend only accepts questionId / choiceId / textAnswer.
-    // Flag & elimination state stay in localStorage until the API supports them.
+    // Whitelist to the fields the backend DTO declares — it runs
+    // forbidNonWhitelisted, so a stray property 400s the whole request.
+    // Flag/eliminate state IS accepted and must be forwarded, not dropped.
     const backendBody = toBackendAnswerPayload(body);
 
     const backendUrl = `${API_CONFIG.baseURL}/practice/attempts/${attemptId}/answer`;
