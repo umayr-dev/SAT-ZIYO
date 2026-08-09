@@ -445,21 +445,17 @@ class PracticeService {
     questionId: string,
     choiceId?: string,
     textAnswer?: string,
-    markedForReview?: boolean,
-    eliminatedChoices?: string[],
+    _markedForReview?: boolean,
+    _eliminatedChoices?: string[],
   ): Promise<AnswerResponse> {
-    const body: any = { questionId };
-    if (choiceId) {
-      body.choiceId = choiceId;
+    // Backend only accepts questionId / choiceId / textAnswer.
+    // Flag & elimination stay in localStorage (or dedicated mark/eliminate APIs).
+    const body: Record<string, string> = { questionId: String(questionId) };
+    if (choiceId != null && String(choiceId).trim() !== "") {
+      body.choiceId = String(choiceId);
     }
-    if (textAnswer !== undefined) {
-      body.textAnswer = textAnswer;
-    }
-    if (markedForReview !== undefined) {
-      body.markedForReview = markedForReview;
-    }
-    if (eliminatedChoices !== undefined) {
-      body.eliminatedChoices = eliminatedChoices;
+    if (textAnswer !== undefined && textAnswer !== null) {
+      body.textAnswer = String(textAnswer);
     }
 
     return apiClient<AnswerResponse>(

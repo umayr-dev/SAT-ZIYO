@@ -26,6 +26,7 @@ import { submitAnswersInBatches } from "@/src/utils/submit-answers-batch";
 import {
   clearPracticeAnswersStorage,
   getAllPracticeAnswersForSubmit,
+  removePracticeAnswersByQuestionIds,
 } from "@/src/utils/practice-answers-storage";
 import { clearPausedTest } from "@/src/utils/practice-paused-sessions";
 import { MarkdownRenderer } from "@/src/components/markdown/MarkdownRenderer";
@@ -70,7 +71,7 @@ export default function FinishTestPage() {
   const submitAllPendingAnswers = useCallback(async () => {
     const allAnswers = getAllPracticeAnswersForSubmit(attemptId);
     if (allAnswers.length === 0) {
-      return { processed: 0, failed: 0, skipped: 0, total: 0 };
+      return { processed: 0, failed: 0, skipped: 0, total: 0, savedQuestionIds: [] as string[] };
     }
 
     const result = await submitAnswersInBatches(attemptId, allAnswers, {
@@ -78,8 +79,10 @@ export default function FinishTestPage() {
       toleratePersistedErrors: true,
     });
 
-    if (result.processed > 0 || result.skipped > 0) {
-      clearPracticeAnswersStorage(attemptId);
+    // Never wipe the whole store on partial success — failed answers must stay
+    // for a retry. Only prune what the server confirmed.
+    if (result.savedQuestionIds.length > 0) {
+      removePracticeAnswersByQuestionIds(attemptId, result.savedQuestionIds);
     }
 
     return result;
@@ -173,9 +176,25 @@ export default function FinishTestPage() {
 
       const syncResult = await submitAllPendingAnswers();
 
-      if (syncResult && syncResult.failed > 0 && syncResult.processed === 0 && syncResult.skipped === 0) {
+      // If nothing synced and everything failed, do not finalize — answers would be lost.
+      if (
+        syncResult &&
+        syncResult.failed > 0 &&
+        syncResult.processed === 0 &&
+        syncResult.skipped === 0 &&
+        syncResult.total > 0
+      ) {
+        setError(
+          `Failed to save ${syncResult.failed} answer(s) to the server. Check your connection and refresh to retry.`,
+        );
+        setLoading(false);
+        setSubmitting(false);
+        return;
+      }
+
+      if (syncResult && syncResult.failed > 0) {
         console.warn(
-          `[Finish] ${syncResult.failed}/${syncResult.total} local answers failed to sync; attempting test submit anyway`,
+          `[Finish] ${syncResult.failed}/${syncResult.total} local answers still failed after sync; submitting with remaining local copy`,
         );
       }
 

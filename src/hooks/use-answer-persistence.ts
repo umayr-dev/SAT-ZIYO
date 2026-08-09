@@ -15,6 +15,7 @@ import {
   getModuleAnswersForSubmit,
   readPracticeAnswerAtIndex,
   removePracticeAnswer,
+  removePracticeAnswersByQuestionIds,
   savePracticeAnswer,
 } from "@/src/utils/practice-answers-storage";
 import { syncAnswerToServerIfChanged } from "@/src/utils/practice-answer-sync";
@@ -412,10 +413,18 @@ export function useAnswerPersistence({
     const answers = getModuleAnswersForSubmit(attemptId, prefix);
     if (answers.length === 0) return null;
 
-    return submitAnswersInBatches(attemptId, answers, {
+    const result = await submitAnswersInBatches(attemptId, answers, {
       throwIfAllFailed: false,
       toleratePersistedErrors: true,
     });
+
+    // Prune confirmed/already-on-server answers so Module Review Continue
+    // does not re-submit the whole module and hit "already answered" false failures.
+    if (result.savedQuestionIds.length > 0) {
+      removePracticeAnswersByQuestionIds(attemptId, result.savedQuestionIds);
+    }
+
+    return result;
   }, [attemptId, getModulePrefixForState, testStateRef]);
 
   useEffect(() => {
@@ -447,8 +456,12 @@ export function useAnswerPersistence({
         toleratePersistedErrors: true,
       });
 
+      if (result.savedQuestionIds.length > 0) {
+        removePracticeAnswersByQuestionIds(attemptId, result.savedQuestionIds);
+      }
       if (
         options?.clearStorage === true &&
+        result.failed === 0 &&
         (result.processed > 0 || result.skipped > 0)
       ) {
         clearPracticeAnswersStorage(attemptId);

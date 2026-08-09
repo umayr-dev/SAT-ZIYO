@@ -54,6 +54,66 @@ async function syncModuleAnswers(
     });
   }
 
+  // Reconcile "failed" with what the server already has. Background nav sync
+  // often saves answers first; Continue then re-submits them. Backend may reject
+  // with a message we don't classify as "already saved" → false failure.
+  if (result.failed > 0) {
+    try {
+      const savedSet = new Set(result.savedQuestionIds.map(String));
+      const unresolved = answers.filter(
+        (a) => a.questionId && !savedSet.has(String(a.questionId)),
+      );
+      if (unresolved.length > 0) {
+        const server = await practiceService.getAnsweredQuestions(attemptId);
+        const onServer = new Set(
+          (server.answers ?? [])
+            .filter((a) => a.answered !== false && a.questionId)
+            .map((a) => String(a.questionId)),
+        );
+        const actuallyMissing = unresolved.filter(
+          (a) => !onServer.has(String(a.questionId)),
+        );
+        const alreadyOnServer = unresolved.filter((a) =>
+          onServer.has(String(a.questionId)),
+        );
+
+        if (alreadyOnServer.length > 0) {
+          const recoveredIds = alreadyOnServer.map((a) => String(a.questionId));
+          result = {
+            ...result,
+            failed: actuallyMissing.length,
+            skipped: result.skipped + alreadyOnServer.length,
+            savedQuestionIds: [...result.savedQuestionIds, ...recoveredIds],
+          };
+        }
+
+        // One last retry for answers still missing on the server.
+        if (actuallyMissing.length > 0 && actuallyMissing.length < unresolved.length) {
+          const retry = await submitAnswersInBatches(attemptId, actuallyMissing, {
+            batchSize: 1,
+            throwIfAllFailed: false,
+            toleratePersistedErrors: true,
+          });
+          result = {
+            total: result.total,
+            processed: result.processed + retry.processed,
+            failed: retry.failed,
+            skipped: result.skipped + retry.skipped,
+            savedQuestionIds: [
+              ...result.savedQuestionIds,
+              ...retry.savedQuestionIds,
+            ],
+          };
+        }
+      }
+    } catch (reconcileErr) {
+      console.warn(
+        "[ModuleReview] Could not reconcile failed answers with server:",
+        reconcileErr,
+      );
+    }
+  }
+
   return result;
 }
 

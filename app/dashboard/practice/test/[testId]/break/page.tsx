@@ -71,7 +71,7 @@ export default function BreakPage() {
   }
 
   async function handleContinueTest() {
-    setError("");
+    setContinueError("");
     setContinuing(true);
     try {
       await practiceService.endBreak(attemptId);
@@ -79,12 +79,14 @@ export default function BreakPage() {
       router.push(`/dashboard/practice/test/${attemptId}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to continue test";
+      // Keep the break timer UI visible — do NOT replace the whole page with
+      // a fatal error screen (students must still wait for auto-advance).
       if (msg.includes("404") || msg.includes("skip-break") || msg.includes("end-break")) {
-        setError(
-          "Ending the break early is not supported by the server yet. Please wait until the timer finishes or refresh the page."
+        setContinueError(
+          "Ending the break early is not supported yet. Please wait until the timer reaches 0 — the next section will start automatically.",
         );
       } else {
-        setError(msg);
+        setContinueError(msg);
       }
     } finally {
       setContinuing(false);

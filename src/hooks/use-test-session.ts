@@ -576,7 +576,58 @@ export function useTestSession({
       setSubmitting(true);
       handleAnswer();
       await syncCurrentAnswerToServer();
-      await Promise.all([submitAllPendingAnswers(), submitAllHighlights()]);
+      const [syncResult] = await Promise.all([
+        submitAllPendingAnswers(),
+        submitAllHighlights().catch((err) => {
+          console.warn("[Test Page] Highlight sync on time-up:", err);
+        }),
+      ]);
+
+      // Do not finish the module while answers are still unsaved — after
+      // finishModule the attempt often rejects further answer writes.
+      if (
+        syncResult &&
+        typeof syncResult === "object" &&
+        "failed" in syncResult &&
+        Number((syncResult as { failed?: number }).failed) > 0
+      ) {
+        try {
+          const pending = getAllPracticeAnswersForSubmit(attemptId);
+          if (pending.length > 0) {
+            const retry = await submitAnswersInBatches(attemptId, pending, {
+              batchSize: 1,
+              throwIfAllFailed: false,
+              toleratePersistedErrors: true,
+            });
+            if (retry.failed > 0) {
+              // Reconcile with server: some "failures" are already saved.
+              const server = await practiceService.getAnsweredQuestions(attemptId);
+              const onServer = new Set(
+                (server.answers ?? [])
+                  .filter((a) => a.answered !== false && a.questionId)
+                  .map((a) => String(a.questionId)),
+              );
+              const stillMissing = pending.filter(
+                (a) => a.questionId && !onServer.has(String(a.questionId)),
+              );
+              if (stillMissing.length > 0) {
+                timeUpHandledRef.current = false;
+                setError(
+                  `Vaqt tugadi, lekin ${stillMissing.length} ta javob serverga saqlanmadi. Internetni tekshirib, qayta urinib ko‘ring.`,
+                );
+                return;
+              }
+            }
+          }
+        } catch (retryErr) {
+          console.warn("[Test Page] Time-up answer retry failed:", retryErr);
+          timeUpHandledRef.current = false;
+          setError(
+            "Vaqt tugadi, lekin javoblarni saqlashda xatolik. Qayta urinib ko‘ring.",
+          );
+          return;
+        }
+      }
 
       const result = await practiceService.finishModule(attemptId);
       await invalidatePracticeTestCurrentQuestion(queryClient, attemptId);

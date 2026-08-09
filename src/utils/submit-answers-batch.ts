@@ -58,9 +58,12 @@ export function isAnswerPersistedOrTerminalError(err: unknown): boolean {
   if (err.status === 401 || err.status === 403) return false;
 
   const msg = (err.message ?? "").toLowerCase();
+
+  // 409 Conflict almost always means the answer is already on the server.
+  if (err.status === 409) return true;
+
   if (
     err.status === 400 ||
-    err.status === 409 ||
     err.status === 404 ||
     err.status === 422
   ) {
@@ -70,12 +73,15 @@ export function isAnswerPersistedOrTerminalError(err: unknown): boolean {
       /completed/.test(msg) ||
       /submitted/.test(msg) ||
       /duplicate/.test(msg) ||
-      /already answered/.test(msg) ||
-      /answer already/.test(msg) ||
-      /already saved/.test(msg) ||
+      /exists/.test(msg) ||
+      /conflict/.test(msg) ||
       /cannot change/.test(msg) ||
       /cannot update/.test(msg) ||
-      /cannot modify/.test(msg)
+      /cannot modify/.test(msg) ||
+      /immutable/.test(msg) ||
+      /finalized/.test(msg) ||
+      /module.*(complete|finished|closed)/.test(msg) ||
+      /attempt.*(complete|finished|closed)/.test(msg)
     );
   }
   return false;
@@ -139,7 +145,9 @@ async function submitIndividuals(
     );
     if (outcome === "processed") {
       processed++;
-      // Only a confirmed write is safe to prune locally.
+      // Only confirmed writes are safe to prune. "Skipped" (already/terminal)
+      // must NOT auto-prune — a misclassified error would delete the only
+      // local copy before the server actually has the answer.
       savedQuestionIds.push(answers[i].questionId);
     } else if (outcome === "skipped") {
       skipped++;
@@ -239,9 +247,15 @@ export async function submitAnswersInBatches(
   const throwIfAllFailed = options?.throwIfAllFailed ?? true;
   const toleratePersistedErrors = options?.toleratePersistedErrors ?? true;
 
-  const validAnswers = answers
-    .filter((a) => !!a.questionId && hasAnswerContent(a))
-    .map(normalizeAnswer);
+  // Deduplicate by questionId (last write wins) — re-submitting the same
+  // question twice in one batch often makes the 2nd call look like a "failed save".
+  const byQuestionId = new Map<string, AnswerPayload>();
+  for (const raw of answers) {
+    if (!raw.questionId || !hasAnswerContent(raw)) continue;
+    const normalized = normalizeAnswer(raw);
+    byQuestionId.set(String(normalized.questionId), normalized);
+  }
+  const validAnswers = Array.from(byQuestionId.values());
 
   if (validAnswers.length === 0) {
     return { total: 0, processed: 0, failed: 0, skipped: 0, savedQuestionIds: [] };
