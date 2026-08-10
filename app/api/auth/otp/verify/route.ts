@@ -87,7 +87,13 @@ export async function POST(request: NextRequest) {
         user: {
           id: data.id || data.user?.id,
           email: data.email || data.user?.email || normalizedEmail,
-          name: data.name || data.user?.name || name,
+          // `name` (bare identifier) used to be here. It is not in scope — only
+          // { email, otp } are destructured from the request. TypeScript missed
+          // it because lib.dom declares a global `name`; at runtime in Node it
+          // throws ReferenceError, which the outer catch turns into a 500
+          // "Failed to verify OTP". It only fired when the user had no name,
+          // so it hit exactly the accounts least likely to be noticed.
+          name: data.name || data.user?.name || null,
           role: data.role || data.user?.role || "STUDENT",
         },
       },

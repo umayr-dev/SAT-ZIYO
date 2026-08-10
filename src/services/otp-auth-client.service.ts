@@ -54,7 +54,24 @@ export async function sendOTP(
   });
 
   if (!response.ok) {
-    const error = await response.json();
+    // Rate limited. Tell the student how long to wait instead of showing a
+    // generic failure — otherwise they hammer the button, which keeps the
+    // bucket permanently saturated and makes the queue worse for the whole
+    // cohort. This is the difference between a 30-second delay and a room full
+    // of students who cannot log in at all.
+    if (response.status === 429) {
+      const retryAfter = Number(response.headers.get("Retry-After"));
+      const seconds =
+        Number.isFinite(retryAfter) && retryAfter > 0
+          ? Math.ceil(retryAfter)
+          : 60;
+      throw new Error(
+        `Too many sign-in attempts. Please wait ${seconds} second${
+          seconds === 1 ? "" : "s"
+        } and try again — do not keep pressing the button.`,
+      );
+    }
+    const error = await response.json().catch(() => ({}));
     throw new Error(error.error || "Failed to send OTP");
   }
 

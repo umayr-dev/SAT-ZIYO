@@ -56,11 +56,18 @@ export async function POST(request: NextRequest) {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        // Forward Retry-After so the client can tell the student how long to
+        // wait. Without it a throttled student just sees a failure and keeps
+        // pressing, holding the shared bucket saturated.
+        const retryAfter = response.headers.get("Retry-After");
         return NextResponse.json(
           {
             error: errorData.message || "Failed to send OTP. Please try again.",
           },
-          { status: response.status }
+          {
+            status: response.status,
+            headers: retryAfter ? { "Retry-After": retryAfter } : undefined,
+          }
         );
       }
 
