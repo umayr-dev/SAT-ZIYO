@@ -24,7 +24,6 @@ import {
 import { ApiClientError } from "@/src/lib/api-client";
 import { submitAnswersInBatches } from "@/src/utils/submit-answers-batch";
 import {
-  clearPracticeAnswersStorage,
   getAllPracticeAnswersForSubmit,
   removePracticeAnswersByQuestionIds,
 } from "@/src/utils/practice-answers-storage";
@@ -149,10 +148,21 @@ export default function FinishTestPage() {
   }, [attemptId, getHighlightsStorageKey]);
 
   const loadResultsAfterSubmit = useCallback(async () => {
+    // DATA SAFETY: this function must NEVER clear the local answer store.
+    // It previously called clearPracticeAnswersStorage() on both branches,
+    // keyed to submitTest() succeeding rather than to per-question
+    // confirmation. When some answers had failed to save, the test was
+    // finalized (scoring those questions as blank) and then the only surviving
+    // copy of them was deleted. That is the reported "it didn't save the
+    // results" data loss.
+    //
+    // submitAllPendingAnswers() already prunes exactly what the server
+    // confirmed, via removePracticeAnswersByQuestionIds(savedQuestionIds).
+    // Anything still in localStorage after that is by definition unsaved and
+    // must survive so it can be retried.
     try {
       const testResults = await practiceService.submitTest(attemptId);
       setResults(testResults);
-      clearPracticeAnswersStorage(attemptId);
       return;
     } catch (submitErr) {
       const isNotInProgress =
@@ -162,7 +172,6 @@ export default function FinishTestPage() {
       if (isNotInProgress) {
         const testResults = await practiceService.getResults(attemptId);
         setResults(testResults);
-        clearPracticeAnswersStorage(attemptId);
         return;
       }
       throw submitErr;
@@ -176,26 +185,23 @@ export default function FinishTestPage() {
 
       const syncResult = await submitAllPendingAnswers();
 
-      // If nothing synced and everything failed, do not finalize — answers would be lost.
-      if (
-        syncResult &&
-        syncResult.failed > 0 &&
-        syncResult.processed === 0 &&
-        syncResult.skipped === 0 &&
-        syncResult.total > 0
-      ) {
+      // NEVER finalize while ANY answer is unsaved. Submitting scores the
+      // attempt from what the DB holds, so every unsaved answer is graded as
+      // blank — permanently, since the attempt then leaves IN_PROGRESS.
+      //
+      // The old guard only fired when NOTHING saved (processed === 0 &&
+      // skipped === 0). With 40 saved and 12 failed it fell through, scored 12
+      // questions as blank, and then wiped the local copy. One unsaved answer
+      // is a wrong score, so one is enough to stop.
+      if (syncResult && syncResult.failed > 0 && syncResult.total > 0) {
         setError(
-          `Failed to save ${syncResult.failed} answer(s) to the server. Check your connection and refresh to retry.`,
+          `${syncResult.failed} of your ${syncResult.total} answers could not be saved to the server yet. ` +
+            `Your answers are still stored on this device — do NOT close this tab. ` +
+            `Check your connection and press "Try again".`,
         );
         setLoading(false);
         setSubmitting(false);
         return;
-      }
-
-      if (syncResult && syncResult.failed > 0) {
-        console.warn(
-          `[Finish] ${syncResult.failed}/${syncResult.total} local answers still failed after sync; submitting with remaining local copy`,
-        );
       }
 
       await loadResultsAfterSubmit();

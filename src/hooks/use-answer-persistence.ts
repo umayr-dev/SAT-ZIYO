@@ -196,7 +196,12 @@ export function useAnswerPersistence({
           const entry = answers[k] as {
             choiceId?: string;
             textAnswer?: string;
+            syncedAt?: number;
           };
+          // Already confirmed stored by the server — keep it for display, but
+          // do not re-submit it. (Mirrors the same skip in
+          // practice-answers-storage.ts; this is a second, independent reader.)
+          if (entry?.syncedAt) return false;
           return !!(
             entry?.choiceId ||
             (entry?.textAnswer != null &&
@@ -245,12 +250,42 @@ export function useAnswerPersistence({
           });
         }
       } else {
+        // No local copy. Fall back to what the SERVER says this student
+        // answered — it is already in the /current payload
+        // (previousAnswer / previousTextAnswer / markedForReview /
+        // eliminatedChoices) and was previously ignored entirely. Without this
+        // the student sees a blank question they have already answered
+        // whenever localStorage is missing: different device, cleared storage,
+        // private window, or an attempt resumed after the store was pruned.
+        const ts = testStateRef.current;
+        const serverChoice = ts?.previousAnswer ?? undefined;
+        const serverText = ts?.previousTextAnswer ?? undefined;
+        const hasServerAnswer =
+          !!serverChoice ||
+          (serverText != null && String(serverText).trim() !== "");
+
+        if (hasServerAnswer && ts?.currentQuestionIndex === index) {
+          currentAnswerRef.current = {
+            choiceId: serverChoice,
+            textAnswer: serverText,
+          };
+          setCurrentAnswer({ choiceId: serverChoice, textAnswer: serverText });
+          setEliminatedChoices(new Set(ts?.eliminatedChoices ?? []));
+          setFlaggedQuestions((prev) => {
+            const next = new Set(prev);
+            if (ts?.markedForReview) next.add(index);
+            else next.delete(index);
+            return next;
+          });
+          return;
+        }
+
         currentAnswerRef.current = {};
         setCurrentAnswer({});
         setEliminatedChoices(new Set());
       }
     },
-    [getAllAnswersFromStorage],
+    [getAllAnswersFromStorage, testStateRef],
   );
 
   const persistCurrentQuestionAnswer = useCallback(() => {

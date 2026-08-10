@@ -61,6 +61,17 @@ export interface StartTestResponse {
   currentQuestionIndex: number;
   question: Question;
   breakStatus: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
+  /**
+   * The student's stored answer for this question, straight from the DB.
+   * The backend has always returned these (practice.service.ts:396-399) but
+   * the client never declared or read them, so answer restore depended 100% on
+   * localStorage. When a prune or a device change emptied that store, the UI
+   * showed the student a blank question they had already answered.
+   */
+  previousAnswer?: string | null;
+  previousTextAnswer?: string | null;
+  markedForReview?: boolean;
+  eliminatedChoices?: string[];
 }
 
 export interface Passage {

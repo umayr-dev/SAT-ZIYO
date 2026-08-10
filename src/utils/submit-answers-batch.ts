@@ -7,6 +7,15 @@ export type AnswerPayload = {
   textAnswer?: string;
   markedForReview?: boolean;
   eliminatedChoices?: string[];
+  /**
+   * Epoch ms at which the SERVER confirmed this answer was stored.
+   * Present = already persisted, so it is excluded from future flushes but
+   * still counted by the UI. See practice-answers-storage.ts — the local store
+   * is both the outbox and the display model, so entries are tombstoned rather
+   * than deleted. Deleting them made the question navigator visibly empty out
+   * after a partial save, which students read as losing their work.
+   */
+  syncedAt?: number;
 };
 
 export type BatchSubmitResult = {
@@ -67,21 +76,28 @@ export function isAnswerPersistedOrTerminalError(err: unknown): boolean {
     err.status === 404 ||
     err.status === 422
   ) {
+    // DANGER ZONE. Returning true here tells the caller "the server already has
+    // this answer", which makes the flush report success and lets the finish
+    // page finalize the test. If we say that about an answer the server
+    // REFUSED, the student is scored as if the question were blank.
+    //
+    // The previous version matched /module.*(complete|finished|closed)/, which
+    // matches the backend's "Module is closed for answers (time expired)" —
+    // a REFUSAL, not a persist. That single pattern is how completed tests
+    // lost answers. Only patterns that unambiguously mean "already stored"
+    // belong here; everything else must count as failed and stay in
+    // localStorage for retry.
     return (
-      /not in progress/.test(msg) ||
-      /already/.test(msg) ||
-      /completed/.test(msg) ||
-      /submitted/.test(msg) ||
+      /already answered/.test(msg) ||
+      /answer already/.test(msg) ||
+      /already exists/.test(msg) ||
       /duplicate/.test(msg) ||
-      /exists/.test(msg) ||
-      /conflict/.test(msg) ||
-      /cannot change/.test(msg) ||
-      /cannot update/.test(msg) ||
-      /cannot modify/.test(msg) ||
-      /immutable/.test(msg) ||
-      /finalized/.test(msg) ||
-      /module.*(complete|finished|closed)/.test(msg) ||
-      /attempt.*(complete|finished|closed)/.test(msg)
+      // The whole attempt is finalized, so no further write can ever land.
+      // Terminal, and the answer is either stored or unrecoverable — but the
+      // caller must not treat this as a reason to prune, so it is reported as
+      // "skipped" rather than "processed".
+      /attempt.*(not in progress|completed|submitted)/.test(msg) ||
+      /this attempt is not in progress/.test(msg)
     );
   }
   return false;
@@ -89,6 +105,11 @@ export function isAnswerPersistedOrTerminalError(err: unknown): boolean {
 
 function isRetryableError(err: unknown): boolean {
   if (!(err instanceof ApiClientError)) return true;
+  // status 0 = network failure / timeout (api-client maps these to
+  // ApiClientError with status 0). A wifi blip or a pm2 restart mid-request
+  // MUST be retried — classifying it as terminal is how a 2-second outage
+  // permanently blocked the module-review Continue button.
+  if (err.status === 0) return true;
   if (err.status === 429 || err.status >= 500) return true;
   return false;
 }

@@ -52,6 +52,29 @@ export default function PreTestInstructionsPage() {
         const inProgressAttempts = attempts.filter(
           (a) => a.status === "IN_PROGRESS",
         );
+
+        // DATA SAFETY: abandoning mints a NEW attemptId, which orphans every
+        // answer in localStorage (they are keyed test_answers_<attemptId>) and
+        // hides the old attempt from the UI. It is irreversible.
+        // A student stuck on "Failed to save N answers — try again" reads the
+        // orange "Start New" button as "retry" and destroys their whole test.
+        // Never do it silently.
+        if (inProgressAttempts.length > 0) {
+          const confirmed = window.confirm(
+            "You have a test already in progress.\n\n" +
+              "Starting a new one will PERMANENTLY DISCARD that attempt and all " +
+              "answers you have given in it. This cannot be undone.\n\n" +
+              "If you meant to carry on where you left off, press Cancel and use " +
+              '"Continue" instead.\n\n' +
+              "Discard the attempt and start over?",
+          );
+          if (!confirmed) {
+            setStarting(false);
+            router.push(`/dashboard/practice`);
+            return;
+          }
+        }
+
         await Promise.all(
           inProgressAttempts.map(async (attempt) => {
             try {

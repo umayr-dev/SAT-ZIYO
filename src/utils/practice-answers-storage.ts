@@ -128,6 +128,9 @@ export function getAllPracticeAnswersForSubmit(
 
     for (const [key, entry] of Object.entries(answers)) {
       if (!/^s\d+_m\d+_\d+$/.test(key)) continue;
+      // Already confirmed by the server — still shown in the UI, but must not
+      // be re-submitted.
+      if (entry?.syncedAt) continue;
       const enriched = enrichAnswerFromKey(attemptId, key, entry);
       if (enriched?.questionId) result.push(enriched);
     }
@@ -157,6 +160,9 @@ export function getModuleAnswersForSubmit(
 
     for (const [key, entry] of Object.entries(answers)) {
       if (!key.startsWith(modulePrefix)) continue;
+      // Already confirmed by the server — still shown in the UI, but must not
+      // be re-submitted.
+      if (entry?.syncedAt) continue;
       const enriched = enrichAnswerFromKey(attemptId, key, entry);
       if (enriched?.questionId) result.push(enriched);
     }
@@ -178,12 +184,20 @@ export function clearPracticeAnswersStorage(attemptId: string): void {
 }
 
 /**
- * Remove ONLY the answers the server confirmed it saved (by questionId). This
- * is the safe prune: answers that failed to save stay in localStorage for the
- * next flush/retry instead of being deleted by an aggregate "something saved"
- * heuristic.
+ * Mark the answers the server CONFIRMED it saved, so they are not re-submitted.
+ *
+ * This tombstones (sets syncedAt) rather than deleting. The local store is both
+ * the outbox AND the UI's source of truth — the question navigator, the
+ * answered/unanswered counters and the in-test answer restore all read it, and
+ * nothing rehydrates from the server. Deleting on save therefore made a partial
+ * failure look like catastrophic data loss: a student who answered 27/27 and
+ * hit one failed save watched the counter drop to "Answered 7/27" and concluded
+ * their work was gone. It wasn't — the server had it.
+ *
+ * Answers that failed to save keep syncedAt undefined and stay in the flush
+ * queue for retry.
  */
-export function removePracticeAnswersByQuestionIds(
+export function markPracticeAnswersSynced(
   attemptId: string,
   questionIds: string[],
 ): void {
@@ -196,12 +210,13 @@ export function removePracticeAnswersByQuestionIds(
     if (!stored) return;
     const answers = JSON.parse(stored) as Record<string, AnswerPayload>;
     let changed = false;
+    const now = Date.now();
     for (const [k, entry] of Object.entries(answers)) {
       if (!/^s\d+_m\d+_\d+$/.test(k)) continue;
       const enriched = enrichAnswerFromKey(attemptId, k, entry);
       const qid = enriched?.questionId ?? entry?.questionId;
-      if (qid && saved.has(String(qid))) {
-        delete answers[k];
+      if (qid && saved.has(String(qid)) && !entry.syncedAt) {
+        answers[k] = { ...entry, syncedAt: now };
         changed = true;
       }
     }
@@ -209,9 +224,15 @@ export function removePracticeAnswersByQuestionIds(
       localStorage.setItem(key, JSON.stringify(answers));
     }
   } catch (err) {
-    console.error("Failed to prune saved practice answers from localStorage:", err);
+    console.error("Failed to mark practice answers as synced:", err);
   }
 }
+
+/**
+ * @deprecated Use markPracticeAnswersSynced. Kept as an alias so no call site
+ * silently keeps deleting answers.
+ */
+export const removePracticeAnswersByQuestionIds = markPracticeAnswersSynced;
 
 /** Remove synced module answers so finish page does not re-submit them. */
 export function removePracticeAnswersByPrefix(
