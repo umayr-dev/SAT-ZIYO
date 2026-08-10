@@ -64,12 +64,22 @@ export async function apiClient<T>(
     }
   }
 
+  // RELIABILITY: bound every request. Without a timeout a stalled backend (pool
+  // exhaustion, a pm2 restart mid-request, a dropped mobile connection) leaves
+  // fetch pending forever — the student sees a frozen screen with no error and
+  // no retry, and the sequential answer flush stops dead on the first hung
+  // request. API_CONFIG.timeout existed but was never wired to anything.
+  const timeoutMs = (fetchOptions as { timeoutMs?: number }).timeoutMs ?? 15000;
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), timeoutMs);
+
   // Always include credentials for cookie-based auth
   const requestOptions: RequestInit = {
     ...fetchOptions,
     headers,
     mode: "cors", // Allow CORS if needed
     credentials: fetchOptions.credentials || "include", // Always include credentials for cookie-based auth
+    signal: fetchOptions.signal ?? timeoutController.signal,
   };
 
   try {
@@ -118,6 +128,16 @@ export async function apiClient<T>(
 
     return data as T;
   } catch (error) {
+    // Timeout. Status 0 so submit-answers-batch treats it as retryable rather
+    // than terminal — a timed-out answer save must never be given up on.
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new ApiClientError(
+        "The server took too long to respond. Retrying…",
+        0,
+        "TIMEOUT"
+      );
+    }
+
     // Network errors
     if (error instanceof TypeError && error.message.includes("fetch")) {
       throw new ApiClientError(
@@ -138,6 +158,8 @@ export async function apiClient<T>(
       0,
       "UNKNOWN_ERROR"
     );
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

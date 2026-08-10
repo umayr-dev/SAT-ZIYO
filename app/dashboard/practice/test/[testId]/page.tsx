@@ -494,17 +494,22 @@ export default function TestTakingPage() {
     );
 
     const submitPromises: Promise<void>[] = [];
-    let delay = 0;
 
     const highlightsArray = Array.from(allHighlights.entries());
 
-    for (const [questionId, highlights] of highlightsArray) {
-      if (highlights.length === 0) continue; // Skip empty highlights
+    // The stagger used to be a no-op: `delay += 50` sat AFTER the await inside
+    // each async IIFE, so every iteration read delay === 0 and all N requests
+    // fired simultaneously. With 50 students each flushing highlights for
+    // dozens of questions at the same module boundary, that is a synchronized
+    // burst straight into the rate limiter. Compute the offset up front.
+    highlightsArray
+      .filter(([, highlights]) => highlights.length > 0)
+      .forEach(([questionId, highlights], i) => {
+      const delay = i * 50;
 
       submitPromises.push(
         (async () => {
           await new Promise((resolve) => setTimeout(resolve, delay));
-          delay += 50; // 50ms delay between requests
 
           try {
             await practiceService.saveHighlights(
@@ -520,7 +525,7 @@ export default function TestTakingPage() {
           }
         })(),
       );
-    }
+      });
 
     await Promise.all(submitPromises);
     console.log("[Test Page] All highlights submitted successfully");
@@ -1015,6 +1020,42 @@ export default function TestTakingPage() {
 
   return (
     <div className="fixed inset-0 flex bg-white overflow-hidden">
+      {/*
+        In-test error banner.
+        The full-screen error card above only renders when testState is null,
+        so ANY failure once the student is inside the test — a failed answer
+        save, a failed navigation, a timed-out request — was completely
+        invisible. Students sat looking at a normal screen with no idea their
+        work was not being saved. This is non-blocking on purpose: it must not
+        cover the question or stop the clock, only tell the truth.
+      */}
+      {error && (
+        <div
+          role="alert"
+          className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between gap-3 bg-red-600 px-4 py-2 text-sm text-white shadow-lg"
+        >
+          <span className="min-w-0 flex-1">{error}</span>
+          <button
+            type="button"
+            onClick={() => {
+              setError("");
+              void loadTestState();
+            }}
+            className="shrink-0 rounded bg-white/20 px-3 py-1 font-medium hover:bg-white/30"
+          >
+            Retry
+          </button>
+          <button
+            type="button"
+            onClick={() => setError("")}
+            aria-label="Dismiss"
+            className="shrink-0 rounded px-2 py-1 hover:bg-white/20"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Fullscreen choice modal – minimal, two options only */}
       {showFullscreenWarning && (
         <FullscreenWarningModal

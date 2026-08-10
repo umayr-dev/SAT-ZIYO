@@ -92,16 +92,47 @@ export async function POST(
           payload.failedQuestionIds = data.failedQuestionIds;
         }
         return NextResponse.json(payload, { status: 200 });
-      } else if (response.status === 404) {
-        // Batch endpoint not available, fallback to individual submissions
-        console.log("[Batch API] Batch endpoint not available, using individual submissions");
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Backend returned ${response.status}`);
       }
+
+      // LOAD SAFETY: only fan out to individual requests when the batch
+      // endpoint genuinely does not exist (404). Previously ANY non-2xx — a
+      // 429 or a 500 — was swallowed and retried as N individual requests.
+      // That amplified load 10-30x at precisely the moment the backend was
+      // already failing, and turned one module flush into ~250 requests, which
+      // then tripped the per-user rate limit and looked to the student like a
+      // network outage. It also returned HTTP 200 with failed=N, hiding the
+      // real status from the client.
+      if (response.status !== 404) {
+        const errorData = await response.json().catch(() => ({}));
+        return NextResponse.json(
+          {
+            message:
+              errorData.message ||
+              `Backend /answers/batch returned ${response.status}`,
+            processed: 0,
+            failed: answers.length,
+          },
+          { status: response.status },
+        );
+      }
+      console.log(
+        "[Batch API] Batch endpoint missing (404) — falling back to individual submissions",
+      );
     } catch (batchError) {
-      // Fallback: submit individually
-      console.log("[Batch API] Falling back to individual submissions");
+      // A genuine transport failure (DNS, connection refused, timeout). Report
+      // it rather than multiplying it by N.
+      console.error("[Batch API] Transport failure:", batchError);
+      return NextResponse.json(
+        {
+          message:
+            batchError instanceof Error
+              ? batchError.message
+              : "Failed to reach backend",
+          processed: 0,
+          failed: answers.length,
+        },
+        { status: 502 },
+      );
     }
 
     // Fallback: Submit answers individually (but in smaller batches to avoid rate limiting)
