@@ -2,7 +2,15 @@
 const nextConfig = {
   // CSS optimization - prevent CSS from being lost
   compiler: {
-    removeConsole: process.env.NODE_ENV === "production",
+    // Keep console.error and console.warn in production. Stripping ALL console
+    // output meant that during the failed mock test there was literally no
+    // client-side diagnostic left — every "failed to save answer" and every
+    // caught exception was compiled away, so neither the students nor anyone
+    // debugging afterwards could see what was breaking.
+    removeConsole:
+      process.env.NODE_ENV === "production"
+        ? { exclude: ["error", "warn"] }
+        : false,
   },
   // Suppress punycode deprecation warning
   webpack: (config, { isServer, dev }) => {

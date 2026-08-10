@@ -57,8 +57,22 @@ export const ModuleWallClockTimer = memo(function ModuleWallClockTimer({
       onRemainingRef.current?.(remaining);
 
       if (remaining <= 0 && !timeUpFiredRef.current) {
+        // RECOVERY: only latch on SUCCESS. handleTimeUp flushes the module's
+        // answers and then calls finishModule; if that flush fails (429, a
+        // dropped connection, a backend restart) the old code had already
+        // latched, so time-up could never fire again. The student sat on a
+        // frozen 0:00 screen with no message and no way forward — their module
+        // never ended and their answers were never submitted.
+        //
+        // Latch optimistically to prevent a re-entrant burst, then release it
+        // if the handler rejects so the next tick retries a second later.
         timeUpFiredRef.current = true;
-        onTimeUpRef.current();
+        void Promise.resolve()
+          .then(() => onTimeUpRef.current())
+          .catch((err) => {
+            console.error("[Timer] time-up handler failed, will retry:", err);
+            timeUpFiredRef.current = false;
+          });
       }
     };
 

@@ -425,9 +425,20 @@ export function useTestSession({
         );
       }
 
+      // FAIRNESS: the server is the only authority on remaining time. When it
+      // reports remainingSeconds, use it — including 0, which means the module
+      // has expired. The previous `?? duration * 60` fallback fired whenever
+      // remainingSeconds was absent OR the server returned it as 0/null, and
+      // handed the student a brand-new full-length module. A student could
+      // therefore refresh at 0:00 and get the whole module again.
+      //
+      // Only fall back to the full duration when the field is genuinely absent
+      // (older payload shape), never when the server has spoken.
+      const serverRemaining = activeState.currentModule.remainingSeconds;
       startModuleTimer(
-        activeState.currentModule.remainingSeconds ??
-          activeState.currentModule.duration * 60,
+        typeof serverRemaining === "number"
+          ? Math.max(0, serverRemaining)
+          : activeState.currentModule.duration * 60,
       );
 
       const statePrefixApi = `s${activeState.currentSection.orderIndex}_m${activeState.currentModule.moduleNumber}_`;
