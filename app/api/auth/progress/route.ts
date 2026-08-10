@@ -172,18 +172,20 @@ export async function GET(request: NextRequest) {
       return null;
     }
 
-    if (latestAttempt?.id) {
-      const latestResults = await getAccuracyForAttempt(latestAttempt.id);
-      if (latestResults) {
-        accuracy = latestResults.accuracy;
-        questionsPracticed = latestResults.total;
-        if (lastScore == null && latestResults.score != null) lastScore = latestResults.score;
-      }
+    // PERF: these two have no data dependency on each other, but were awaited
+    // one after the other — two serial browser->Vercel(Stockholm)->VPS round
+    // trips on the dashboard's slowest widget. Run them together.
+    const [latestResults, prevResults] = await Promise.all([
+      latestAttempt?.id ? getAccuracyForAttempt(latestAttempt.id) : null,
+      previousAttempt?.id ? getAccuracyForAttempt(previousAttempt.id) : null,
+    ]);
+
+    if (latestResults) {
+      accuracy = latestResults.accuracy;
+      questionsPracticed = latestResults.total;
+      if (lastScore == null && latestResults.score != null) lastScore = latestResults.score;
     }
-    if (previousAttempt?.id) {
-      const prevResults = await getAccuracyForAttempt(previousAttempt.id);
-      if (prevResults) previousAccuracy = prevResults.accuracy;
-    }
+    if (prevResults) previousAccuracy = prevResults.accuracy;
 
     return NextResponse.json(
       {

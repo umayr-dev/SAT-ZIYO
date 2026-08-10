@@ -2559,31 +2559,44 @@ export function ScoreCalculatorClient() {
     };
   }, [rwModule1, rwModule2, mathModule1, mathModule2, percentile]);
 
-  // Fetch percentile from backend when total score changes
+  // Fetch percentile from backend when total score changes.
+  // PERF: debounced + aborted. The four inputs are range sliders whose onChange
+  // fires per step, so a single drag previously issued up to ~27 requests, each
+  // a browser -> Vercel(Stockholm) -> VPS round trip, and they could resolve
+  // out of order and clobber the newest value. The cleanup cancels the pending
+  // timer for every intermediate position, so a drag now costs one request.
   useEffect(() => {
-    const fetchPercentile = async () => {
-      if (scores.total >= 400 && scores.total <= 1600) {
-        setPercentileLoading(true);
-        try {
-          const response = await fetch(`/api/scoring/percentile/${scores.total}`);
-          if (response.ok) {
-            const data = await response.json();
-            setPercentile(data.percentile ?? null);
-          } else {
-            // Fallback to local calculation on error
-            setPercentile(calculatePercentile(scores.total));
-          }
-        } catch (error) {
-          console.error("Failed to fetch percentile:", error);
+    if (scores.total < 400 || scores.total > 1600) return;
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setPercentileLoading(true);
+      try {
+        const response = await fetch(
+          `/api/scoring/percentile/${scores.total}`,
+          { signal: controller.signal },
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setPercentile(data.percentile ?? null);
+        } else {
           // Fallback to local calculation on error
           setPercentile(calculatePercentile(scores.total));
-        } finally {
-          setPercentileLoading(false);
         }
+      } catch (error) {
+        if ((error as Error).name === "AbortError") return;
+        console.error("Failed to fetch percentile:", error);
+        // Fallback to local calculation on error
+        setPercentile(calculatePercentile(scores.total));
+      } finally {
+        setPercentileLoading(false);
       }
-    };
+    }, 250);
 
-    fetchPercentile();
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [scores.total]);
 
   const handleInputChange = (

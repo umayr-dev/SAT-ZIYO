@@ -13,15 +13,12 @@ interface MarkdownRendererProps {
   className?: string;
 }
 
-export function MarkdownRenderer({ content, className = "" }: MarkdownRendererProps) {
-  if (!content || !content.trim()) return null;
-
-  return (
-    <div className={`markdown-content ${className}`}>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeKatex, rehypeRaw]}
-        components={{
+// PERF: hoisted to module scope. react-markdown builds a brand-new unified
+// processor whenever these identities change, so inline literals meant the
+// whole remark -> rehype -> KaTeX pipeline re-ran on every render.
+const REMARK_PLUGINS = [remarkGfm, remarkMath];
+const REHYPE_PLUGINS = [rehypeKatex, rehypeRaw];
+const MD_COMPONENTS = {
           p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
           ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-0.5">{children}</ul>,
           ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-0.5">{children}</ol>,
@@ -45,10 +42,26 @@ export function MarkdownRenderer({ content, className = "" }: MarkdownRendererPr
           td: ({ children }) => (
             <td className="border border-gray-300 px-3 py-2 text-gray-700">{children}</td>
           ),
-        }}
+} satisfies React.ComponentProps<typeof ReactMarkdown>["components"];
+
+// PERF: memoized. `content` and `className` are stable strings for a given
+// question or answer choice, so selecting a choice no longer re-parses all
+// four choices (and the stem) through KaTeX.
+export const MarkdownRenderer = React.memo(function MarkdownRenderer({
+  content,
+  className = "",
+}: MarkdownRendererProps) {
+  if (!content || !content.trim()) return null;
+
+  return (
+    <div className={`markdown-content ${className}`}>
+      <ReactMarkdown
+        remarkPlugins={REMARK_PLUGINS}
+        rehypePlugins={REHYPE_PLUGINS}
+        components={MD_COMPONENTS}
       >
         {content}
       </ReactMarkdown>
     </div>
   );
-}
+});

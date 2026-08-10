@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, type MouseEvent, type Ref } from "react";
+import { memo, useCallback, type MouseEvent, type Ref } from "react";
 import Image from "next/image";
 import {
   Question,
@@ -57,6 +57,12 @@ export interface DesktopTestContentProps {
   onGridInChange: (value: string) => void;
 }
 
+// PERF: a single shared no-op. Inline `() => {}` props are a NEW function
+// identity on every render, which defeated the React.memo on QuestionDisplay —
+// the most expensive subtree in the app (markdown + KaTeX + per-character
+// highlight spans).
+const NOOP = () => {};
+
 export const DesktopTestContent = memo(function DesktopTestContent({
   layoutContainerRef,
   sectionType,
@@ -86,6 +92,20 @@ export const DesktopTestContent = memo(function DesktopTestContent({
 }: DesktopTestContentProps) {
   const isMath = sectionType === "MATH";
   const questionImageUrl = getQuestionImageUrl(question);
+
+  // PERF: stable identities so the memo comparators on QuestionDisplay and
+  // PassagePanel actually short-circuit. Both parent callbacks are already
+  // stable useCallbacks in page.tsx, so these only change when the question does.
+  const handleQuestionTextHighlights = useCallback(
+    (highlights: Parameters<typeof onQuestionTextHighlightsChange>[1]) =>
+      onQuestionTextHighlightsChange(question.id, highlights),
+    [onQuestionTextHighlightsChange, question.id],
+  );
+  const handlePassageHighlights = useCallback(
+    (highlights: Parameters<typeof onPassageHighlightsChange>[1]) =>
+      onPassageHighlightsChange(question.id, highlights),
+    [onPassageHighlightsChange, question.id],
+  );
 
   return (
     <div className="flex min-h-0 max-h-full w-full min-w-0 flex-1 flex-col">
@@ -187,9 +207,7 @@ export const DesktopTestContent = memo(function DesktopTestContent({
                     }
                     isMarkupEnabled={isMarkupEnabled}
                     attemptId={attemptId}
-                    onHighlightsChange={(highlights) =>
-                      onPassageHighlightsChange(question.id, highlights)
-                    }
+                    onHighlightsChange={handlePassageHighlights}
                   />
                 ) : (
                   !questionImageUrl && (
@@ -230,16 +248,14 @@ export const DesktopTestContent = memo(function DesktopTestContent({
                     question={question}
                     selectedChoiceId={undefined}
                     textAnswer={undefined}
-                    onSelectChoice={() => {}}
-                    onTextAnswerChange={() => {}}
+                    onSelectChoice={NOOP}
+                    onTextAnswerChange={NOOP}
                     isFlagged={isFlagged}
                     hidePassage
                     isMarkupEnabled={isMarkupEnabled}
                     showOnlyQuestionText
                     attemptId={attemptId}
-                    onHighlightsChange={(highlights) =>
-                      onQuestionTextHighlightsChange(question.id, highlights)
-                    }
+                    onHighlightsChange={handleQuestionTextHighlights}
                   />
                 </div>
 

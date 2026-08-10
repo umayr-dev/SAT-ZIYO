@@ -32,35 +32,19 @@ const nextConfig = {
           moduleIds: "named",
           chunkIds: "named",
         };
-      } else {
-        // Optimize chunk loading for production
-        config.optimization = {
-          ...config.optimization,
-          moduleIds: "deterministic",
-          runtimeChunk: "single",
-          splitChunks: {
-            chunks: "all",
-            cacheGroups: {
-              default: false,
-              vendors: false,
-              vendor: {
-                name: "vendor",
-                chunks: "all",
-                test: /[\\/]node_modules[\\/]/,
-                priority: 20,
-              },
-              // CSS chunk - prevent CSS from being lost
-              styles: {
-                name: "styles",
-                test: /\.(css|scss|sass)$/,
-                chunks: "all",
-                enforce: true,
-                priority: 30,
-              },
-            },
-          },
-        };
       }
+      // PERF: do NOT override production chunking. The previous `else` branch
+      // set `default: false` + `vendors: false`, which disabled Next.js 14's
+      // tuned cache groups (framework / per-package lib-* / commons / shared)
+      // and replaced them with one `vendor` group swallowing all of
+      // node_modules. Result: a single 1.96MB (569kB gzip) chunk downloaded by
+      // every route — the landing page was fetching recharts, katex and the
+      // whole remark/rehype chain to render marketing copy, blocking first
+      // paint for ~2.5s. Measured with Next's own splitting restored:
+      // shared JS 569.4kB gz -> 87.7kB gz.
+      // The `styles` group is gone for the same reason: it merged every CSS
+      // import into one 105kB render-blocking stylesheet containing KaTeX's
+      // font CSS on routes that render no math.
     }
     return config;
   },
@@ -73,7 +57,17 @@ const nextConfig = {
 
   // Suppress _document warnings (App Router doesn't use it)
   experimental: {
-    optimizePackageImports: ["lucide-react", "@tanstack/react-query"],
+    // Barrel-import optimization: rewrites `import { X } from "pkg"` into deep
+    // imports so tree shaking can drop the rest of the package.
+    optimizePackageImports: [
+      "lucide-react",
+      "@tanstack/react-query",
+      "recharts",
+      "react-markdown",
+      "katex",
+      "react-katex",
+      "@radix-ui/react-dialog",
+    ],
     // Base64 rasmlar bilan POST uchun body limit (413 yechimi)
     serverActions: {
       bodySizeLimit: "50mb",

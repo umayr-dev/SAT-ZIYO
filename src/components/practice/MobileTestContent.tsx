@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useCallback } from "react";
 import Image from "next/image";
 import {
   Question,
@@ -71,6 +71,13 @@ export const MobileTestContent = memo(function MobileTestContent({
   const isMath = sectionType === "MATH";
   const questionImageUrl = getQuestionImageUrl(question);
 
+  // PERF: stable identity so PassagePanel's memo comparator short-circuits.
+  const handlePassageHighlights = useCallback(
+    (highlights: Parameters<typeof onPassageHighlightsChange>[1]) =>
+      onPassageHighlightsChange(question.id, highlights),
+    [onPassageHighlightsChange, question.id],
+  );
+
   return (
     <div className="flex flex-1 min-h-[40vh] min-w-0 w-full overflow-y-auto overflow-x-hidden overscroll-contain">
       <div className="w-full min-w-0 flex-1 px-3 min-[480px]:px-4 pb-4 sm:pb-6">
@@ -137,9 +144,7 @@ export const MobileTestContent = memo(function MobileTestContent({
             }
             isMarkupEnabled={isMarkupEnabled}
             attemptId={attemptId}
-            onHighlightsChange={(highlights) =>
-              onPassageHighlightsChange(question.id, highlights)
-            }
+            onHighlightsChange={handlePassageHighlights}
             className="mt-2 sm:mt-3 p-3 sm:p-4 mb-3 sm:mb-4 bg-white rounded-lg"
           />
         )}

@@ -341,6 +341,12 @@ export default function TestTakingPage() {
 
   // Handle dragging of the vertical divider between question and choices
   useEffect(() => {
+    // PERF: mousemove fires ~60-125x/sec and each setSplitPosition re-rendered
+    // the entire test tree (question markdown, KaTeX, choices). Coalesce to at
+    // most one state update per animation frame.
+    let rafId: number | null = null;
+    let pendingSplit: number | null = null;
+
     function handleMouseMove(e: MouseEvent) {
       if (!isDraggingDividerRef.current || !layoutContainerRef.current) return;
       const rect = layoutContainerRef.current.getBoundingClientRect();
@@ -349,13 +355,28 @@ export default function TestTakingPage() {
       let next = (relativeX / rect.width) * 100;
       // Clamp between 30% and 70% so question and buttons stay visible (min 280px each)
       next = Math.max(30, Math.min(70, next));
-      setSplitPosition(next);
+
+      pendingSplit = next;
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        if (pendingSplit !== null) setSplitPosition(pendingSplit);
+      });
     }
 
     function handleMouseUp() {
       if (!isDraggingDividerRef.current) return;
       isDraggingDividerRef.current = false;
       document.body.style.cursor = "";
+      // Flush the last position so the divider lands exactly where released.
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      if (pendingSplit !== null) {
+        setSplitPosition(pendingSplit);
+        pendingSplit = null;
+      }
     }
 
     window.addEventListener("mousemove", handleMouseMove);
@@ -363,6 +384,7 @@ export default function TestTakingPage() {
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
     };
   }, []);
 

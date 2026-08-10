@@ -18,11 +18,15 @@ export async function GET(request: NextRequest) {
       backendUrl += `/${category}`;
     }
 
+    // PERF: the SAT math reference sheet is immutable content. Without this
+    // every math module entered paid a full browser -> Vercel(Stockholm) ->
+    // VPS -> Postgres round trip to re-fetch identical rows.
     const response = await fetch(backendUrl, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
       },
+      next: { revalidate: 3600 },
     });
 
     const data = await response.json().catch(() => ({}));
@@ -39,7 +43,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(data, { status: 200 });
+    // Let the browser reuse this too — students open the reference sheet
+    // repeatedly within a math module.
+    return NextResponse.json(data, {
+      status: 200,
+      headers: {
+        "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
+      },
+    });
   } catch (error) {
     console.error("Math Formulas GET error:", error);
     return NextResponse.json(

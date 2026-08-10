@@ -50,6 +50,22 @@ interface QuestionDisplayProps {
   ) => void; // Callback when highlights change
 }
 
+// PERF: module scope, not per-render. This object is a prop of the
+// MarkdownWithCharHighlights `renderedBlocks` useMemo, and that memo emits ONE
+// React element per character of question text. Recreating this literal on
+// every render invalidated the memo, so a 300-char stem re-allocated ~300
+// elements on every unrelated re-render (answer click, timer tick, drag).
+const STYLE_CLASSES: Record<HighlightStyle, string> = {
+  yellow: "bg-yellow-200",
+  green: "bg-green-200",
+  blue: "bg-blue-200",
+  pink: "bg-pink-200",
+  underline: "underline",
+  dotted: "underline decoration-dotted",
+  bold: "font-semibold",
+  italic: "italic",
+};
+
 /**
  * Question Display Component
  * Renders question with choices or text input
@@ -323,17 +339,6 @@ export const QuestionDisplay = React.memo(function QuestionDisplay({
     setHighlights({});
   };
 
-  const styleClasses: Record<HighlightStyle, string> = {
-    yellow: "bg-yellow-200",
-    green: "bg-green-200",
-    blue: "bg-blue-200",
-    pink: "bg-pink-200",
-    underline: "underline",
-    dotted: "underline decoration-dotted",
-    bold: "font-semibold",
-    italic: "italic",
-  };
-
   // Support both legacy passage field and new sharedPassage; MD: question image imageUrl / image_url
   const passageText = question.sharedPassage?.content || question.passage;
   const questionImageUrl = getQuestionImageUrl(question);
@@ -543,7 +548,7 @@ export const QuestionDisplay = React.memo(function QuestionDisplay({
               containerRef={textRef}
               onMouseUp={isMarkupEnabled ? handleMouseUp : undefined}
               className={isMarkupEnabled ? "select-text" : "select-none"}
-              styleClasses={styleClasses}
+              styleClasses={STYLE_CLASSES}
             />
           ) : (
             <span className="text-gray-500 italic">

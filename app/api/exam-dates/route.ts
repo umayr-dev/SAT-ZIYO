@@ -17,14 +17,22 @@ interface StoredData {
   deletedIds?: string[];
 }
 
+// PERF: cache the parsed file for the life of the lambda instance instead of
+// doing a filesystem read + JSON.parse on every GET. Nothing writes this file
+// at runtime — it ships with the deploy — so the cache never goes stale.
+// (Not exported: Next.js route modules may only export request handlers.)
+let deletedIdsCache: string[] | null = null;
+
 async function getDeletedIds(): Promise<string[]> {
+  if (deletedIdsCache) return deletedIdsCache;
   try {
     const raw = await fs.readFile(DATA_FILE, "utf-8");
     const data: StoredData = JSON.parse(raw);
-    return Array.isArray(data.deletedIds) ? data.deletedIds : [];
+    deletedIdsCache = Array.isArray(data.deletedIds) ? data.deletedIds : [];
   } catch {
-    return [];
+    deletedIdsCache = [];
   }
+  return deletedIdsCache;
 }
 
 function getToken(request: NextRequest): string | null {

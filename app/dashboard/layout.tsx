@@ -1,79 +1,31 @@
-"use client";
-
-import { ReactNode, useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
-import { AuthGuard } from "@/src/components/auth/auth-guard";
-import {
-  SidebarProvider,
-  useSidebar,
-} from "@/src/components/dashboard/SidebarContext";
-import { DashboardSidebar } from "@/src/components/dashboard/DashboardSidebar";
-import { cn } from "@/lib/utils";
+import { ReactNode } from "react";
+import { redirect } from "next/navigation";
+import { getServerUser } from "@/src/lib/server/otp-auth";
+import { DashboardShell } from "@/src/components/dashboard/DashboardShell";
 
 type DashboardLayoutProps = {
   children: ReactNode;
 };
 
 /**
- * Dashboard Layout Content Wrapper
- * Renders sidebar and main content area; hides sidebar on focused routes.
+ * Dashboard Layout — SERVER component.
+ *
+ * PERF: auth is resolved on the server before a byte is streamed, using the
+ * same getServerUser() pattern app/admin/layout.tsx already uses. Previously
+ * this was a client component wrapped in <AuthGuard>, which meant every
+ * dashboard load paid an extra browser -> Vercel(Stockholm) -> VPS round trip
+ * to /api/auth/me *after* hydration, while showing a spinner — on top of the
+ * layout rendering null until hydration. Both are gone: the shell and the page
+ * content now arrive in the SSR HTML.
  */
-function DashboardLayoutContent({ children }: DashboardLayoutProps) {
-  const { isCollapsed } = useSidebar();
-  const pathname = usePathname();
-  const [isClient, setIsClient] = useState(false);
+export default async function DashboardLayout({
+  children,
+}: DashboardLayoutProps) {
+  const user = await getServerUser();
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  // On practice test flow we want a distraction-free layout (no sidebar/header)
-  const isPracticeTestRoute =
-    typeof pathname === "string" &&
-    pathname.startsWith("/dashboard/practice/test");
-
-  if (!isClient) {
-    // Avoid mismatch between server/client for usePathname
-    return null;
+  if (!user) {
+    redirect("/auth/login?redirect=/dashboard");
   }
 
-  return (
-    <div className="min-h-screen bg-white">
-      {/* Sidebar only for non-test routes */}
-      {!isPracticeTestRoute && <DashboardSidebar />}
-
-      {/* Main Content - adjusts based on sidebar state */}
-      <div
-        className={cn(
-          "transition-all duration-300 min-h-screen",
-          isPracticeTestRoute ? "ml-0" : isCollapsed ? "ml-20" : "ml-72",
-        )}
-      >
-        <div
-          className={cn(
-            "w-full",
-            isPracticeTestRoute
-              ? "px-0 pt-0 pb-0"
-              : "px-3 pt-3 pb-4 sm:px-4 sm:pt-4 sm:pb-6 md:px-6 md:pt-6 md:pb-8 lg:px-8",
-          )}
-        >
-          <div className={cn("max-w-[1440px] mx-auto w-full")}>{children}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Dashboard Layout
- * Wraps dashboard pages with auth + sidebar provider.
- */
-export default function DashboardLayout({ children }: DashboardLayoutProps) {
-  return (
-    <AuthGuard>
-      <SidebarProvider>
-        <DashboardLayoutContent>{children}</DashboardLayoutContent>
-      </SidebarProvider>
-    </AuthGuard>
-  );
+  return <DashboardShell>{children}</DashboardShell>;
 }
