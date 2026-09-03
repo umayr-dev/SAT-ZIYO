@@ -42,7 +42,23 @@ function DashboardContent() {
   }
 
   if (!user) {
-    return null; // AuthGuard will handle redirect
+    // The layout already validated the session server-side, so reaching here
+    // means /auth/me failed for another reason (429 during a sign-in burst,
+    // backend blip). Nothing redirects from here — say so instead of
+    // rendering a silent blank dashboard.
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <p className="text-gray-600">Could not load your dashboard.</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 rounded-md bg-gray-900 text-white text-sm"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
