@@ -9,9 +9,9 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { API_CONFIG } from "@/src/config/api";
+import { sessionCookieOptions } from "@/src/lib/session-cookie";
 
 const JWT_COOKIE_NAME = "token";
-const JWT_MAX_AGE = 30 * 24 * 60 * 60; // 30 days in seconds
 
 /**
  * SECURITY: only allow same-origin relative redirect targets. Rejects
@@ -70,13 +70,7 @@ export async function GET(request: NextRequest) {
       const response = NextResponse.redirect(`${origin}${redirectUrl}`);
 
       // Store JWT token in HttpOnly, Secure, SameSite=Lax cookie
-      response.cookies.set(JWT_COOKIE_NAME, token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: JWT_MAX_AGE,
-        path: "/",
-      });
+      response.cookies.set(JWT_COOKIE_NAME, token, sessionCookieOptions(token));
 
       return response;
     } catch (error) {

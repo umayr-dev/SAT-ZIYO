@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { API_CONFIG } from "@/src/config/api";
+import { sessionCookieOptions } from "@/src/lib/session-cookie";
 
 const JWT_COOKIE_NAME = "token";
 
@@ -67,13 +68,7 @@ export async function GET(request: NextRequest) {
     if (tokenFromHeader && token) {
       const apiResponse = NextResponse.json(userData, { status: 200 });
       // Store token in cookie for future requests
-      apiResponse.cookies.set(JWT_COOKIE_NAME, token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 30 * 24 * 60 * 60, // 30 days
-        path: "/",
-      });
+      apiResponse.cookies.set(JWT_COOKIE_NAME, token, sessionCookieOptions(token));
       return apiResponse;
     }
 

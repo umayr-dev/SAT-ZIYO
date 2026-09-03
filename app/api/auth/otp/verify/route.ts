@@ -7,9 +7,9 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { API_CONFIG, API_ENDPOINTS } from "@/src/config/api";
+import { sessionCookieOptions } from "@/src/lib/session-cookie";
 
 const JWT_COOKIE_NAME = "token";
-const JWT_MAX_AGE = 30 * 24 * 60 * 60; // 30 days in seconds
 
 export async function POST(request: NextRequest) {
   try {
@@ -101,13 +101,11 @@ export async function POST(request: NextRequest) {
     );
 
     // Store JWT token in HttpOnly, Secure, SameSite=Lax cookie
-    apiResponse.cookies.set(JWT_COOKIE_NAME, token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: JWT_MAX_AGE,
-      path: "/",
-    });
+    apiResponse.cookies.set(
+      JWT_COOKIE_NAME,
+      token,
+      sessionCookieOptions(token),
+    );
 
     return apiResponse;
   } catch (error) {
