@@ -43,26 +43,13 @@ export async function GET(request: NextRequest) {
     console.log(`[Admin Users API] Fetching users from ${url}`);
     console.log(`[Admin Users API] Token present: ${!!token}`);
 
-    // Try /admin/users first, fallback to /users
-    let response = await fetch(url, {
+    const response = await fetch(url, {
       method: "GET",
       headers: {
         Authorization: token ? `Bearer ${token}` : "",
         "Content-Type": "application/json",
       },
     });
-
-    // If /admin/users fails with 404, try /users (without query params for fallback)
-    if (!response.ok && response.status === 404) {
-      console.log(`[Admin Users API] /admin/users returned 404, trying /users`);
-      response = await fetch(`${API_CONFIG.baseURL}/users`, {
-        method: "GET",
-        headers: {
-          Authorization: token ? `Bearer ${token}` : "",
-          "Content-Type": "application/json",
-        },
-      });
-    }
 
     console.log(
       `[Admin Users API] Backend response status: ${response.status}`,

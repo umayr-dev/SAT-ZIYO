@@ -146,7 +146,6 @@ export async function PATCH(
     // Use body directly since role is not being updated
     const bodyToUpdate = body;
 
-    // Try 1: /admin/users/:userId
     try {
       const response = await fetch(`${API_CONFIG.baseURL}/admin/users/${userId}`, {
         method: "PATCH",
@@ -182,33 +181,6 @@ export async function PATCH(
       lastError = `Backend returned ${response.status}`;
     } catch (err) {
       console.error(`[Admin User PATCH] Error trying /admin/users/${userId}:`, err);
-      lastError = err instanceof Error ? err.message : String(err);
-    }
-
-    // Try 2: /users/:userId
-    try {
-      console.log(`[Admin User PATCH] Trying fallback endpoint /users/${userId}`);
-      const response = await fetch(`${API_CONFIG.baseURL}/users/${userId}`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(bodyToUpdate),
-        credentials: "include",
-      });
-      console.log(`[Admin User PATCH] /users/${userId} response status:`, response.status);
-      
-      if (response.ok) {
-        const data = await response.json().catch(() => ({}));
-        return NextResponse.json(data, { status: response.status });
-      }
-      
-      lastResponse = response;
-      lastStatus = response.status;
-      lastError = `Backend returned ${response.status}`;
-    } catch (err) {
-      console.error(`[Admin User PATCH] Error trying /users/${userId}:`, err);
       lastError = err instanceof Error ? err.message : String(err);
     }
 
