@@ -41,18 +41,22 @@ export async function GET(request: NextRequest) {
     });
 
     if (!response.ok) {
-      // Token invalid or expired
       const errorData = await response.json().catch(() => ({
-        statusCode: 401,
-        message: "Unauthorized",
+        statusCode: response.status,
+        message: "Failed to get user",
       }));
 
       const apiResponse = NextResponse.json(errorData, {
         status: response.status,
       });
 
-      // Clear invalid token cookie
-      apiResponse.cookies.delete(JWT_COOKIE_NAME);
+      // Only a 401 means the token is actually bad. A 429/500/502 means the
+      // backend is busy or down — deleting the cookie there signs the student
+      // out over a transient blip, mid-exam, and forces a fresh OTP round trip
+      // during exactly the burst that caused the blip.
+      if (response.status === 401) {
+        apiResponse.cookies.delete(JWT_COOKIE_NAME);
+      }
       return apiResponse;
     }
 
@@ -78,13 +82,11 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Get current user error:", error);
 
-    const apiResponse = NextResponse.json(
-      { statusCode: 500, message: "Failed to get user" },
-      { status: 500 }
+    // Network error / timeout reaching the backend. Keep the cookie: the
+    // session is not known to be invalid, only unverifiable right now.
+    return NextResponse.json(
+      { statusCode: 503, message: "Auth service unreachable" },
+      { status: 503 }
     );
-
-    // Clear token on error
-    apiResponse.cookies.delete(JWT_COOKIE_NAME);
-    return apiResponse;
   }
 }
