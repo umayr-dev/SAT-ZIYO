@@ -6,7 +6,6 @@
 
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { API_CONFIG } from "@/src/config/api";
 
 const JWT_COOKIE_NAME = "token";
 
@@ -19,9 +18,6 @@ const protectedRoutes = [
   "/support",
 ];
 
-// Routes that should redirect to dashboard if already authenticated
-const authRoutes = ["/auth/login", "/auth/register"];
-
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -32,55 +28,15 @@ export async function middleware(request: NextRequest) {
 
   // Get JWT token from cookie
   const token = request.cookies.get(JWT_COOKIE_NAME)?.value;
-  let isAuthenticated = false;
 
-  // For protected routes, check if token exists
-  // Full validation happens in AuthGuard (client-side) and API routes
-  // This prevents unnecessary redirects for users with valid tokens
-  if (token) {
-    // Token exists - assume authenticated for now
-    // Full validation will happen in AuthGuard component
-    isAuthenticated = true;
-
-    // Optional: Quick validation for production (can be disabled if causing issues)
-    // Uncomment below if you want server-side validation in middleware
-    /*
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
-
-      const response = await fetch(`${API_CONFIG.baseURL}/auth/me`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        redirect: "manual",
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (response.ok || response.status === 200) {
-        isAuthenticated = true;
-      } else {
-        isAuthenticated = false;
-      }
-    } catch (error) {
-      // Network error or timeout - let AuthGuard handle validation
-      // Token exists, so allow through and let client-side validate
-      isAuthenticated = true;
-    }
-    */
-  }
+  // Presence only. Validating the JWT here would mean a backend round trip on
+  // every navigation; the server layouts do the real check via getServerUser().
+  const isAuthenticated = Boolean(token);
 
   // Check if route is protected
   const isProtectedRoute = protectedRoutes.some((route) =>
     pathname.startsWith(route)
   );
-
-  // Check if route is auth route
-  const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
 
   // Protect dashboard routes
   if (isProtectedRoute && !isAuthenticated) {
@@ -89,16 +45,21 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Redirect authenticated users away from auth pages,
-  // EXCEPT when they are going to /auth/login?redirect=/admin (admin login flow)
-  if (isAuthRoute && isAuthenticated) {
-    const redirectTarget = request.nextUrl.searchParams.get("redirect");
-    if (redirectTarget === "/admin") {
-      // allow showing login so admin role can be re-checked / switched
-      return NextResponse.next();
-    }
-    return NextResponse.redirect(new URL("/dashboard", request.url));
-  }
+  // NOTE: we deliberately do NOT bounce "authenticated" users off /auth/login.
+  //
+  // `isAuthenticated` here means "a token cookie exists", not "the token is
+  // valid" — middleware cannot call the backend on every navigation. The server
+  // layouts (dashboard/settings/support/admin) DO validate, via getServerUser().
+  // When a cookie is present but the token is expired/revoked the two disagree,
+  // and bouncing here closed the circle:
+  //
+  //   /dashboard -> layout: getServerUser() null -> /auth/login?redirect=/dashboard
+  //             -> middleware: cookie present    -> /dashboard -> ...forever
+  //
+  // The browser spun on that pair until the tab was killed, and every lap fired
+  // another /auth/me at the backend. The login page already does the *validated*
+  // version of this check on mount (getCurrentUser(), including the admin-role
+  // branch) and redirects itself, so nothing is lost by letting it render.
 
   return NextResponse.next();
 }
