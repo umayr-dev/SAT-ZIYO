@@ -37,9 +37,18 @@ export async function POST(
 
     const body = await request.json().catch(() => ({}));
 
-    // Backend endpoint for creating highlights
-    // Note: This endpoint might not exist yet in backend, but we prepare for it
-    const backendUrl = `${API_CONFIG.baseURL}/practice/attempts/${attemptId}/highlights`;
+    // The backend scopes highlights to a question:
+    //   POST /practice/attempts/:attemptId/questions/:questionId/highlights
+    // This route used to post to /attempts/:id/highlights, which does not
+    // exist and 404s.
+    const questionId = body?.questionId;
+    if (!questionId) {
+      return NextResponse.json(
+        { message: "questionId is required" },
+        { status: 400 }
+      );
+    }
+    const backendUrl = `${API_CONFIG.baseURL}/practice/attempts/${attemptId}/questions/${questionId}/highlights`;
 
     const response = await fetch(backendUrl, {
       method: "POST",
@@ -95,10 +104,15 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const questionId = searchParams.get("questionId");
 
-    let backendUrl = `${API_CONFIG.baseURL}/practice/attempts/${attemptId}/highlights`;
-    if (questionId) {
-      backendUrl += `?questionId=${questionId}`;
+    // Highlights are per-question on the backend; there is no attempt-wide
+    // listing, so questionId is required rather than optional.
+    if (!questionId) {
+      return NextResponse.json(
+        { message: "questionId query parameter is required" },
+        { status: 400 }
+      );
     }
+    const backendUrl = `${API_CONFIG.baseURL}/practice/attempts/${attemptId}/questions/${encodeURIComponent(questionId)}/highlights`;
 
     const response = await fetch(backendUrl, {
       method: "GET",
