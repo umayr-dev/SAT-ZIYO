@@ -33,7 +33,6 @@ export const API_ENDPOINTS = {
     // Backend exam dates API (GET list, POST add)
     // Hozirgi backend route: /exams/dates
     dates: "/exams/dates",
-    select: "/exams/select",
   },
   scoring: {
     percentile: (score: number) => `/scoring/percentile/${score}`,
