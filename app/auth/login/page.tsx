@@ -172,19 +172,16 @@ function LoginPageContent() {
 
   const handleGoogleSignIn = () => {
     // Build absolute redirect URL using current origin (works for both local and prod)
-    const appOrigin =
-      typeof window !== "undefined" ? window.location.origin : "";
     const redirectParam = redirectUrl || "/dashboard";
 
-    // Build full callback URL with redirect parameter
-    const callbackUrl = `${appOrigin}/auth/callback?redirect=${encodeURIComponent(
-      redirectParam
-    )}`;
-
-    // Backend expects the full callback URL as redirect parameter
+    // Backend carries this through Google as the OAuth `state` parameter and
+    // appends it to its own callback URL. Passing a full callback URL here was
+    // pointless — the backend hardcodes ${FRONTEND_URL}/auth/callback — and the
+    // destination was dropped entirely, so every Google sign-in landed on
+    // /dashboard regardless of where the student was headed.
     const googleAuthUrl = `${API_CONFIG.baseURL}${
       API_ENDPOINTS.auth.google
-    }?redirect=${encodeURIComponent(callbackUrl)}`;
+    }?redirect=${encodeURIComponent(redirectParam)}`;
 
     // Redirect to backend Google OAuth endpoint
     window.location.href = googleAuthUrl;

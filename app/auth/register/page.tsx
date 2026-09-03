@@ -117,19 +117,10 @@ export default function RegisterPage() {
   };
 
   const handleGoogleSignIn = () => {
-    // Build absolute redirect URL using current origin (works for both local and prod)
-    const appOrigin =
-      typeof window !== "undefined" ? window.location.origin : "";
-
-    // Build full callback URL with redirect parameter
-    const callbackUrl = `${appOrigin}/auth/callback?redirect=${encodeURIComponent(
-      "/dashboard"
-    )}`;
-
-    // Backend expects the full callback URL as redirect parameter
+    // Backend carries this through Google as the OAuth `state` parameter.
     const googleAuthUrl = `${API_CONFIG.baseURL}${
       API_ENDPOINTS.auth.google
-    }?redirect=${encodeURIComponent(callbackUrl)}`;
+    }?redirect=${encodeURIComponent("/dashboard")}`;
 
     // Redirect to backend Google OAuth endpoint
     window.location.href = googleAuthUrl;
