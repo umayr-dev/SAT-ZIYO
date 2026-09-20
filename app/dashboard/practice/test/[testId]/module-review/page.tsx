@@ -34,11 +34,21 @@ async function syncModuleAnswers(
   processed: number;
   failed: number;
   skipped: number;
+  rejected: number;
   savedQuestionIds: string[];
+  rejectedQuestionIds: string[];
 }> {
   const answers = getModuleAnswersForSubmit(attemptId, modulePrefix);
   if (answers.length === 0) {
-    return { total: 0, processed: 0, failed: 0, skipped: 0, savedQuestionIds: [] };
+    return {
+      total: 0,
+      processed: 0,
+      failed: 0,
+      skipped: 0,
+      rejected: 0,
+      savedQuestionIds: [],
+      rejectedQuestionIds: [],
+    };
   }
 
   let result = await submitAnswersInBatches(attemptId, answers, {
@@ -57,7 +67,7 @@ async function syncModuleAnswers(
   // Reconcile "failed" with what the server already has. Background nav sync
   // often saves answers first; Continue then re-submits them. Backend may reject
   // with a message we don't classify as "already saved" → false failure.
-  if (result.failed > 0) {
+  if (result.failed > 0 || result.rejected > 0) {
     try {
       const savedSet = new Set(result.savedQuestionIds.map(String));
       const unresolved = answers.filter(
@@ -79,11 +89,18 @@ async function syncModuleAnswers(
 
         if (alreadyOnServer.length > 0) {
           const recoveredIds = alreadyOnServer.map((a) => String(a.questionId));
+          const recoveredSet = new Set(recoveredIds);
           result = {
             ...result,
-            failed: actuallyMissing.length,
+            failed: Math.min(result.failed, actuallyMissing.length),
+            rejected: result.rejectedQuestionIds.filter(
+              (id) => !recoveredSet.has(String(id)),
+            ).length,
             skipped: result.skipped + alreadyOnServer.length,
             savedQuestionIds: [...result.savedQuestionIds, ...recoveredIds],
+            rejectedQuestionIds: result.rejectedQuestionIds.filter(
+              (id) => !recoveredSet.has(String(id)),
+            ),
           };
         }
 
@@ -98,11 +115,13 @@ async function syncModuleAnswers(
             total: result.total,
             processed: result.processed + retry.processed,
             failed: retry.failed,
+            rejected: retry.rejected,
             skipped: result.skipped + retry.skipped,
             savedQuestionIds: [
               ...result.savedQuestionIds,
               ...retry.savedQuestionIds,
             ],
+            rejectedQuestionIds: retry.rejectedQuestionIds,
           };
         }
       }
@@ -225,6 +244,13 @@ export default function ModuleReviewPage() {
 
       // Never finish the module while any answer failed to save — finishing
       // marks the module COMPLETED, after which those answers can never persist.
+      if (syncResult.rejected > 0) {
+        console.warn(
+          `[ModuleReview] ${syncResult.rejected} answer(s) permanently refused ` +
+            `(module already closed); continuing — they cannot be saved by any retry.`,
+        );
+      }
+
       if (syncResult.failed > 0) {
         setError(
           `Failed to save ${syncResult.failed} answer(s) to the server. Check your connection and try again.`,

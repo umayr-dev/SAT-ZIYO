@@ -23,8 +23,18 @@ export type BatchSubmitResult = {
   processed: number;
   failed: number;
   skipped: number;
+  /**
+   * Answers the server refused for a reason no retry can fix (module closed,
+   * wrong module, payload the server will never accept). Counted apart from
+   * `failed` because `failed` means "try again" and these never succeed — the
+   * finish page looped on them forever, wedging the student out of their own
+   * results.
+   */
+  rejected: number;
   /** Question IDs the server CONFIRMED it saved — safe to prune locally. */
   savedQuestionIds: string[];
+  /** Question IDs behind `rejected`, for the message shown to the student. */
+  rejectedQuestionIds: string[];
 };
 
 const DEFAULT_BATCH_SIZE = 10;
@@ -103,6 +113,18 @@ export function isAnswerPersistedOrTerminalError(err: unknown): boolean {
   return false;
 }
 
+/**
+ * True when the server refused this answer permanently. Same status codes as
+ * the persisted check above, but the opposite conclusion: the answer is NOT on
+ * the server and never will be, so the caller must stop retrying and say so
+ * rather than reporting a transient failure.
+ */
+export function isPermanentRejection(err: unknown): boolean {
+  if (!(err instanceof ApiClientError)) return false;
+  if (isAnswerPersistedOrTerminalError(err)) return false;
+  return err.status === 400 || err.status === 404 || err.status === 422;
+}
+
 function isRetryableError(err: unknown): boolean {
   if (!(err instanceof ApiClientError)) return true;
   // status 0 = network failure / timeout (api-client maps these to
@@ -116,14 +138,14 @@ function isRetryableError(err: unknown): boolean {
 
 type SubResult = Pick<
   BatchSubmitResult,
-  "processed" | "failed" | "skipped" | "savedQuestionIds"
+  "processed" | "failed" | "skipped" | "rejected" | "savedQuestionIds" | "rejectedQuestionIds"
 >;
 
 async function submitSingleAnswer(
   attemptId: string,
   answer: AnswerPayload,
   toleratePersistedErrors: boolean,
-): Promise<"processed" | "failed" | "skipped"> {
+): Promise<"processed" | "failed" | "skipped" | "rejected"> {
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
       await practiceService.submitAnswer(
@@ -138,6 +160,9 @@ async function submitSingleAnswer(
     } catch (err) {
       if (toleratePersistedErrors && isAnswerPersistedOrTerminalError(err)) {
         return "skipped";
+      }
+      if (isPermanentRejection(err)) {
+        return "rejected";
       }
       if (!isRetryableError(err) || attempt === MAX_RETRIES - 1) {
         return "failed";
@@ -156,7 +181,9 @@ async function submitIndividuals(
   let processed = 0;
   let failed = 0;
   let skipped = 0;
+  let rejected = 0;
   const savedQuestionIds: string[] = [];
+  const rejectedQuestionIds: string[] = [];
 
   for (let i = 0; i < answers.length; i++) {
     const outcome = await submitSingleAnswer(
@@ -172,6 +199,9 @@ async function submitIndividuals(
       savedQuestionIds.push(answers[i].questionId);
     } else if (outcome === "skipped") {
       skipped++;
+    } else if (outcome === "rejected") {
+      rejected++;
+      rejectedQuestionIds.push(answers[i].questionId);
     } else {
       failed++;
     }
@@ -181,7 +211,7 @@ async function submitIndividuals(
     }
   }
 
-  return { processed, failed, skipped, savedQuestionIds };
+  return { processed, failed, skipped, rejected, savedQuestionIds, rejectedQuestionIds };
 }
 
 async function submitBatchWithFallback(
@@ -208,7 +238,9 @@ async function submitBatchWithFallback(
           processed: batch.length,
           failed: 0,
           skipped: 0,
+          rejected: 0,
           savedQuestionIds: batch.map((b) => String(b.questionId)),
+          rejectedQuestionIds: [],
         };
       }
 
@@ -220,7 +252,9 @@ async function submitBatchWithFallback(
             processed: saved.size,
             failed: 0,
             skipped: 0,
+            rejected: 0,
             savedQuestionIds: [...saved],
+            rejectedQuestionIds: [],
           };
         }
         const indiv = await submitIndividuals(
@@ -232,7 +266,9 @@ async function submitBatchWithFallback(
           processed: saved.size + indiv.processed,
           failed: indiv.failed,
           skipped: indiv.skipped,
+          rejected: indiv.rejected,
           savedQuestionIds: [...saved, ...indiv.savedQuestionIds],
+          rejectedQuestionIds: indiv.rejectedQuestionIds,
         };
       }
 
@@ -240,7 +276,14 @@ async function submitBatchWithFallback(
       return submitIndividuals(attemptId, batch, toleratePersistedErrors);
     } catch (err) {
       if (toleratePersistedErrors && isAnswerPersistedOrTerminalError(err)) {
-        return { processed: 0, failed: 0, skipped: batch.length, savedQuestionIds: [] };
+        return {
+          processed: 0,
+          failed: 0,
+          skipped: batch.length,
+          rejected: 0,
+          savedQuestionIds: [],
+          rejectedQuestionIds: [],
+        };
       }
       if (!isRetryableError(err) || attempt === MAX_RETRIES - 1) {
         break;
@@ -279,13 +322,23 @@ export async function submitAnswersInBatches(
   const validAnswers = Array.from(byQuestionId.values());
 
   if (validAnswers.length === 0) {
-    return { total: 0, processed: 0, failed: 0, skipped: 0, savedQuestionIds: [] };
+    return {
+      total: 0,
+      processed: 0,
+      failed: 0,
+      skipped: 0,
+      rejected: 0,
+      savedQuestionIds: [],
+      rejectedQuestionIds: [],
+    };
   }
 
   let processed = 0;
   let failed = 0;
   let skipped = 0;
+  let rejected = 0;
   const savedQuestionIds: string[] = [];
+  const rejectedQuestionIds: string[] = [];
 
   for (let i = 0; i < validAnswers.length; i += batchSize) {
     const batch = validAnswers.slice(i, i + batchSize);
@@ -297,7 +350,9 @@ export async function submitAnswersInBatches(
     processed += result.processed;
     failed += result.failed;
     skipped += result.skipped;
+    rejected += result.rejected;
     savedQuestionIds.push(...result.savedQuestionIds);
+    rejectedQuestionIds.push(...result.rejectedQuestionIds);
 
     if (i + batchSize < validAnswers.length) {
       await delay(200);
@@ -309,7 +364,9 @@ export async function submitAnswersInBatches(
     processed,
     failed,
     skipped,
+    rejected,
     savedQuestionIds,
+    rejectedQuestionIds,
   };
 
   const effectivelySaved = processed + skipped;

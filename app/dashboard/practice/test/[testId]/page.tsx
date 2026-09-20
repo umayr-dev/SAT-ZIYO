@@ -715,6 +715,15 @@ export default function TestTakingPage() {
         console.warn("[Test Page] Session save sync (partial):", syncErr);
       }
 
+      // Stop the exam clock. AFTER the flush above (those writes want the
+      // module open) and never fatal — the student must be able to leave even
+      // if this call fails.
+      try {
+        await practiceService.pauseCurrentModule(attemptId);
+      } catch (pauseErr) {
+        console.warn("[Test Page] Could not pause module timer:", pauseErr);
+      }
+
       const ts = testStateRef.current;
       const timeLeft = remainingTimeSecondsRef.current;
       const testTitle =

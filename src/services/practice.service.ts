@@ -659,6 +659,18 @@ class PracticeService {
   /**
    * Abandon attempt
    */
+  /**
+   * Stop the module timer for an explicit Save & Exit. Resuming gives the time
+   * back. `moduleEndsAt` is absolute server-side, so skipping this burns the
+   * student's remaining exam time while they are away.
+   */
+  async pauseCurrentModule(attemptId: string): Promise<void> {
+    return apiClient<void>(`/api/practice/attempts/${attemptId}/pause`, {
+      method: "POST",
+      requireAuth: true,
+    });
+  }
+
   async abandonAttempt(attemptId: string): Promise<void> {
     return apiClient<void>(`/api/practice/attempts/${attemptId}/abandon`, {
       method: "POST",

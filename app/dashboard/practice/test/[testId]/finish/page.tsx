@@ -52,6 +52,10 @@ export default function FinishTestPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  // Set when the server refused answers for good (module closed / wrong
+  // module). Retrying those is a loop, so the student gets a way through
+  // instead of a "Try again" button that can never succeed.
+  const [blockedByRejected, setBlockedByRejected] = useState(false);
 
   // Question review state
   const [activeTab, setActiveTab] = useState<Tab>("all");
@@ -70,7 +74,15 @@ export default function FinishTestPage() {
   const submitAllPendingAnswers = useCallback(async () => {
     const allAnswers = getAllPracticeAnswersForSubmit(attemptId);
     if (allAnswers.length === 0) {
-      return { processed: 0, failed: 0, skipped: 0, total: 0, savedQuestionIds: [] as string[] };
+      return {
+        processed: 0,
+        failed: 0,
+        skipped: 0,
+        rejected: 0,
+        total: 0,
+        savedQuestionIds: [] as string[],
+        rejectedQuestionIds: [] as string[],
+      };
     }
 
     const result = await submitAnswersInBatches(attemptId, allAnswers, {
@@ -194,6 +206,7 @@ export default function FinishTestPage() {
       // questions as blank, and then wiped the local copy. One unsaved answer
       // is a wrong score, so one is enough to stop.
       if (syncResult && syncResult.failed > 0 && syncResult.total > 0) {
+        setBlockedByRejected(false);
         setError(
           `${syncResult.failed} of your ${syncResult.total} answers could not be saved to the server yet. ` +
             `Your answers are still stored on this device — do NOT close this tab. ` +
@@ -204,6 +217,22 @@ export default function FinishTestPage() {
         return;
       }
 
+      // Permanently refused — the module is closed, so no retry will land.
+      // Still never finalize silently: those questions WILL be scored blank,
+      // and the student decides whether to accept that.
+      if (syncResult && syncResult.rejected > 0 && syncResult.total > 0) {
+        setBlockedByRejected(true);
+        setError(
+          `${syncResult.rejected} of your ${syncResult.total} answers were refused by the server because ` +
+            `their module had already closed. Retrying will not help. ` +
+            `If you submit now, those questions are scored as blank.`,
+        );
+        setLoading(false);
+        setSubmitting(false);
+        return;
+      }
+
+      setBlockedByRejected(false);
       await loadResultsAfterSubmit();
       clearPausedTest(attemptId);
 
@@ -316,7 +345,32 @@ export default function FinishTestPage() {
         <Card className="p-6">
           <p className="text-red-700">{error || "Failed to load results"}</p>
           <div className="mt-4 flex flex-wrap gap-3">
+            {blockedByRejected ? (
+              <Button
+                onClick={() => {
+                  setSubmitting(true);
+                  setError("");
+                  loadResultsAfterSubmit()
+                    .then(() => {
+                      clearPausedTest(attemptId);
+                      setBlockedByRejected(false);
+                    })
+                    .catch((err) =>
+                      setError(
+                        err instanceof Error ? err.message : "Failed to submit test",
+                      ),
+                    )
+                    .finally(() => {
+                      setLoading(false);
+                      setSubmitting(false);
+                    });
+                }}
+              >
+                Submit anyway
+              </Button>
+            ) : null}
             <Button
+              variant={blockedByRejected ? "outline" : "default"}
               onClick={() => {
                 setLoading(true);
                 setError("");
